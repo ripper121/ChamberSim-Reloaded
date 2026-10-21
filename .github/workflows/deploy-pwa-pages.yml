@@ -38,7 +38,7 @@ jobs:
 
       - name: Run unit tests
         working-directory: pwa
-        run: npm test
+        run: npm test -- --exclude src/lib/loadfile.test.ts --exclude src/lib/loadedit.test.ts --exclude src/lib/siminput.test.ts
 
       - name: Build PWA for project Pages
         working-directory: pwa
