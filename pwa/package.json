@@ -1,0 +1,28 @@
+{
+  "name": "chambersim-reloaded-pwa",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "test": "vitest run",
+    "test:e2e": "npm run build && playwright test",
+    "capture:comparison": "node scripts/capture-comparison.mjs",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.10.0",
+    "@types/sql.js": "^1.4.11",
+    "jsdom": "^27.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "sql.js": "^1.15.1"
+  }
+}

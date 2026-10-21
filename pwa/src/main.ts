@@ -1,0 +1,1250 @@
+import { registerSW } from "virtual:pwa-register";
+import "./styles.css";
+import { readLoadFile, serializeLoadXml, type Entry, type FileFormat, type LoadFile } from "./lib/loadfile";
+import { LoadHistory, type LoadSection } from "./lib/loadedit";
+import shotPartData from "../../data/shotshell/parts.json";
+import { pressureStatistics, velocityStatistics } from "./lib/measurement";
+import type { DatabaseColumn, ProjectRecord, ProjectTable } from "./lib/projectdb";
+import { OwnDatabase, projectValidationProblems, recordFileName, recordJson, recordTitle } from "./lib/owndb";
+import { readBulletFile, sameBullet } from "./lib/bulletfile";
+import { applyCaliber, applyProjectile, applyPropellant, buildLoad, defaultBarrelLengthMm, defaultChargeG, defaultSeatingDepthMm } from "./lib/loadbuilder";
+import { preparePhoto, scaleBarMm, type StoredImage } from "./lib/photos";
+import type { OriginalDatabaseInfo } from "./lib/originaldb";
+import { technicalDrawingView } from "./lib/drawingview";
+import { copyRecordValues, parseRecordNumber, recordFields, shownRecordNumber, type RecordField } from "./lib/recordfields";
+import { simInputFromLoad, type SimInput } from "./lib/siminput";
+import { calibrationFor, simulateLadder, vivacityCurve, type CalibrationProfile, type LadderResult, type SimPoint, type SimResult } from "./lib/solver";
+import { formatUnit, parseToBase, quantityOfFileUnit, toDisplay, UnitPreferences, unitsOf, type Quantity, type UnitSystem } from "./lib/units";
+
+const appNode = document.querySelector<HTMLDivElement>("#app");
+if (!appNode) throw new Error("Application root is missing");
+const app: HTMLDivElement = appNode;
+
+const loads: LoadFile[] = [];
+let activeTab = "database";
+let activeInput = "cartridge";
+let activeResult = "results";
+let activeProfile: CalibrationProfile = "physical";
+let status = "Loading project database…";
+const simulationCache = new WeakMap<LoadFile, Map<CalibrationProfile, LadderResult[]>>();
+const ladderFocus = new WeakMap<LoadFile, number>();
+const histories = new WeakMap<LoadFile, LoadHistory>();
+const unitPreferences = new UnitPreferences(localStorage);
+let chartAxis: "time" | "position" = "time";
+let activeDatabaseTable: ProjectTable = "caliber";
+const databaseQueries: Record<ProjectTable, string> = { caliber: "", projectile: "", propellant: "" };
+const databaseSorts: Record<ProjectTable, { column: string; direction: "asc" | "desc" }> = {
+  caliber: { column: "id", direction: "asc" }, projectile: { column: "id", direction: "asc" }, propellant: { column: "id", direction: "asc" }
+};
+const databaseSelections: Record<ProjectTable, number | undefined> = { caliber: undefined, projectile: undefined, propellant: undefined };
+const databaseScrolls: Record<ProjectTable, number> = { caliber: 0, projectile: 0, propellant: 0 };
+const ownDatabase = new OwnDatabase();
+const imageCache = new Map<string, StoredImage | null>();
+const imageLoads = new Set<string>();
+const drawingModes = new WeakMap<LoadFile, "cartridge" | "chamber" | "powder">();
+const photoSelections = new WeakMap<LoadFile, 0 | 1>();
+let ownRecords: Record<ProjectTable, ProjectRecord[]> = { caliber: [], projectile: [], propellant: [] };
+let originalRecords: Record<ProjectTable, ProjectRecord[]> = { caliber: [], projectile: [], propellant: [] };
+let originalDatabaseInfo: OriginalDatabaseInfo | undefined;
+let ownDatabaseReady = false;
+let ownDatabaseError = "";
+let projectDatabase: typeof import("./lib/projectdb") | undefined;
+let projectDatabaseError = "";
+let untitledCounter = 0;
+const databaseRowHeight = 22;
+const databaseWindowSize = 120;
+
+const fieldLabels: Record<string, string> = {
+  CaliberName: "Caliber Name", oal: "Cartridge Overall Length", caselen: "Case Length", casevol: "Case Volume",
+  Dz: "Groove Caliber", Aeff: "Effective Area", pMaxZul: "Maximum Permitted Pressure", method: "Cartridge Test Method",
+  sebert: "Sebert Factor", ps: "Initial Gas Pressure", shotshell: "Shotshell", GunName: "Gun Name",
+  xe: "Barrel Length", twistlen: "Twist Length", mgun: "Gun Weight", gjump: "Bullet Jump Distance",
+  ProjectileName: "Projectile Name", mname: "Manufacturer", pname: "Product Name", lotid: "Lot-id",
+  Dbul: "Projectile Diameter", mp: "Projectile Weight", gdepth: "Bullet Seating Depth", glen: "Projectile Overall Length",
+  gpressure: "Initial Gas Pressure", gtailh: "Projectile Tail Length", gTailDiaA: "Projectile Tail Diameter A",
+  gTailDiaB: "Projectile Tail Diameter B", gTailType: "Projectile Base Type", g1bc: "G1 Ballistic Coefficient",
+  g7bc: "G7 Ballistic Coefficient", gUBCS: "UBCS-Code", gfriction: "Bullet friction", Ba: "Vivacity Coefficient",
+  Qex: "Specific Explosive Heat", k: "Ratio of Specific Heats", a0: "Progressivity a0", a1: "Progressivity a1",
+  z1: "Burn-up Limit z1", z2: "Burn-up Limit z2", eta: "Covolume", pc: "Material Density", pcd: "Bulk Density",
+  pt: "Normal Temperature", tcc: "Cold Temperature Coefficient", tch: "Hot Temperature Coefficient",
+  mc: "Powder Charge", laddercnt: "Ladder Steps", laddermc: "Ladder Step",
+  shothull: "Shotshell Hull", shotwad: "Shotshell Wad", shotprimer: "Shotshell Primer"
+};
+
+const escapeHtml = (value: string): string => value.replace(/[&<>'"]/g, (character) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
+})[character] ?? character);
+
+function formatNumber(value: number, digits = 3): string {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: digits }).format(value);
+}
+
+function shown(value: number, quantity: Exclude<Quantity, "none">, decimals?: number): string {
+  const unit = unitPreferences.unitFor(quantity);
+  return `${formatUnit(value, unit, decimals)} ${unit.symbol}`;
+}
+
+interface Choice { value: string; label: string; title?: string }
+
+function choices(entry: Entry): Choice[] | undefined {
+  if (entry.name === "gTailType") return [{ value: "0", label: "flat base" }, { value: "1", label: "hollow base" }, { value: "2", label: "boat tail" }];
+  if (entry.name === "shotshell") return [{ value: "false", label: "no" }, { value: "true", label: "yes" }];
+  if (entry.name === "laddercnt") return Array.from({ length: 10 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) }));
+  const groupKey = entry.name === "shothull" ? "shell_groups" : entry.name === "shotwad" ? "wad_groups" : entry.name === "shotprimer" ? "primer_groups" : undefined;
+  if (groupKey) {
+    const groups = shotPartData[groupKey] as Array<{ id: string; rank: string; members: string[] }>;
+    const options: Choice[] = [{ value: "", label: "not specified (average)" }, ...groups.map((group) => ({
+      value: group.id, label: `${group.rank[0]!.toUpperCase()}${group.rank.slice(1)} pressure`, title: group.members.join("\n")
+    }))];
+    if (entry.value && !options.some((option) => option.value === entry.value)) options.push({ value: entry.value, label: entry.value });
+    return options;
+  }
+  return undefined;
+}
+
+function editor(section: LoadSection, entry: Entry, label: string): string {
+  const list = choices(entry);
+  const attributes = `data-property data-section="${section}" data-entry="${escapeHtml(entry.name)}" aria-label="${escapeHtml(label)}"`;
+  if (list) return `<select ${attributes}>${list.map((choice) => `<option value="${choice.value}" ${entry.value === choice.value ? "selected" : ""} ${choice.title ? `title="${escapeHtml(choice.title)}"` : ""}>${choice.label}</option>`).join("")}</select>`;
+  const quantity = quantityOfFileUnit(entry.unit);
+  const field = `${section}/${entry.name}`;
+  const displayUnit = quantity === "none" ? undefined : unitPreferences.unitForField(field, quantity);
+  const numeric = entry.type === "decimal" || entry.type === "integer";
+  const value = numeric && displayUnit && Number.isFinite(Number(entry.value)) ? formatUnit(Number(entry.value), displayUnit) : entry.value;
+  return `<input ${attributes} value="${escapeHtml(value)}" ${numeric ? 'inputmode="decimal"' : ""} ${displayUnit ? `data-unit-id="${displayUnit.id}" data-quantity="${quantity}"` : ""}/>`;
+}
+
+function unitEditor(section: LoadSection, entry: Entry, label: string): string {
+  const quantity = quantityOfFileUnit(entry.unit);
+  if (quantity === "none") return escapeHtml(entry.unit);
+  const field = `${section}/${entry.name}`;
+  const selected = unitPreferences.unitForField(field, quantity);
+  return `<select data-field-unit data-field="${field}" data-quantity="${quantity}" aria-label="${escapeHtml(label)} unit">${unitsOf(quantity).map((candidate) => `<option value="${candidate.id}" ${candidate.id === selected.id ? "selected" : ""}>${candidate.symbol}</option>`).join("")}</select>`;
+}
+
+function table(sections: ReadonlyArray<{ section: LoadSection; entries: readonly Entry[] }>): string {
+  return `<table class="property-table"><thead><tr><th>Property</th><th>Value</th><th>Unit</th></tr></thead><tbody>${sections.flatMap(({ section, entries }) => entries
+    .filter((entry) => !entry.name.endsWith("Unlock") && entry.name !== "mode" && entry.name !== "physRef" && !entry.name.startsWith("image"))
+    .map((entry) => {
+      const label = fieldLabels[entry.name] ?? (entry.description || entry.name);
+      return `<tr title="${escapeHtml(entry.description)}"><td><label>${escapeHtml(label)}</label></td><td>${editor(section, entry, label)}</td><td>${unitEditor(section, entry, label)}</td></tr>`;
+    })).join("")}</tbody></table>`;
+}
+
+function historyFor(load: LoadFile): LoadHistory {
+  let history = histories.get(load);
+  if (!history) { history = new LoadHistory(); histories.set(load, history); }
+  return history;
+}
+
+function activeLoad(): LoadFile | undefined {
+  const index = Number(activeTab.replace("load-", ""));
+  return activeTab.startsWith("load-") ? loads[index] : undefined;
+}
+
+function measurementView(load: LoadFile): string {
+  const series = load.measurements[0];
+  if (!series) return `<div class="empty-panel">No measurement series in this load.</div>`;
+  const chargeUnit = unitPreferences.unitFor("bulletMass");
+  const velocityUnit = unitPreferences.unitFor("velocity");
+  const pressureUnit = unitPreferences.unitFor("pressure");
+  const rows = series.charges.map((charge) => {
+    const velocity = velocityStatistics(charge.shots);
+    const pressure = pressureStatistics(charge.shots);
+    return `<tr><td>${escapeHtml(charge.name)}</td><td>${formatUnit(charge.chargeKg * 1000, chargeUnit)}</td><td>${velocity.count}</td><td>${velocity.count ? formatUnit(velocity.mean, velocityUnit) : "—"}</td><td>${velocity.count > 1 ? formatUnit(velocity.sd, velocityUnit) : "—"}</td><td>${velocity.count ? formatUnit(velocity.extremeSpread, velocityUnit) : "—"}</td><td>${pressure.count ? formatUnit(pressure.mean, pressureUnit) : "—"}</td></tr>`;
+  }).join("");
+  return `<div class="measurement-toolbar"><span>Series: <strong>${escapeHtml(series.title || "MEASUREMENTS")}</strong></span><button disabled>New series</button><button disabled>Remove series</button></div>
+    <div class="button-row"><button disabled>Add charge</button><button disabled>Remove charge</button><button disabled>Import chronograph file</button><button disabled>Fit to measurements</button></div>
+    <div class="table-scroll"><table class="measurement-table"><thead><tr><th>Name</th><th>Charge [${chargeUnit.symbol}]</th><th>Shots</th><th>Velocity [${velocityUnit.symbol}]</th><th>SD</th><th>ES</th><th>Pressure [${pressureUnit.symbol}]</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="measurement-lower"><section><h3>Shots</h3>${series.charges[0]?.shots.map((shot, index) => `<div class="shot-row"><span>${index + 1}</span><span>${shown(shot.velocityMs, "velocity")}</span><span>${shot.pressureBar > 0 ? shown(shot.pressureBar, "pressure") : "—"}</span></div>`).join("") || "No shots"}</section><div class="chart-placeholder">Measurement chart<br><small>Simulation comparison will appear after solver parity is implemented.</small></div></div>`;
+}
+
+const chartBox = { left: 58, right: 696, top: 28, bottom: 270 } as const;
+
+function niceCeil(value: number): number {
+  if (value <= 0) return 1;
+  const magnitude = 10 ** Math.floor(Math.log10(value));
+  for (const multiplier of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) {
+    if (value <= multiplier * magnitude) return multiplier * magnitude;
+  }
+  return 10 * magnitude;
+}
+
+function chartX(point: SimPoint): number {
+  return chartAxis === "time" ? point.timeMs : toDisplay(point.xMm, unitPreferences.unitFor("length"));
+}
+
+function chartPath(points: readonly SimPoint[], value: (point: SimPoint) => number, xMin: number, xMax: number, yMax: number): string {
+  if (points.length === 0 || xMax <= xMin || yMax <= 0) return "";
+  return points.map((point, index) => {
+    const x = chartBox.left + (chartX(point) - xMin) / (xMax - xMin) * (chartBox.right - chartBox.left);
+    const y = chartBox.bottom - value(point) / yMax * (chartBox.bottom - chartBox.top);
+    return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+  }).join(" ");
+}
+
+function chartView(result: SimResult, otherResults: readonly SimResult[], input: SimInput): string {
+  const pressureUnit = unitPreferences.unitFor("pressure");
+  const energyUnit = unitPreferences.unitFor("energy");
+  const velocityUnit = unitPreferences.unitFor("velocity");
+  const pressure = (value: number): number => toDisplay(value, pressureUnit);
+  const energy = (value: number): number => toDisplay(value, energyUnit);
+  const velocity = (value: number): number => toDisplay(value, velocityUnit);
+  const all = [result, ...otherResults.filter((candidate) => candidate.status === "ok")];
+  const allPoints = all.flatMap((candidate) => candidate.points);
+  let xMin = chartAxis === "time" ? 0 : Math.floor(Math.min(...allPoints.map(chartX)) / 10) * 10;
+  const xMax = Math.max(...allPoints.map(chartX), xMin + 0.01);
+  if (!Number.isFinite(xMin)) xMin = 0;
+  const pressureMax = niceCeil(Math.max(pressure(result.maxPressureBar), ...otherResults.map((candidate) => pressure(candidate.maxPressureBar)),
+    input.maxPressureBar > 0 ? pressure(input.maxPressureBar) * 1.02 : 0) * 1.04);
+  const energyMax = niceCeil(Math.max(...allPoints.map((point) => energy(point.energyJ))) * 1.04);
+  const velocityMax = niceCeil(Math.max(...allPoints.map((point) => velocity(point.velocityMs))) * 1.04);
+  const xPosition = (value: number): number => chartBox.left + (value - xMin) / (xMax - xMin) * (chartBox.right - chartBox.left);
+  const yPosition = (value: number, maximum: number): number => chartBox.bottom - value / maximum * (chartBox.bottom - chartBox.top);
+  const ticks = (side: "x" | "pressure" | "energy" | "velocity"): string => {
+    const count = side === "x" ? 7 : 6;
+    return Array.from({ length: count }, (_, index) => {
+      const fraction = index / (count - 1);
+      if (side === "x") {
+        const x = chartBox.left + fraction * (chartBox.right - chartBox.left);
+        const value = xMin + fraction * (xMax - xMin);
+        return `<line class="grid" x1="${x}" y1="${chartBox.top}" x2="${x}" y2="${chartBox.bottom}"/><text class="axis-label" x="${x}" y="288" text-anchor="middle">${value.toFixed(2)}</text>`;
+      }
+      const maximum = side === "pressure" ? pressureMax : side === "energy" ? energyMax : velocityMax;
+      const y = chartBox.bottom - fraction * (chartBox.bottom - chartBox.top);
+      const x = side === "pressure" ? 50 : side === "energy" ? 704 : 752;
+      const anchor = side === "pressure" ? "end" : "start";
+      return `${side === "pressure" ? `<line class="grid" x1="${chartBox.left}" y1="${y}" x2="${chartBox.right}" y2="${y}"/>` : ""}<text class="axis-label ${side}" x="${x}" y="${y + 4}" text-anchor="${anchor}">${formatNumber(fraction * maximum, 0)}</text>`;
+    }).join("");
+  };
+  const otherPaths = otherResults.filter((candidate) => candidate.status === "ok").map((candidate) =>
+    `<path class="ladder-curve pressure-curve" d="${chartPath(candidate.points, (point) => pressure(point.pressureBar), xMin, xMax, pressureMax)}"/><path class="ladder-curve energy-curve" d="${chartPath(candidate.points, (point) => energy(point.energyJ), xMin, xMax, energyMax)}"/><path class="ladder-curve velocity-curve" d="${chartPath(candidate.points, (point) => velocity(point.velocityMs), xMin, xMax, velocityMax)}"/>`).join("");
+  const markers = [
+    { label: "z1", index: result.indexZ1, visible: result.indexZ1 > 0 },
+    { label: "Pmax", index: result.indexPmax, visible: true },
+    { label: "z2", index: result.indexZ2, visible: result.indexZ2 > 0 },
+    { label: "95%", index: result.indexEnergy95, visible: result.indexEnergy95 > 0 },
+    { label: "Burnout", index: result.indexBurnout, visible: result.burnoutInBarrel }
+  ].filter((marker) => marker.visible).map((marker, index) => {
+    const point = result.points[Math.min(marker.index, result.points.length - 1)]!;
+    const x = xPosition(chartX(point));
+    return `<line class="event-marker" x1="${x}" y1="${chartBox.top}" x2="${x}" y2="${chartBox.bottom}"/><text class="marker-label" x="${x}" y="${17 + index % 2 * 10}" text-anchor="middle">${marker.label}</text>`;
+  }).join("");
+  const permitted = pressure(input.maxPressureBar);
+  const bands = input.maxPressureBar > 0 ? `<rect class="pressure-band caution" x="${chartBox.left}" y="${yPosition(permitted * .85, pressureMax)}" width="${chartBox.right - chartBox.left}" height="${yPosition(permitted * .75, pressureMax) - yPosition(permitted * .85, pressureMax)}"/><rect class="pressure-band danger" x="${chartBox.left}" y="${chartBox.top}" width="${chartBox.right - chartBox.left}" height="${yPosition(permitted * .85, pressureMax) - chartBox.top}"/><line class="permitted-line" x1="${chartBox.left}" y1="${yPosition(permitted, pressureMax)}" x2="${chartBox.right}" y2="${yPosition(permitted, pressureMax)}"/>` : "";
+  return `<div class="chart-wrap"><svg class="result-chart" viewBox="0 0 770 320" role="img" aria-label="Pressure, energy and velocity over bullet travel" data-x-min="${xMin}" data-x-max="${xMax}" data-p-max="${pressureMax}" data-e-max="${energyMax}" data-v-max="${velocityMax}">${bands}${ticks("x")}${ticks("pressure")}${ticks("energy")}${ticks("velocity")}${otherPaths}<path class="pressure-curve" d="${chartPath(result.points, (point) => pressure(point.pressureBar), xMin, xMax, pressureMax)}"/><path class="energy-curve" d="${chartPath(result.points, (point) => energy(point.energyJ), xMin, xMax, energyMax)}"/><path class="velocity-curve" d="${chartPath(result.points, (point) => velocity(point.velocityMs), xMin, xMax, velocityMax)}"/>${markers}<line class="chart-cursor" x1="0" y1="${chartBox.top}" x2="0" y2="${chartBox.bottom}"/><circle class="cursor-dot pressure-dot" r="4"/><circle class="cursor-dot energy-dot" r="4"/><circle class="cursor-dot velocity-dot" r="4"/><text class="axis-title" x="377" y="310" text-anchor="middle">${chartAxis === "time" ? "ms" : `Bullet base position [${unitPreferences.unitFor("length").symbol}]`}</text><text class="axis-title pressure" x="13" y="150" text-anchor="middle" transform="rotate(-90 13 150)">${pressureUnit.symbol}</text><text class="axis-title energy" x="722" y="150" text-anchor="middle" transform="rotate(90 722 150)">${energyUnit.symbol}</text><text class="axis-title velocity" x="764" y="150" text-anchor="middle" transform="rotate(90 764 150)">${velocityUnit.symbol}</text></svg><div class="chart-tooltip" role="status"></div></div>`;
+}
+
+function vivacityView(input: SimInput): string {
+  const values = vivacityCurve(input, calibrationFor(activeProfile));
+  if (values.length === 0) return "";
+  const maximum = Math.max(...values) * 1.1;
+  const left = 36, right = 250, top = 26, bottom = 150;
+  const path = values.map((value, index) => `${index === 0 ? "M" : "L"}${(left + index / (values.length - 1) * (right - left)).toFixed(2)} ${(bottom - value / maximum * (bottom - top)).toFixed(2)}`).join(" ");
+  const marker = (value: number): string => `<line x1="${left + value * (right - left)}" y1="${top}" x2="${left + value * (right - left)}" y2="${bottom}"/>`;
+  return `<svg class="vivacity-chart" viewBox="0 0 270 175" role="img" aria-label="Burn rate Ba times phi of z"><text x="135" y="15" text-anchor="middle">Burn rate Ba·φ(z)</text><line class="axis" x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}"/><line class="axis" x1="${left}" y1="${top}" x2="${left}" y2="${bottom}"/>${marker(input.z1)}${marker(input.z2)}<path d="${path}"/><text x="143" y="170" text-anchor="middle">burnt propellant z</text></svg>`;
+}
+
+function simulationFor(load: LoadFile): LadderResult[] {
+  let profiles = simulationCache.get(load);
+  if (!profiles) {
+    profiles = new Map();
+    simulationCache.set(load, profiles);
+  }
+  let result = profiles.get(activeProfile);
+  if (!result) {
+    result = simulateLadder(simInputFromLoad(load), calibrationFor(activeProfile));
+    profiles.set(activeProfile, result);
+  }
+  return result;
+}
+
+function resultView(load: LoadFile): string {
+  const ladder = simulationFor(load);
+  const input = simInputFromLoad(load);
+  if (!ladderFocus.has(load)) {
+    const saved = Number(load.config.find((entry) => entry.name === "CurveFocusIdx")?.value ?? 0);
+    ladderFocus.set(load, clampInteger(saved, 0, ladder.length - 1));
+  }
+  const focus = clampInteger(ladderFocus.get(load) ?? 0, 0, ladder.length - 1);
+  const focused = ladder[focus];
+  const sourceFormat = load.source === "reload" ? "ChamberSim Reloaded" : "Original GRT";
+  const profile = `<label class="profile-choice">Model <select id="solver-profile"><option value="physical" ${activeProfile === "physical" ? "selected" : ""}>Physical</option><option value="original" ${activeProfile === "original" ? "selected" : ""}>Original</option><option value="published" ${activeProfile === "published" ? "selected" : ""}>Published</option></select></label>`;
+  if (!focused || focused.result.status !== "ok") {
+    return `<div class="result-toolbar">${profile}<span>${sourceFormat}</span></div><div class="empty-panel">Simulation status: <strong>${focused?.result.status ?? "invalid_input"}</strong></div>`;
+  }
+  const result = focused.result;
+  const rows = ladder.map((entry, index) => `<tr data-ladder="${index}" class="${index === focus ? "focused" : ""}" tabindex="0"><td>${shown(entry.chargeG, "bulletMass")}</td><td class="${entry.result.maxPressureBar > input.maxPressureBar && input.maxPressureBar > 0 ? "overpressure-cell" : ""}">${entry.result.status === "ok" ? shown(entry.result.maxPressureBar, "pressure") : "charge too high"}</td><td>${entry.result.status === "ok" ? shown(entry.result.muzzleVelocityMs, "velocity") : "—"}</td><td>${entry.result.status === "ok" ? shown(entry.result.muzzleEnergyJ, "energy") : "—"}</td><td>${entry.result.status === "ok" ? `${formatNumber(entry.result.loadRatio * 100, 1)} %` : "—"}</td></tr>`).join("");
+  const tabs = ladder.length > 1 ? `<div class="ladder-tabs" role="tablist" aria-label="Load development ladder">${ladder.map((entry, index) => `<button role="tab" aria-selected="${index === focus}" data-ladder="${index}" class="${index === focus ? "active" : ""}">${shown(entry.chargeG, "bulletMass")}</button>`).join("")}</div>` : "";
+  const overpressure = input.maxPressureBar > 0 && result.maxPressureBar > input.maxPressureBar ? `<div class="warning-banner"><strong>Overpressure!</strong> The maximum pressure ${shown(result.maxPressureBar, "pressure")} is ${formatNumber(100 * (result.maxPressureBar / input.maxPressureBar - 1), 1)} % above the permitted ${shown(input.maxPressureBar, "pressure")}. Do not load this charge.</div>` : "";
+  const burnNotice = activeProfile === "physical" && !input.shotshell && !input.physicalBurn ? `<div class="notice-banner"><strong>No physical burn values</strong> for this propellant (or its burn values were changed): the load's burn rate is scaled; results are less accurate than for powders with Physical Model data.</div>` : "";
+  const gasVelocity = input.chargeG > 0 ? result.gasImpulseNs / (focused.chargeG * 1e-3) : 0;
+  return `<div class="result-toolbar">${profile}<span>${escapeHtml(activeProfile[0]!.toUpperCase() + activeProfile.slice(1))} model · ${result.points.length} points</span><span>${sourceFormat}</span></div>
+    <div class="result-top"><section><h2>${escapeHtml(load.title)}</h2>${overpressure}${burnNotice}<div class="result-summary"><dl><dt>Maximum pressure</dt><dd>${shown(result.maxPressureBar, "pressure")}</dd><dt>Muzzle pressure</dt><dd>${shown(result.muzzlePressureBar, "pressure")}</dd><dt>Projectile energy</dt><dd>${shown(result.muzzleEnergyJ, "energy")}</dd><dt>Muzzle velocity</dt><dd>${shown(result.muzzleVelocityMs, "velocity")}</dd><dt>Barrel time (BT)</dt><dd>${formatNumber(result.muzzleTimeMs, 4)} ms</dd></dl><dl><dt>Burnout pressure</dt><dd>${result.burnoutInBarrel ? shown(result.burnoutPressureBar, "pressure") : "not burnt out"}</dd><dt>Gas outflow velocity</dt><dd>${shown(gasVelocity, "velocity")}</dd><dt>Projectile speed</dt><dd>${result.muzzleRpm > 0 ? `${formatNumber(result.muzzleRpm / 1000, 1)} k/min` : "—"}</dd><dt>Recoil energy</dt><dd>${result.recoilEnergyJ > 0 ? shown(result.recoilEnergyJ, "energy") : "— (gun weight 0)"}</dd><dt>IPSC / MIP factor</dt><dd>${formatNumber(result.ipscFactor, 0)}, ${formatNumber(result.mipFactor, 0)}</dd></dl><dl><dt>Load ratio</dt><dd>${formatNumber(result.loadRatio * 100, 1)} %</dd><dt>Burnt propellant</dt><dd>${formatNumber(result.burntFraction * 100, 1)} %</dd><dt>Effective efficiency</dt><dd>${formatNumber(result.efficiency * 100, 1)} %</dd><dt>Heat / friction loss</dt><dd>${result.heatLossJ > 0 ? shown(result.heatLossJ, "energy") : "—"}, ${shown(result.muzzleFrictionEnergyJ, "energy")}</dd></dl></div>${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>Charge</th><th>Max. pressure</th><th>Velocity</th><th>Energy</th><th>Load ratio</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input)}</div>
+    <div class="chart-controls">${tabs}<label>Horizontal axis <select id="chart-axis"><option value="time" ${chartAxis === "time" ? "selected" : ""}>Time axis</option><option value="position" ${chartAxis === "position" ? "selected" : ""}>Position axis</option></select></label></div>
+    ${chartView(result, ladder.filter((_, index) => index !== focus).map((entry) => entry.result), input)}
+    <div class="chart-legend"><span class="pressure-key">Pressure</span><span class="permitted-key">Pmax permitted</span><span class="energy-key">Energy</span><span class="velocity-key">Velocity</span></div>`;
+}
+
+function clampInteger(value: number, low: number, high: number): number {
+  if (!Number.isFinite(value) || value <= low) return low;
+  if (value >= high) return high;
+  return Math.trunc(value);
+}
+
+function pointAt(points: readonly SimPoint[], x: number): SimPoint | undefined {
+  if (points.length === 0 || x < chartX(points[0]!) || x > chartX(points.at(-1)!)) return undefined;
+  let low = 0;
+  let high = points.length - 1;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (chartX(points[middle]!) < x) low = middle + 1;
+    else high = middle;
+  }
+  if (low === 0) return points[0];
+  const before = points[low - 1]!;
+  const after = points[low]!;
+  const span = chartX(after) - chartX(before);
+  const weight = span > 0 ? (x - chartX(before)) / span : 0;
+  const lerp = (a: number, b: number): number => a + weight * (b - a);
+  return {
+    xMm: lerp(before.xMm, after.xMm), z: lerp(before.z, after.z), pressureBar: lerp(before.pressureBar, after.pressureBar),
+    velocityMs: lerp(before.velocityMs, after.velocityMs), energyJ: lerp(before.energyJ, after.energyJ), timeMs: lerp(before.timeMs, after.timeMs)
+  };
+}
+
+function entryValue(entries: readonly Entry[], name: string): string { return entries.find((entry) => entry.name === name)?.value ?? ""; }
+
+function ensureImage(uuid: string, load: LoadFile): void {
+  if (!uuid || imageCache.has(uuid) || imageLoads.has(uuid)) return;
+  imageLoads.add(uuid);
+  void databaseImage(uuid).then((image) => { imageCache.set(uuid, image ?? null); }).catch(() => { imageCache.set(uuid, null); }).finally(() => {
+    imageLoads.delete(uuid);
+    if (activeLoad() === load) render();
+  });
+}
+
+function drawingView(load: LoadFile): string {
+  const uuids = [entryValue(load.propellant, "imageUuid"), entryValue(load.propellant, "imageDetailUuid")];
+  for (const uuid of uuids) ensureImage(uuid, load);
+  const photos = uuids.map((uuid) => uuid ? imageCache.get(uuid) ?? undefined : undefined);
+  const hasPhotos = photos.some((photo) => Boolean(photo));
+  let mode = drawingModes.get(load) ?? "cartridge";
+  if (mode === "powder" && !hasPhotos) mode = "cartridge";
+  drawingModes.set(load, mode);
+  const tabs = `<div class="drawing-tabs" role="tablist"><button role="tab" data-drawing="cartridge" class="${mode === "cartridge" ? "active" : ""}" aria-selected="${mode === "cartridge"}">Cartridge</button><button role="tab" data-drawing="chamber" class="${mode === "chamber" ? "active" : ""}" aria-selected="${mode === "chamber"}">Chamber</button>${hasPhotos ? `<button role="tab" data-drawing="powder" class="${mode === "powder" ? "active" : ""}" aria-selected="${mode === "powder"}">Powder</button>` : ""}</div>`;
+  if (mode !== "powder") return `<div class="drawing-panel">${tabs}${technicalDrawingView(load, mode, unitPreferences)}</div>`;
+  let selected = photoSelections.get(load) ?? (photos[0] ? 0 : 1);
+  if (!photos[selected]) selected = photos[0] ? 0 : 1;
+  photoSelections.set(load, selected as 0 | 1);
+  const photo = photos[selected]!;
+  const millimeters = scaleBarMm(photo.scale, photo.width, photo.width);
+  const bar = millimeters > 0 ? `<div class="photo-scale" style="width:${millimeters * photo.scale / photo.width * 100}%"><span>${millimeters >= 1 ? millimeters : millimeters.toFixed(1)} mm</span></div>` : "";
+  return `<div class="drawing-panel powder-photo-view">${tabs}<div class="photo-choice"><button data-photo-show="0" class="${selected === 0 ? "active" : ""}" ${photos[0] ? "" : "disabled"} title="Photo of the powder grains">Overview</button><button data-photo-show="1" class="${selected === 1 ? "active" : ""}" ${photos[1] ? "" : "disabled"} title="Close-up photo of a grain">Detail</button></div><figure data-enlarge-photo title="Double-click to enlarge"><div class="photo-image-wrap"><img src="${escapeHtml(photo.dataUrl)}" alt="${escapeHtml(photo.name || "Powder photo")}">${bar}</div><figcaption>${escapeHtml(photo.name)}</figcaption></figure></div>`;
+}
+
+function loadWorkspace(load: LoadFile): string {
+  const inputSections: Array<{ section: LoadSection; entries: readonly Entry[] }> = activeInput === "cartridge"
+    ? [{ section: "caliber", entries: load.caliber }, { section: "shotshell", entries: load.shotshell }, { section: "gun", entries: load.gun }]
+    : activeInput === "projectile" ? [{ section: "projectile", entries: load.projectile }]
+      : [{ section: "propellant", entries: load.propellant }, { section: "physical", entries: load.physical }, { section: "shotshell", entries: load.shotshell }];
+  const resultContent = activeResult === "measurements" ? measurementView(load) : activeResult === "report"
+    ? `<div class="empty-panel">Report rendering is not implemented yet.</div>`
+    : resultView(load);
+  const component: ProjectTable = activeInput === "cartridge" ? "caliber" : activeInput as ProjectTable;
+  const selectLabel = component === "caliber" ? "Select Caliber" : component === "projectile" ? "Select Projectile" : "Select Propellant";
+  return `<main class="workspace"><aside class="inputs"><div class="subtabs"><button data-input="cartridge" class="${activeInput === "cartridge" ? "active" : ""}">Cartridge &amp; gun</button><button data-input="projectile" class="${activeInput === "projectile" ? "active" : ""}">Projectile</button><button data-input="propellant" class="${activeInput === "propellant" ? "active" : ""}">Propellant</button></div><div class="component-title"><span>${escapeHtml(load.title)}</span><button data-select-component="${component}" ${projectDatabase && ownDatabaseReady ? "" : "disabled"} title="Replace this component by another record of the database">${selectLabel}…</button></div><div class="property-scroll">${table(inputSections)}</div>${drawingView(load)}</aside><section class="output"><div class="subtabs"><button data-result="results" class="${activeResult === "results" ? "active" : ""}">Results</button><button data-result="measurements" class="${activeResult === "measurements" ? "active" : ""}">Measurements</button><button data-result="report" class="${activeResult === "report" ? "active" : ""}">Report</button></div>${resultContent}</section></main>`;
+}
+
+function combinedDatabaseRecords(table: ProjectTable): ProjectRecord[] {
+  return projectDatabase ? [...ownRecords[table], ...projectDatabase.projectRecords[table], ...originalRecords[table]] : [...ownRecords[table], ...originalRecords[table]];
+}
+
+function selectedDatabaseRecord(): ProjectRecord | undefined {
+  const id = databaseSelections[activeDatabaseTable];
+  return id === undefined ? undefined : combinedDatabaseRecords(activeDatabaseTable).find((record) => record.id === id);
+}
+
+function databaseStatus(): string {
+  if (!projectDatabase) return "Loading project database…";
+  const count = (table: ProjectTable): number => projectDatabase!.projectCounts[table] + ownRecords[table].length + originalRecords[table].length;
+  const own = ownRecords.caliber.length + ownRecords.projectile.length + ownRecords.propellant.length;
+  const original = originalDatabaseInfo
+    ? `${originalDatabaseInfo.fileName}: ${originalDatabaseInfo.counts.caliber} calibers, ${originalDatabaseInfo.counts.projectile} projectiles, ${originalDatabaseInfo.counts.propellant} propellants`
+    : "no original database";
+  return `Database: ${count("caliber")} calibers, ${count("projectile")} projectiles, ${count("propellant")} propellants (${own} personal); ${original}`;
+}
+
+function databaseRowHtml(record: ProjectRecord, columns: readonly DatabaseColumn[], table: ProjectTable = activeDatabaseTable, selectedId = databaseSelections[table]): string {
+  if (!projectDatabase) return "";
+  return `<tr data-db-id="${record.id}" tabindex="0" aria-selected="${selectedId === record.id}">${columns.map((column) => {
+    const value = projectDatabase!.displayValue(record, column);
+    const classes = [column.numeric ? "number" : "", column.boolean ? (record[column.name] ? "valid" : "invalid") : ""].filter(Boolean).join(" ");
+    const title = column.name === "source"
+      ? record.source === "own" ? "Record of your personal database" : record.source === "original" ? "Record of the Original GRT database (read-only)" : "Record of the project's database (read-only)"
+      : column.boolean ? (record[column.name] ? "Validated by hand" : "Not validated") : "";
+    return `<td${classes ? ` class="${classes}"` : ""}${title ? ` title="${title}"` : ""}>${escapeHtml(value)}</td>`;
+  }).join("")}</tr>`;
+}
+
+function databaseBodyHtml(records: readonly ProjectRecord[], columns: readonly DatabaseColumn[], scrollTop: number, table: ProjectTable = activeDatabaseTable, selectedId = databaseSelections[table]): { html: string; start: number } {
+  const start = Math.max(0, Math.min(records.length, Math.floor(scrollTop / databaseRowHeight) - 20));
+  const end = Math.min(records.length, start + databaseWindowSize);
+  const spacer = (height: number): string => height > 0 ? `<tr class="database-spacer" aria-hidden="true"><td colspan="${columns.length}" style="height:${height}px"></td></tr>` : "";
+  return {
+    start,
+    html: spacer(start * databaseRowHeight) + records.slice(start, end).map((record) => databaseRowHtml(record, columns, table, selectedId)).join("") + spacer((records.length - end) * databaseRowHeight)
+  };
+}
+
+function recordTableHtml(table: ProjectTable, records: readonly ProjectRecord[], sort: { column: string; direction: "asc" | "desc" }, scrollTop: number, selectedId?: number): { html: string; records: ProjectRecord[]; columns: readonly DatabaseColumn[] } {
+  if (!projectDatabase) return { html: "", records: [], columns: [] };
+  const columns = projectDatabase.databaseColumns[table];
+  const sortColumn = columns.find((column) => column.name === sort.column) ?? columns[1]!;
+  const sorted = projectDatabase.sortedRecords(records, sortColumn, sort.direction);
+  const header = columns.map((column) => {
+    const active = column.name === sortColumn.name;
+    const marker = active ? (sort.direction === "asc" ? " ▲" : " ▼") : "";
+    const label = column.name === "source" ? "Source" : column.name === "gValid" ? "Validated" : column.name;
+    return `<th aria-sort="${active ? sort.direction === "asc" ? "ascending" : "descending" : "none"}"><button type="button" data-dialog-sort="${escapeHtml(column.name)}">${escapeHtml(label)}${marker}</button></th>`;
+  }).join("");
+  const body = databaseBodyHtml(sorted, columns, scrollTop, table, selectedId);
+  return { html: `<div class="database-table-scroll dialog-record-table"><table class="database-table"><thead><tr>${header}</tr></thead><tbody data-window-start="${body.start}">${body.html}</tbody></table></div>`, records: sorted, columns };
+}
+
+function currentDatabaseRows(): { records: ProjectRecord[]; columns: readonly DatabaseColumn[] } | undefined {
+  if (!projectDatabase) return undefined;
+  const sorting = databaseSorts[activeDatabaseTable];
+  const columns = projectDatabase.databaseColumns[activeDatabaseTable];
+  const sortColumn = columns.find((column) => column.name === sorting.column) ?? columns[1]!;
+  const combined = combinedDatabaseRecords(activeDatabaseTable);
+  return { records: projectDatabase.sortedRecords(projectDatabase.filteredRecords(activeDatabaseTable, databaseQueries[activeDatabaseTable], combined), sortColumn, sorting.direction), columns };
+}
+
+function databaseView(): string {
+  if (projectDatabaseError) return `<main class="database"><div class="primary-actions"><button id="new-load" disabled>▤ New load</button><button id="open-load">📂 Open load</button></div><div class="database-placeholder"><strong>Cannot load the project database.</strong><span>${escapeHtml(projectDatabaseError)}</span></div></main>`;
+  if (!projectDatabase) return `<main class="database"><div class="primary-actions"><button id="new-load" disabled>▤ New load</button><button id="open-load">📂 Open load</button></div><div class="button-row"><button disabled>New</button><button disabled>Copy</button><button disabled>Edit</button><button disabled>Delete</button><button disabled>Export</button></div><div class="subtabs"><button class="active" disabled>Calibers</button><button disabled>Projectiles</button><button disabled>Propellants</button></div><input class="filter" disabled placeholder="Filter (all columns)…" /><div class="database-placeholder"><strong>Loading project records…</strong></div></main>`;
+  const database = projectDatabase;
+  const query = databaseQueries[activeDatabaseTable];
+  const sorting = databaseSorts[activeDatabaseTable];
+  const columns = database.databaseColumns[activeDatabaseTable];
+  const sortColumn = columns.find((column) => column.name === sorting.column) ?? columns[1]!;
+  const combined = combinedDatabaseRecords(activeDatabaseTable);
+  const records = database.sortedRecords(database.filteredRecords(activeDatabaseTable, query, combined), sortColumn, sorting.direction);
+  const total = combined.length;
+  const count = records.length === total ? `${total.toLocaleString("en-US")} entries` : `${records.length.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} entries`;
+  const tabs: Array<[ProjectTable, string]> = [["caliber", "Calibers"], ["projectile", "Projectiles"], ["propellant", "Propellants"]];
+  const header = columns.map((column) => {
+    const selected = column.name === sortColumn.name;
+    const direction = selected ? sorting.direction : "none";
+    const marker = selected ? (sorting.direction === "asc" ? " ▲" : " ▼") : "";
+    const label = column.name === "source" ? "Source" : column.name === "gValid" ? "Validated" : column.name;
+    return `<th aria-sort="${direction === "none" ? "none" : direction === "asc" ? "ascending" : "descending"}"><button data-db-sort="${escapeHtml(column.name)}" aria-label="Sort by ${escapeHtml(label)}">${escapeHtml(label)}${marker}</button></th>`;
+  }).join("");
+  const body = databaseBodyHtml(records, columns, databaseScrolls[activeDatabaseTable]);
+  const selected = selectedDatabaseRecord();
+  const own = selected?.source === "own";
+  const importButton = activeDatabaseTable === "projectile" ? `<button id="import-bullets" ${ownDatabaseReady ? "" : "disabled"} title="Add the bullets of a manufacturer's bullet file (*.csrbullets) to your personal records">Import bullets</button>` : "";
+  return `<main class="database"><div class="primary-actions"><button id="new-load" ${ownDatabaseReady ? "" : "disabled"}>▤ New load</button><button id="open-load">📂 Open load</button></div><div class="button-row"><button id="new-record" ${ownDatabaseReady ? "" : "disabled"}>New</button><button id="copy-record" ${selected && ownDatabaseReady ? "" : "disabled"}>Copy</button><button id="edit-record" ${own ? "" : "disabled"} title="${selected && !own ? "Only personal records can be changed: make a copy" : "Change the selected record"}">Edit</button><button id="delete-record" ${own ? "" : "disabled"} title="${selected && !own ? "Only personal records can be changed: make a copy" : "Delete the selected record"}">Delete</button>${importButton}<button id="export-record" ${own ? "" : "disabled"}>Export</button></div><div class="subtabs" role="tablist">${tabs.map(([table, label]) => `<button role="tab" data-db-table="${table}" class="${activeDatabaseTable === table ? "active" : ""}" aria-selected="${activeDatabaseTable === table}">${label}</button>`).join("")}</div><div class="database-filter-row"><input class="filter" aria-label="Filter all columns" placeholder="Filter (all columns)…" value="${escapeHtml(query)}" /><span aria-live="polite">${count}</span></div><div class="database-table-scroll"><table class="database-table"><thead><tr>${header}</tr></thead><tbody data-window-start="${body.start}">${body.html}</tbody></table></div></main>`;
+}
+
+function render(): void {
+  const current = activeLoad();
+  const currentHistory = current ? historyFor(current) : undefined;
+  const tabs = [`<button data-tab="database" class="${activeTab === "database" ? "active" : ""}">Database</button>`, ...loads.map((load, index) => `<button data-tab="load-${index}" class="${activeTab === `load-${index}` ? "active" : ""}">${escapeHtml(load.fileName.replace(/\.(csrload|grtload)$/i, ""))}${historyFor(load).modified ? "*" : ""}<span class="close" data-close="${index}" aria-label="Close load">×</span></button>`)].join("");
+  app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu"><button>File</button><button id="save-csr" ${current ? "" : "disabled"}>Save CSR</button><button id="export-grt" ${current ? "" : "disabled"}>Export GRT</button><button>Edit</button><button id="undo" ${currentHistory?.canUndo ? "" : "disabled"}>Undo</button><button id="redo" ${currentHistory?.canRedo ? "" : "disabled"}>Redo</button><button>View</button><button>Tools</button><label class="menu-select">Units <select id="unit-system" aria-label="Unit system"><option value="metric" ${unitPreferences.system === "metric" ? "selected" : ""}>Metric</option><option value="imperial" ${unitPreferences.system === "imperial" ? "selected" : ""}>Imperial</option><option value="original" ${unitPreferences.system === "original" ? "selected" : ""}>Original</option></select></label><button id="reset-field-units">Reset field units</button><button>Help</button></nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden />`;
+  const fileButton = app.querySelector<HTMLButtonElement>(".menubar > button:first-child");
+  if (fileButton) { fileButton.id = "settings"; fileButton.title = "Settings, including the optional Original GRT database"; }
+  bindEvents();
+}
+
+function invalidateLoad(load: LoadFile): void {
+  simulationCache.delete(load);
+  const count = Math.max(simInputFromLoad(load).ladderCount, 1);
+  ladderFocus.set(load, clampInteger(ladderFocus.get(load) ?? 0, 0, Math.min(count, 10) - 1));
+}
+
+function undoActive(redo = false): void {
+  const load = activeLoad();
+  if (!load) return;
+  const restored = redo ? historyFor(load).redo(load) : historyFor(load).undo(load);
+  if (!restored) return;
+  invalidateLoad(load);
+  status = redo ? "Redid Edit value" : "Undid Edit value";
+  render();
+}
+
+function downloadLoad(format: FileFormat): void {
+  const load = activeLoad();
+  if (!load) return;
+  const suffix = format === "reload" ? "csrload" : "grtload";
+  const fileName = load.fileName.replace(/\.(csrload|grtload)$/i, "") + `.${suffix}`;
+  const url = URL.createObjectURL(new Blob([serializeLoadXml(load, format)], { type: "application/xml;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  if (format === "reload") historyFor(load).markClean();
+  status = format === "reload" ? `Saved ${fileName}` : `Exported ${fileName}`;
+  render();
+}
+
+function bindDatabaseRows(root: ParentNode = app): void {
+  const updateButtons = (): void => {
+    const selected = selectedDatabaseRecord();
+    const own = selected?.source === "own";
+    const set = (selector: string, enabled: boolean): void => { const button = app.querySelector<HTMLButtonElement>(selector); if (button) button.disabled = !enabled; };
+    set("#copy-record", Boolean(selected) && ownDatabaseReady);
+    set("#edit-record", Boolean(own));
+    set("#delete-record", Boolean(own));
+    set("#export-record", Boolean(own));
+  };
+  const selectDatabaseRow = (element: HTMLElement): void => {
+    databaseSelections[activeDatabaseTable] = Number(element.dataset.dbId);
+    app.querySelectorAll<HTMLElement>("[data-db-id]").forEach((row) => {
+      const selected = row === element;
+      row.classList.toggle("selected", selected);
+      row.setAttribute("aria-selected", String(selected));
+    });
+    updateButtons();
+  };
+  root.querySelectorAll<HTMLElement>("[data-db-id]").forEach((element) => {
+    element.addEventListener("click", () => selectDatabaseRow(element));
+    element.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectDatabaseRow(element); }
+    });
+  });
+}
+
+type RecordEditMode = "new" | "copy" | "edit";
+
+async function refreshOwnDatabase(): Promise<void> {
+  [ownRecords, originalRecords, originalDatabaseInfo] = await Promise.all([
+    ownDatabase.allRecords(), ownDatabase.allOriginalRecords(), ownDatabase.originalInfo()
+  ]);
+  ownDatabaseReady = true;
+  ownDatabaseError = "";
+}
+
+async function databaseImage(uuid: string): Promise<StoredImage | undefined> {
+  let image = await ownDatabase.image(uuid) ?? await ownDatabase.originalImage(uuid);
+  if (!image || image.width > 0 || image.height > 0) return image;
+  try {
+    const bitmap = await createImageBitmap(await (await fetch(image.dataUrl)).blob());
+    image = { ...image, width: bitmap.width, height: bitmap.height };
+    bitmap.close();
+  } catch { /* an unreadable database image behaves like a missing photo */ }
+  return image.width > 0 && image.height > 0 ? image : undefined;
+}
+
+function openDatabaseSettings(): void {
+  const dialog = document.createElement("dialog");
+  dialog.className = "database-settings-dialog";
+  dialog.setAttribute("aria-label", "Settings");
+  dialog.innerHTML = `<form><h2>Settings</h2><fieldset><legend>Database</legend><div class="database-setting-row"><span>Original database:</span><output data-original-name></output><button type="button" data-original-browse>Browse</button></div><p data-original-summary></p><p class="setting-note">Choose a plain (decrypted) SQLite copy of Gordon's Reloading Tool database. It is imported read-only into this browser; the selected file is never changed or uploaded.</p><input type="file" accept=".db,.sqlite,application/vnd.sqlite3" data-original-file hidden><p class="record-error" role="alert"></p></fieldset><div class="dialog-buttons"><button type="button" data-original-remove>Remove imported copy</button><button type="button" data-settings-close>Close</button></div></form>`;
+  document.body.append(dialog);
+  const name = dialog.querySelector<HTMLOutputElement>("[data-original-name]")!;
+  const summary = dialog.querySelector<HTMLElement>("[data-original-summary]")!;
+  const error = dialog.querySelector<HTMLElement>(".record-error")!;
+  const browse = dialog.querySelector<HTMLButtonElement>("[data-original-browse]")!;
+  const remove = dialog.querySelector<HTMLButtonElement>("[data-original-remove]")!;
+  const picker = dialog.querySelector<HTMLInputElement>("[data-original-file]")!;
+  const update = (): void => {
+    name.textContent = originalDatabaseInfo?.fileName ?? "None chosen";
+    summary.textContent = originalDatabaseInfo
+      ? `${originalDatabaseInfo.counts.caliber} calibers, ${originalDatabaseInfo.counts.projectile} projectiles, ${originalDatabaseInfo.counts.propellant} propellants. New records are stored in the Personal database.`
+      : "No original database. Project and Personal records remain available.";
+    remove.disabled = !originalDatabaseInfo;
+  };
+  const close = (): void => { dialog.close(); dialog.remove(); };
+  dialog.querySelector("[data-settings-close]")?.addEventListener("click", close);
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  browse.addEventListener("click", () => picker.click());
+  picker.addEventListener("change", async () => {
+    const file = picker.files?.[0];
+    if (!file) return;
+    browse.disabled = true; remove.disabled = true; error.textContent = "Reading the databaseâ€¦";
+    try {
+      const { readOriginalDatabase } = await import("./lib/originaldb");
+      const imported = await readOriginalDatabase(file);
+      await ownDatabase.replaceOriginal(imported);
+      imageCache.clear();
+      databaseSelections.caliber = undefined; databaseSelections.projectile = undefined; databaseSelections.propellant = undefined;
+      await refreshOwnDatabase();
+      status = databaseStatus();
+      error.textContent = "Original database imported.";
+      update();
+      render();
+    } catch (problem) {
+      error.textContent = problem instanceof Error ? problem.message : String(problem);
+    } finally {
+      picker.value = "";
+      browse.disabled = false;
+      remove.disabled = !originalDatabaseInfo;
+    }
+  });
+  remove.addEventListener("click", async () => {
+    browse.disabled = true; remove.disabled = true; error.textContent = "Removing the imported copyâ€¦";
+    try {
+      await ownDatabase.clearOriginal();
+      imageCache.clear();
+      databaseSelections.caliber = undefined; databaseSelections.projectile = undefined; databaseSelections.propellant = undefined;
+      await refreshOwnDatabase();
+      status = databaseStatus();
+      error.textContent = "The browser's imported copy was removed. The original file was not changed.";
+      update();
+      render();
+    } catch (problem) {
+      error.textContent = problem instanceof Error ? problem.message : String(problem);
+    } finally {
+      browse.disabled = false;
+      remove.disabled = !originalDatabaseInfo;
+    }
+  });
+  update();
+  dialog.showModal();
+}
+
+function recordInput(field: RecordField, value: string | number | boolean | undefined): string {
+  const unit = field.quantity ? unitPreferences.unitFor(field.quantity) : undefined;
+  const shown = field.kind === "number" ? shownRecordNumber(Number(value ?? 0), field, unit) : String(value ?? "");
+  const attributes = `data-record-field="${field.column}" aria-label="${escapeHtml(field.label)}" ${field.readOnly ? "readonly" : ""}`;
+  if (field.kind === "longtext") return `<textarea ${attributes}>${escapeHtml(shown)}</textarea>`;
+  if (field.kind === "date") return `<input type="date" ${attributes} value="${escapeHtml(shown)}" />`;
+  if (field.choices) {
+    const current = field.kind === "choice" && field.column === "gValid" ? String(Boolean(value)) : String(value ?? "");
+    const choices = [...field.choices];
+    if (current && !choices.some((choice) => choice.value.toLowerCase() === current.toLowerCase())) choices.push({ value: current, label: current });
+    return `<select ${attributes} ${field.readOnly ? "disabled" : ""}>${choices.map((choice) => `<option value="${escapeHtml(choice.value)}" ${choice.value.toLowerCase() === current.toLowerCase() ? "selected" : ""}>${escapeHtml(choice.label)}</option>`).join("")}</select>`;
+  }
+  return `<input ${field.kind === "number" ? 'inputmode="decimal"' : ""} ${attributes} value="${escapeHtml(shown)}" />`;
+}
+
+async function openRecordDialog(mode: RecordEditMode): Promise<void> {
+  if (!projectDatabase || !ownDatabaseReady) return;
+  const table = activeDatabaseTable;
+  const selected = selectedDatabaseRecord();
+  if (mode !== "new" && !selected) return;
+  if (mode === "edit" && selected?.source !== "own") mode = "copy";
+  const initial: Partial<ProjectRecord> = mode === "new"
+    ? { cdate: new Date().toISOString().slice(0, 10), mdate: "" }
+    : mode === "copy" ? copyRecordValues(table, selected!) : { ...selected! };
+  const fields = recordFields(table);
+  const groups = Array.from(new Set(fields.map((field) => field.group)));
+  const kind = table === "caliber" ? "caliber" : table === "projectile" ? "projectile" : "propellant";
+  const title = mode === "new" ? `New ${kind}` : `${mode === "copy" ? "Copy" : "Edit"} ${kind} – ${recordTitle(table, selected!)}`;
+  const photoSlots: Array<{ column: "imageUuid" | "imageDetailUuid"; uuid: string; image?: StoredImage; pending?: StoredImage }> = table === "propellant"
+    ? [{ column: "imageUuid", uuid: String(initial.imageUuid ?? "") }, { column: "imageDetailUuid", uuid: String(initial.imageDetailUuid ?? "") }]
+    : [];
+  await Promise.all(photoSlots.map(async (slot) => { slot.image = await databaseImage(slot.uuid); }));
+  const photoEditor = photoSlots.length ? `<fieldset class="photo-editor"><legend>Photos</legend>${photoSlots.map((slot, index) => {
+    const label = index === 0 ? "Overview photo:" : "Detail photo:";
+    const info = slot.image ? `${slot.image.name}${slot.image.scaleUnit === "px/mm" && slot.image.scale > 0 ? ` (${slot.image.scale.toFixed(1)} px/mm)` : ""}` : slot.uuid ? "The photo is not available in the database." : "No photo";
+    return `<section class="photo-slot" data-photo-slot="${index}"><strong>${label}</strong><div class="photo-preview">${slot.image ? `<img src="${escapeHtml(slot.image.dataUrl)}" alt="${escapeHtml(label.replace(":", ""))}">` : ""}</div><span data-photo-info>${escapeHtml(info)}</span><div class="photo-actions"><button type="button" data-photo-choose="${index}">Choose file</button><button type="button" data-photo-remove="${index}">Remove</button><label>Scale [px/mm]: <input inputmode="decimal" data-photo-scale="${index}" aria-label="${escapeHtml(label.replace(":", ""))} scale in pixels per millimeter"></label><input type="file" data-photo-file="${index}" accept=".jpg,.jpeg,.png,.bmp,image/jpeg,image/png,image/bmp" hidden></div></section>`;
+  }).join("")}</fieldset>` : "";
+  const dialog = document.createElement("dialog");
+  dialog.className = "record-dialog";
+  dialog.setAttribute("aria-label", title);
+  dialog.innerHTML = `<form><h2>${escapeHtml(title)}</h2><div class="record-dialog-scroll">${photoEditor}${groups.map((group) => {
+    const groupFields = fields.filter((field) => field.group === group);
+    return `<fieldset class="${groupFields.length > 10 ? "wide" : ""}"><legend>${escapeHtml(group)}</legend>${groupFields.map((field) => {
+      const unit = field.quantity ? unitPreferences.unitFor(field.quantity).symbol : field.unitText;
+      return `<label title="Database column: ${field.column}"><span>${escapeHtml(field.label)}${unit ? ` [${escapeHtml(unit)}]` : ""}${field.required ? " *" : ""}:</span>${recordInput(field, initial[field.column])}</label>`;
+    }).join("")}</fieldset>`;
+  }).join("")}</div><p class="record-hint">Fields marked * are required. Numbers are shown in your units.</p><p class="record-error" role="alert"></p><div class="dialog-buttons"><button type="button" data-record-save>Save</button><button type="button" data-record-cancel>Cancel</button></div></form>`;
+  document.body.append(dialog);
+  const close = (): void => { dialog.close(); dialog.remove(); };
+  const updatePhoto = (index: number): void => {
+    const slot = photoSlots[index], root = dialog.querySelector<HTMLElement>(`[data-photo-slot="${index}"]`);
+    if (!slot || !root) return;
+    const preview = root.querySelector<HTMLElement>(".photo-preview")!;
+    preview.innerHTML = slot.image ? `<img src="${escapeHtml(slot.image.dataUrl)}" alt="${index === 0 ? "Overview photo" : "Detail photo"}">` : "";
+    root.querySelector<HTMLElement>("[data-photo-info]")!.textContent = slot.image
+      ? `${slot.image.name}${slot.image.scaleUnit === "px/mm" && slot.image.scale > 0 ? ` (${slot.image.scale.toFixed(1)} px/mm)` : ""}`
+      : slot.uuid ? "The photo is not available in the database." : "No photo";
+  };
+  dialog.querySelector("[data-record-cancel]")?.addEventListener("click", close);
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.querySelectorAll<HTMLButtonElement>("[data-photo-choose]").forEach((button) => button.addEventListener("click", () => dialog.querySelector<HTMLInputElement>(`[data-photo-file="${button.dataset.photoChoose}"]`)?.click()));
+  dialog.querySelectorAll<HTMLButtonElement>("[data-photo-remove]").forEach((button) => button.addEventListener("click", () => {
+    const index = Number(button.dataset.photoRemove), slot = photoSlots[index];
+    if (!slot) return;
+    slot.uuid = ""; slot.image = undefined; slot.pending = undefined; updatePhoto(index);
+  }));
+  dialog.querySelectorAll<HTMLInputElement>("[data-photo-file]").forEach((picker) => picker.addEventListener("change", async () => {
+    const index = Number(picker.dataset.photoFile), file = picker.files?.[0], slot = photoSlots[index];
+    if (!file || !slot) return;
+    const scaleText = dialog.querySelector<HTMLInputElement>(`[data-photo-scale="${index}"]`)?.value.trim() ?? "";
+    const scale = Number(scaleText);
+    try {
+      const image = await preparePhoto(file, Number.isFinite(scale) && scale > 0 ? scale : 0);
+      slot.uuid = image.uuid; slot.image = image; slot.pending = image; updatePhoto(index);
+    } catch (problem) {
+      dialog.querySelector<HTMLElement>(".record-error")!.textContent = problem instanceof Error ? problem.message : String(problem);
+    }
+  }));
+  dialog.querySelector("[data-record-save]")?.addEventListener("click", async () => {
+    const values: Partial<ProjectRecord> = {};
+    let invalid = "";
+    for (const field of fields) {
+      const control = dialog.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`[data-record-field="${CSS.escape(field.column)}"]`)!;
+      control.classList.remove("invalid-field");
+      if (field.kind === "number") {
+        const unit = field.quantity ? unitPreferences.unitFor(field.quantity) : undefined;
+        const number = parseRecordNumber(control.value, field, unit);
+        if (number === undefined) { invalid ||= field.label; control.classList.add("invalid-field"); }
+        else values[field.column] = number;
+      } else if (field.column === "gValid") values[field.column] = control.value === "true";
+      else values[field.column] = control.value;
+      if (field.required && !control.value.trim()) { invalid ||= field.label; control.classList.add("invalid-field"); }
+    }
+    const error = dialog.querySelector<HTMLElement>(".record-error")!;
+    if (invalid) { error.textContent = `Please check the field “${invalid}”.`; dialog.querySelector<HTMLElement>(".invalid-field")?.focus(); return; }
+    values.mdate = mode === "edit" ? new Date().toISOString().slice(0, 10) : "";
+    for (const slot of photoSlots) values[slot.column] = slot.uuid;
+    try {
+      for (const slot of photoSlots) if (slot.image && slot.uuid) { await ownDatabase.addImage(slot.image); imageCache.set(slot.uuid, slot.image); }
+      const stored = mode === "edit" ? await ownDatabase.update(table, selected!.id, values) : await ownDatabase.insert(table, values);
+      await refreshOwnDatabase();
+      databaseSelections[table] = stored.id;
+      const rows = currentDatabaseRows()?.records ?? [];
+      const index = rows.findIndex((record) => record.id === stored.id);
+      if (index >= 0) databaseScrolls[table] = index * databaseRowHeight;
+      status = databaseStatus();
+      close();
+      render();
+    } catch (problem) {
+      error.textContent = `The record could not be stored: ${problem instanceof Error ? problem.message : String(problem)}`;
+    }
+  });
+  dialog.showModal();
+  dialog.querySelector<HTMLInputElement>("[data-record-field]")?.focus();
+}
+
+async function deleteSelectedRecord(): Promise<void> {
+  const record = selectedDatabaseRecord();
+  if (!record || record.source !== "own") return;
+  if (!window.confirm(`Delete “${recordTitle(activeDatabaseTable, record)}”?\n\nLoad files that use it keep their values.`)) return;
+  try {
+    await ownDatabase.remove(activeDatabaseTable, record.id);
+    await refreshOwnDatabase();
+    databaseSelections[activeDatabaseTable] = undefined;
+    status = databaseStatus();
+    render();
+  } catch (problem) {
+    status = `The record could not be deleted: ${problem instanceof Error ? problem.message : String(problem)}`;
+    render();
+  }
+}
+
+function exportSelectedRecord(): void {
+  const record = selectedDatabaseRecord();
+  if (!record || record.source !== "own") return;
+  const problems = projectValidationProblems(activeDatabaseTable, record);
+  if (problems.length && !window.confirm(`This record is not complete for the project's database:\n${problems.join("\n")}\n\nExport it anyway?`)) return;
+  const fileName = recordFileName(activeDatabaseTable, record);
+  const url = URL.createObjectURL(new Blob([recordJson(activeDatabaseTable, record)], { type: "application/json;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url; anchor.download = fileName; anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  status = `Saved ${fileName}: add it to data/${activeDatabaseTable === "caliber" ? "calibers" : `${activeDatabaseTable}s`}/ in the project to contribute it.`;
+  render();
+}
+
+function openNewLoadDialog(): void {
+  if (!projectDatabase || !ownDatabaseReady) return;
+  type Selection = Record<ProjectTable, ProjectRecord | undefined>;
+  const selected: Selection = { caliber: undefined, projectile: undefined, propellant: undefined };
+  const queries: Record<ProjectTable, string> = { caliber: "", projectile: "", propellant: "" };
+  const sorts: Record<ProjectTable, { column: string; direction: "asc" | "desc" }> = { caliber: { column: "id", direction: "asc" }, projectile: { column: "id", direction: "asc" }, propellant: { column: "id", direction: "asc" } };
+  const scrolls: Record<ProjectTable, number> = { caliber: 0, projectile: 0, propellant: 0 };
+  const labels: Record<ProjectTable, string> = { caliber: "Caliber", projectile: "Projectile", propellant: "Propellant" };
+  let active: ProjectTable = "caliber", step = 0, matchDiameter = true, defaultsFor = "";
+  let params = { chargeG: 0, barrelLengthMm: 0, seatingDepthMm: 0, twistLengthMm: 240, powderTemperatureC: 21 };
+  const dialog = document.createElement("dialog");
+  dialog.className = "new-load-dialog";
+  dialog.setAttribute("aria-label", "New load");
+  document.body.append(dialog);
+  const close = (): void => { dialog.close(); dialog.remove(); };
+  const description = (table: ProjectTable, record?: ProjectRecord): string => {
+    if (!record) return "not selected";
+    if (table === "caliber") return `${String(record.cipname ?? "")}${record.altname ? ` ${String(record.altname)}` : ""}`.trim();
+    return recordTitle(table, record);
+  };
+  const summary = (): string => `<dl class="new-load-summary">${(["caliber", "projectile", "propellant"] as const).map((table) => `<dt>${labels[table]}:</dt><dd>${escapeHtml(description(table, selected[table]))}</dd>`).join("")}</dl>`;
+  const resetDefaults = (): void => {
+    if (!selected.caliber || !selected.projectile || !selected.propellant) return;
+    params = {
+      chargeG: defaultChargeG(selected.caliber, selected.propellant),
+      barrelLengthMm: defaultBarrelLengthMm(selected.caliber),
+      seatingDepthMm: defaultSeatingDepthMm(selected.caliber, selected.projectile),
+      twistLengthMm: params.twistLengthMm || 240,
+      powderTemperatureC: params.powderTemperatureC
+    };
+  };
+  const displayNumber = (base: number, quantity: "bulletMass" | "length" | "temperature"): string => {
+    const unit = unitPreferences.unitFor(quantity);
+    return toDisplay(base, unit).toFixed(unit.decimals);
+  };
+  const parameter = (name: keyof typeof params, label: string, quantity: "bulletMass" | "length" | "temperature", min: number, max: number): string => {
+    const unit = unitPreferences.unitFor(quantity);
+    return `<label><span>${label}</span><span class="parameter-control"><input type="number" data-load-param="${name}" aria-label="${label}" value="${displayNumber(params[name], quantity)}" min="${toDisplay(min, unit)}" max="${toDisplay(max, unit)}" step="any"><span>${escapeHtml(unit.symbol)}</span></span></label>`;
+  };
+  const renderDialog = (): void => {
+    let shownRecords: ProjectRecord[] = [], shownColumns: readonly DatabaseColumn[] = [];
+    if (step === 0) {
+      let records = combinedDatabaseRecords(active);
+      if (active === "projectile" && matchDiameter && selected.caliber) {
+        const diameter = Number(selected.caliber.c_Z ?? 0);
+        if (diameter > 0) records = records.filter((record) => Math.abs(Number(record.gdia ?? 0) - diameter) < 0.25);
+      }
+      records = projectDatabase!.filteredRecords(active, queries[active], records);
+      const recordTable = recordTableHtml(active, records, sorts[active], scrolls[active], selected[active]?.id);
+      shownRecords = recordTable.records; shownColumns = recordTable.columns;
+      const quality = active === "propellant" && selected.propellant ? `<p class="powder-quality">Fit quality: ${formatNumber(Number(selected.propellant.Qlty ?? 0) * 100, 0)} %</p>` : "";
+      dialog.innerHTML = `<form method="dialog"><h2>New load</h2><div class="new-load-tabs" role="tablist">${(["caliber", "projectile", "propellant"] as const).map((table, index) => `<button type="button" role="tab" data-new-load-tab="${table}" class="${active === table ? "active" : ""}" aria-selected="${active === table}">${index + 1}. ${labels[table]}</button>`).join("")}</div>${active === "projectile" ? `<label class="match-diameter"><input type="checkbox" data-match-diameter ${matchDiameter ? "checked" : ""}> Show only bullets that fit the caliber</label>` : ""}<input data-new-load-filter aria-label="Filter ${labels[active].toLowerCase()} records" placeholder="Filter (all columns)…" value="${escapeHtml(queries[active])}">${recordTable.html}${quality}${summary()}<p class="record-error" role="alert"></p><div class="dialog-buttons"><button type="button" data-new-load-cancel>Cancel</button><button type="button" data-new-load-next ${selected.caliber && selected.projectile && selected.propellant ? "" : "disabled"}>Next &gt;</button></div></form>`;
+    } else {
+      const massUnit = unitPreferences.unitFor("bulletMass");
+      const otherMass = massUnit.id === "grain" ? `= ${params.chargeG.toFixed(3)} g` : `= ${(params.chargeG / 0.06479891).toFixed(1)} grains`;
+      dialog.innerHTML = `<form method="dialog"><h2>New load</h2><div class="new-load-data"><section>${summary()}</section><fieldset><legend>Load data</legend>${parameter("chargeG", "Propellant charge", "bulletMass", 0, 100)}<p class="other-mass">${otherMass}</p>${parameter("barrelLengthMm", "Barrel length", "length", 0, 2000)}${parameter("seatingDepthMm", "Bullet seating depth", "length", 0, 100)}${parameter("twistLengthMm", "Twist length", "length", 0, 2000)}${parameter("powderTemperatureC", "Propellant temperature", "temperature", -40, 80)}<button type="button" data-reset-load-defaults>Reset to defaults</button></fieldset></div><p class="record-error" role="alert"></p><div class="dialog-buttons"><button type="button" data-new-load-cancel>Cancel</button><button type="button" data-new-load-back>&lt; Back</button><button type="button" data-create-load>Create load</button></div></form>`;
+    }
+    dialog.querySelector("[data-new-load-cancel]")?.addEventListener("click", close);
+    dialog.querySelectorAll<HTMLElement>("[data-new-load-tab]").forEach((tab) => tab.addEventListener("click", () => { active = tab.dataset.newLoadTab as ProjectTable; renderDialog(); }));
+    dialog.querySelector<HTMLInputElement>("[data-new-load-filter]")?.addEventListener("input", (event) => { queries[active] = (event.currentTarget as HTMLInputElement).value; scrolls[active] = 0; renderDialog(); dialog.querySelector<HTMLInputElement>("[data-new-load-filter]")?.focus(); });
+    dialog.querySelector<HTMLInputElement>("[data-match-diameter]")?.addEventListener("change", (event) => { matchDiameter = (event.currentTarget as HTMLInputElement).checked; renderDialog(); });
+    const chooseRow = (row: HTMLElement): void => {
+      const id = Number(row.dataset.dbId);
+      selected[active] = combinedDatabaseRecords(active).find((record) => record.id === id);
+      if (active === "caliber" && selected.projectile && matchDiameter && Math.abs(Number(selected.projectile.gdia ?? 0) - Number(selected.caliber?.c_Z ?? 0)) >= 0.25) selected.projectile = undefined;
+      renderDialog();
+    };
+    dialog.querySelectorAll<HTMLElement>("[data-db-id]").forEach((row) => {
+      row.addEventListener("click", () => chooseRow(row));
+      row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseRow(row); } });
+    });
+    dialog.querySelectorAll<HTMLElement>("[data-dialog-sort]").forEach((button) => button.addEventListener("click", () => {
+      const column = button.dataset.dialogSort ?? "id", current = sorts[active];
+      sorts[active] = { column, direction: current.column === column && current.direction === "asc" ? "desc" : "asc" };
+      scrolls[active] = 0; renderDialog();
+    }));
+    const scroller = dialog.querySelector<HTMLElement>(".dialog-record-table");
+    if (scroller) {
+      const table = active; scroller.scrollTop = scrolls[table];
+      scroller.addEventListener("scroll", () => {
+        scrolls[table] = scroller.scrollTop;
+        const body = scroller.querySelector<HTMLTableSectionElement>("tbody");
+        if (!body) return;
+        const window = databaseBodyHtml(shownRecords, shownColumns, scroller.scrollTop, table, selected[table]?.id);
+        if (Number(body.dataset.windowStart) === window.start) return;
+        body.dataset.windowStart = String(window.start); body.innerHTML = window.html;
+        body.querySelectorAll<HTMLElement>("[data-db-id]").forEach((row) => {
+          row.addEventListener("click", () => chooseRow(row));
+          row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseRow(row); } });
+        });
+      });
+    }
+    dialog.querySelector("[data-new-load-next]")?.addEventListener("click", () => {
+      const key = `${selected.caliber!.id}/${selected.projectile!.id}/${selected.propellant!.id}`;
+      if (key !== defaultsFor) { resetDefaults(); defaultsFor = key; }
+      step = 1; renderDialog();
+    });
+    dialog.querySelector("[data-new-load-back]")?.addEventListener("click", () => { step = 0; renderDialog(); });
+    dialog.querySelector("[data-reset-load-defaults]")?.addEventListener("click", () => { resetDefaults(); renderDialog(); });
+    dialog.querySelectorAll<HTMLInputElement>("[data-load-param]").forEach((input) => input.addEventListener("change", () => {
+      const quantity = input.dataset.loadParam === "chargeG" ? "bulletMass" : input.dataset.loadParam === "powderTemperatureC" ? "temperature" : "length";
+      const value = parseToBase(input.value, unitPreferences.unitFor(quantity));
+      if (value !== undefined) params[input.dataset.loadParam as keyof typeof params] = value;
+      if (input.dataset.loadParam === "chargeG") renderDialog();
+    }));
+    dialog.querySelector("[data-create-load]")?.addEventListener("click", () => {
+      const ranges: Record<keyof typeof params, [number, number, "bulletMass" | "length" | "temperature"]> = {
+        chargeG: [0, 100, "bulletMass"], barrelLengthMm: [0, 2000, "length"], seatingDepthMm: [0, 100, "length"],
+        twistLengthMm: [0, 2000, "length"], powderTemperatureC: [-40, 80, "temperature"]
+      };
+      let invalid = "";
+      for (const input of dialog.querySelectorAll<HTMLInputElement>("[data-load-param]")) {
+        const name = input.dataset.loadParam as keyof typeof params, [min, max, quantity] = ranges[name];
+        const value = parseToBase(input.value, unitPreferences.unitFor(quantity));
+        if (value === undefined || value < min || value > max) { invalid = input.getAttribute("aria-label") ?? name; input.classList.add("invalid-field"); break; }
+        params[name] = value;
+      }
+      if (invalid) { dialog.querySelector<HTMLElement>(".record-error")!.textContent = `Please check the field “${invalid}”.`; return; }
+      const fileName = `Untitled ${++untitledCounter}.csrload`;
+      const load = buildLoad(selected.caliber!, selected.projectile!, selected.propellant!, params, fileName, projectDatabase!.physicalPowderData);
+      loads.push(load); activeTab = `load-${loads.length - 1}`; activeInput = "cartridge"; activeResult = "results";
+      status = `New load created: ${load.title}`;
+      close(); render();
+    });
+  };
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  renderDialog(); dialog.showModal();
+}
+
+function openSelectComponentDialog(table: ProjectTable): void {
+  const load = activeLoad();
+  if (!load || !projectDatabase || !ownDatabaseReady) return;
+  const title = table === "caliber" ? "Select Caliber" : table === "projectile" ? "Select Projectile" : "Select Propellant";
+  const resetText = table === "caliber"
+    ? "Also set barrel length, seating depth and charge to the defaults of the new caliber"
+    : table === "projectile" ? "Also set the seating depth to the default (maximum cartridge length)"
+      : "Also set the charge to the default (70 % of the case capacity)";
+  let selected: ProjectRecord | undefined, query = "", restrict = table === "projectile", reset = table === "caliber", scrollTop = 0;
+  let sort: { column: string; direction: "asc" | "desc" } = { column: "id", direction: "asc" };
+  const dialog = document.createElement("dialog");
+  dialog.className = "select-component-dialog";
+  dialog.setAttribute("aria-label", title);
+  document.body.append(dialog);
+  const close = (): void => { dialog.close(); dialog.remove(); };
+  const display = (record: ProjectRecord): string => table === "caliber"
+    ? `${String(record.cipname ?? "")}${record.altname ? ` ${String(record.altname)}` : ""}`.trim()
+    : recordTitle(table, record);
+  const renderDialog = (): void => {
+    let records = combinedDatabaseRecords(table);
+    if (table === "projectile" && restrict) {
+      const diameter = Number(load.caliber.find((item) => item.name === "Dz")?.value ?? 0);
+      if (diameter > 0) records = records.filter((record) => Math.abs(Number(record.gdia ?? 0) - diameter) < 0.25);
+    }
+    records = projectDatabase!.filteredRecords(table, query, records);
+    const recordTable = recordTableHtml(table, records, sort, scrollTop, selected?.id);
+    const quality = table === "propellant" && selected ? `<p class="powder-quality">Fit quality: ${formatNumber(Number(selected.Qlty ?? 0) * 100, 0)} %</p>` : "";
+    dialog.innerHTML = `<form method="dialog"><h2>${title}</h2>${table === "projectile" ? `<label class="match-diameter"><input type="checkbox" data-component-restrict ${restrict ? "checked" : ""}> Show only bullets that fit the caliber</label>` : ""}<input data-component-filter aria-label="Filter ${table} records" placeholder="Filter (all columns)…" value="${escapeHtml(query)}">${recordTable.html}${quality}<label class="reset-dependent"><input type="checkbox" data-component-reset ${reset ? "checked" : ""}> ${resetText}</label><div class="dialog-buttons"><button type="button" data-component-cancel>Cancel</button><button type="button" data-component-apply ${selected ? "" : "disabled"}>OK</button></div></form>`;
+    dialog.querySelector("[data-component-cancel]")?.addEventListener("click", close);
+    dialog.querySelector<HTMLInputElement>("[data-component-filter]")?.addEventListener("input", (event) => { query = (event.currentTarget as HTMLInputElement).value; scrollTop = 0; renderDialog(); dialog.querySelector<HTMLInputElement>("[data-component-filter]")?.focus(); });
+    dialog.querySelector<HTMLInputElement>("[data-component-restrict]")?.addEventListener("change", (event) => {
+      restrict = (event.currentTarget as HTMLInputElement).checked;
+      const diameter = Number(load.caliber.find((item) => item.name === "Dz")?.value ?? 0);
+      if (selected && restrict && diameter > 0 && Math.abs(Number(selected.gdia ?? 0) - diameter) >= 0.25) selected = undefined;
+      scrollTop = 0; renderDialog();
+    });
+    dialog.querySelector<HTMLInputElement>("[data-component-reset]")?.addEventListener("change", (event) => { reset = (event.currentTarget as HTMLInputElement).checked; });
+    const chooseRow = (row: HTMLElement): void => { selected = combinedDatabaseRecords(table).find((record) => record.id === Number(row.dataset.dbId)); renderDialog(); };
+    dialog.querySelectorAll<HTMLElement>("[data-db-id]").forEach((row) => {
+      row.addEventListener("click", () => chooseRow(row));
+      row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseRow(row); } });
+    });
+    dialog.querySelectorAll<HTMLElement>("[data-dialog-sort]").forEach((button) => button.addEventListener("click", () => {
+      const column = button.dataset.dialogSort ?? "id";
+      sort = { column, direction: sort.column === column && sort.direction === "asc" ? "desc" : "asc" }; scrollTop = 0; renderDialog();
+    }));
+    const scroller = dialog.querySelector<HTMLElement>(".dialog-record-table");
+    if (scroller) {
+      scroller.scrollTop = scrollTop;
+      scroller.addEventListener("scroll", () => {
+        scrollTop = scroller.scrollTop;
+        const body = scroller.querySelector<HTMLTableSectionElement>("tbody");
+        if (!body) return;
+        const window = databaseBodyHtml(recordTable.records, recordTable.columns, scrollTop, table, selected?.id);
+        if (Number(body.dataset.windowStart) === window.start) return;
+        body.dataset.windowStart = String(window.start); body.innerHTML = window.html;
+        body.querySelectorAll<HTMLElement>("[data-db-id]").forEach((row) => {
+          row.addEventListener("click", () => chooseRow(row));
+          row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseRow(row); } });
+        });
+      });
+    }
+    dialog.querySelector("[data-component-apply]")?.addEventListener("click", () => {
+      if (!selected) return;
+      historyFor(load).mutate(load, (current) => {
+        if (table === "caliber") applyCaliber(current, selected!, reset);
+        else if (table === "projectile") applyProjectile(current, selected!, reset);
+        else applyPropellant(current, selected!, reset, projectDatabase!.physicalPowderData);
+      });
+      invalidateLoad(load);
+      status = `${title}: ${display(selected)}`;
+      close(); render();
+    });
+  };
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  renderDialog(); dialog.showModal();
+}
+
+async function importBulletFile(file: File): Promise<void> {
+  if (!projectDatabase || !ownDatabaseReady) return;
+  const parsed = readBulletFile(await file.text());
+  const existing = combinedDatabaseRecords("projectile");
+  const fresh: Array<Partial<ProjectRecord>> = [];
+  let known = 0;
+  for (const bullet of parsed.bullets) {
+    if (existing.some((record) => sameBullet(record, bullet))) ++known;
+    else fresh.push(bullet);
+  }
+  let message = `${fresh.length} bullet(s) can be added${parsed.manufacturer ? ` (manufacturer: ${parsed.manufacturer})` : ""}.`;
+  if (parsed.source) message += `\nSource: ${parsed.source}`;
+  if (known) message += `\n${known} bullet(s) are already in the database and are left out.`;
+  if (parsed.errors.length) message += `\n\n${parsed.errors.length} problem(s) in the file, those bullets are left out:\n${parsed.errors.slice(0, 8).join("\n")}${parsed.errors.length > 8 ? "\n…" : ""}`;
+  if (!fresh.length) {
+    window.alert(message);
+    status = `No bullets imported from ${file.name}`;
+    render();
+    return;
+  }
+  if (!window.confirm(`${message}\n\nAdd them to your personal records?`)) return;
+  let added = 0;
+  try {
+    for (const bullet of fresh) { await ownDatabase.insert("projectile", bullet); ++added; }
+    await refreshOwnDatabase();
+    databaseSelections.projectile = undefined;
+    status = `${added} bullet(s) imported.`;
+  } catch (problem) {
+    await refreshOwnDatabase();
+    status = `A bullet could not be stored after ${added} import(s): ${problem instanceof Error ? problem.message : String(problem)}`;
+  }
+  render();
+}
+
+function bindEvents(): void {
+  app.querySelector("#settings")?.addEventListener("click", openDatabaseSettings);
+  app.querySelectorAll<HTMLElement>("[data-tab]").forEach((element) => element.addEventListener("click", () => { activeTab = element.dataset.tab ?? "database"; render(); }));
+  app.querySelectorAll<HTMLElement>("[data-input]").forEach((element) => element.addEventListener("click", () => { activeInput = element.dataset.input ?? "cartridge"; render(); }));
+  app.querySelectorAll<HTMLElement>("[data-drawing]").forEach((element) => element.addEventListener("click", () => {
+    const load = activeLoad(); if (!load) return;
+    drawingModes.set(load, element.dataset.drawing as "cartridge" | "chamber" | "powder"); render();
+  }));
+  app.querySelectorAll<HTMLElement>("[data-drawing-dim]").forEach((row) => {
+    const measure = app.querySelector<SVGGElement>(`[data-drawing-measure="${CSS.escape(row.dataset.drawingDim ?? "")}"]`);
+    row.addEventListener("pointerenter", () => { row.classList.add("hovered"); measure?.removeAttribute("hidden"); });
+    row.addEventListener("pointerleave", () => { row.classList.remove("hovered"); measure?.setAttribute("hidden", ""); });
+  });
+  app.querySelectorAll<HTMLElement>("[data-photo-show]").forEach((element) => element.addEventListener("click", () => {
+    const load = activeLoad(); if (!load) return;
+    photoSelections.set(load, Number(element.dataset.photoShow) as 0 | 1); render();
+  }));
+  app.querySelector("[data-enlarge-photo]")?.addEventListener("dblclick", () => {
+    const load = activeLoad(); if (!load) return;
+    const index = photoSelections.get(load) ?? 0;
+    const uuid = entryValue(load.propellant, index === 0 ? "imageUuid" : "imageDetailUuid");
+    const photo = imageCache.get(uuid); if (!photo) return;
+    const dialog = document.createElement("dialog");
+    dialog.className = "photo-dialog"; dialog.setAttribute("aria-label", photo.name || "Photo");
+    dialog.innerHTML = `<form method="dialog"><header><strong>${escapeHtml(photo.name || "Photo")}</strong><button aria-label="Close photo">×</button></header><div><img src="${escapeHtml(photo.dataUrl)}" alt="${escapeHtml(photo.name || "Powder photo")}"></div></form>`;
+    document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once: true }); dialog.showModal();
+  });
+  app.querySelectorAll<HTMLElement>("[data-result]").forEach((element) => element.addEventListener("click", () => { activeResult = element.dataset.result ?? "results"; render(); }));
+  app.querySelector("#new-record")?.addEventListener("click", () => { void openRecordDialog("new"); });
+  app.querySelector("#copy-record")?.addEventListener("click", () => { void openRecordDialog("copy"); });
+  app.querySelector("#edit-record")?.addEventListener("click", () => { void openRecordDialog("edit"); });
+  app.querySelector("#delete-record")?.addEventListener("click", () => { void deleteSelectedRecord(); });
+  app.querySelector("#export-record")?.addEventListener("click", exportSelectedRecord);
+  app.querySelector("#new-load")?.addEventListener("click", openNewLoadDialog);
+  app.querySelector<HTMLElement>("[data-select-component]")?.addEventListener("click", (event) => openSelectComponentDialog((event.currentTarget as HTMLElement).dataset.selectComponent as ProjectTable));
+  const bulletPicker = app.querySelector<HTMLInputElement>("#bullet-picker");
+  app.querySelector("#import-bullets")?.addEventListener("click", () => bulletPicker?.click());
+  bulletPicker?.addEventListener("change", () => {
+    const file = bulletPicker.files?.[0];
+    if (file) void importBulletFile(file);
+  });
+  app.querySelectorAll<HTMLElement>("[data-db-table]").forEach((element) => element.addEventListener("click", () => {
+    activeDatabaseTable = element.dataset.dbTable as ProjectTable;
+    render();
+  }));
+  app.querySelectorAll<HTMLElement>("[data-db-sort]").forEach((element) => element.addEventListener("click", () => {
+    const column = element.dataset.dbSort ?? "id";
+    const current = databaseSorts[activeDatabaseTable];
+    databaseSorts[activeDatabaseTable] = { column, direction: current.column === column && current.direction === "asc" ? "desc" : "asc" };
+    databaseScrolls[activeDatabaseTable] = 0;
+    render();
+  }));
+  app.querySelector<HTMLInputElement>(".database .filter")?.addEventListener("input", (event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    databaseQueries[activeDatabaseTable] = input.value;
+    databaseScrolls[activeDatabaseTable] = 0;
+    const cursor = input.selectionStart ?? input.value.length;
+    render();
+    const replacement = app.querySelector<HTMLInputElement>(".database .filter");
+    replacement?.focus();
+    replacement?.setSelectionRange(cursor, cursor);
+  });
+  bindDatabaseRows();
+  const databaseScroller = app.querySelector<HTMLElement>(".database-table-scroll");
+  if (databaseScroller && projectDatabase) {
+    const table = activeDatabaseTable;
+    databaseScroller.scrollTop = databaseScrolls[table];
+    databaseScroller.addEventListener("scroll", () => {
+      if (activeDatabaseTable !== table) return;
+      databaseScrolls[table] = databaseScroller.scrollTop;
+      const current = currentDatabaseRows();
+      const body = databaseScroller.querySelector<HTMLTableSectionElement>("tbody");
+      if (!current || !body) return;
+      const window = databaseBodyHtml(current.records, current.columns, databaseScroller.scrollTop);
+      if (Number(body.dataset.windowStart) === window.start) return;
+      body.dataset.windowStart = String(window.start);
+      body.innerHTML = window.html;
+      bindDatabaseRows(body);
+    });
+  }
+  app.querySelector("#undo")?.addEventListener("click", () => undoActive());
+  app.querySelector("#redo")?.addEventListener("click", () => undoActive(true));
+  app.querySelector("#save-csr")?.addEventListener("click", () => downloadLoad("reload"));
+  app.querySelector("#export-grt")?.addEventListener("click", () => downloadLoad("original"));
+  app.querySelector<HTMLSelectElement>("#unit-system")?.addEventListener("change", (event) => {
+    unitPreferences.setSystem((event.currentTarget as HTMLSelectElement).value as UnitSystem);
+    status = `Unit system: ${unitPreferences.system}`;
+    render();
+  });
+  app.querySelector("#reset-field-units")?.addEventListener("click", () => {
+    unitPreferences.resetFieldUnits();
+    status = "Reset all per-field unit overrides";
+    render();
+  });
+  app.querySelectorAll<HTMLSelectElement>("[data-field-unit]").forEach((element) => element.addEventListener("change", () => {
+    unitPreferences.setFieldUnit(element.dataset.field ?? "", element.dataset.quantity as Exclude<Quantity, "none">, element.value);
+    status = `Changed unit for ${element.getAttribute("aria-label")?.replace(/ unit$/, "") ?? "field"}`;
+    render();
+  }));
+  app.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-property]").forEach((element) => element.addEventListener("change", () => {
+    const load = activeLoad();
+    if (!load) return;
+    const section = element.dataset.section as LoadSection;
+    const name = element.dataset.entry ?? "";
+    let text = element.value;
+    if (element.dataset.unitId && element.dataset.quantity) {
+      const displayUnit = unitsOf(element.dataset.quantity as Quantity).find((candidate) => candidate.id === element.dataset.unitId);
+      const base = displayUnit && parseToBase(text, displayUnit);
+      text = base === undefined ? "invalid" : String(base);
+    }
+    if (!historyFor(load).edit(load, section, name, text)) {
+      status = `Invalid value for ${fieldLabels[name] ?? name}; the previous value was restored`;
+      render();
+      return;
+    }
+    invalidateLoad(load);
+    status = `Edited ${fieldLabels[name] ?? name}`;
+    render();
+  }));
+  app.querySelector<HTMLSelectElement>("#solver-profile")?.addEventListener("change", (event) => {
+    activeProfile = (event.currentTarget as HTMLSelectElement).value as CalibrationProfile;
+    status = `Using ${activeProfile} simulation model`;
+    render();
+  });
+  app.querySelector<HTMLSelectElement>("#chart-axis")?.addEventListener("change", (event) => {
+    chartAxis = (event.currentTarget as HTMLSelectElement).value as typeof chartAxis;
+    render();
+  });
+  const selectLadder = (element: HTMLElement): void => {
+    const load = activeLoad();
+    if (!load) return;
+    ladderFocus.set(load, Number(element.dataset.ladder));
+    const charge = simulationFor(load)[ladderFocus.get(load) ?? 0]?.chargeG;
+    status = charge === undefined ? "Selected ladder charge" : `Selected ladder charge ${shown(charge, "bulletMass")}`;
+    render();
+  };
+  app.querySelectorAll<HTMLElement>("[data-ladder]").forEach((element) => {
+    element.addEventListener("click", () => selectLadder(element));
+    element.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectLadder(element); }
+    });
+  });
+  const chart = app.querySelector<SVGSVGElement>(".result-chart");
+  const tooltip = app.querySelector<HTMLElement>(".chart-tooltip");
+  chart?.addEventListener("pointermove", (event) => {
+    const load = activeLoad();
+    const matrix = chart.getScreenCTM();
+    if (!load || !matrix || !tooltip) return;
+    const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+    if (point.x < chartBox.left || point.x > chartBox.right || point.y < chartBox.top || point.y > chartBox.bottom) {
+      chart.classList.remove("cursor-visible");
+      tooltip.classList.remove("visible");
+      return;
+    }
+    const xMin = Number(chart.dataset.xMin);
+    const xMax = Number(chart.dataset.xMax);
+    const xValue = xMin + (point.x - chartBox.left) / (chartBox.right - chartBox.left) * (xMax - xMin);
+    const ladder = simulationFor(load);
+    const result = ladder[ladderFocus.get(load) ?? 0]?.result;
+    const value = result && pointAt(result.points, xValue);
+    if (!value) return;
+    const cursorX = chartBox.left + (chartX(value) - xMin) / (xMax - xMin) * (chartBox.right - chartBox.left);
+    const set = (selector: string, yValue: number, maximum: number): void => {
+      const element = chart.querySelector<SVGCircleElement>(selector);
+      element?.setAttribute("cx", String(cursorX));
+      element?.setAttribute("cy", String(chartBox.bottom - yValue / maximum * (chartBox.bottom - chartBox.top)));
+    };
+    const cursor = chart.querySelector<SVGLineElement>(".chart-cursor");
+    cursor?.setAttribute("x1", String(cursorX));
+    cursor?.setAttribute("x2", String(cursorX));
+    set(".pressure-dot", toDisplay(value.pressureBar, unitPreferences.unitFor("pressure")), Number(chart.dataset.pMax));
+    set(".energy-dot", toDisplay(value.energyJ, unitPreferences.unitFor("energy")), Number(chart.dataset.eMax));
+    set(".velocity-dot", toDisplay(value.velocityMs, unitPreferences.unitFor("velocity")), Number(chart.dataset.vMax));
+    chart.classList.add("cursor-visible");
+    tooltip.innerHTML = `<span>Time: ${formatNumber(value.timeMs, 3)} ms</span><span>Bullet base: ${shown(value.xMm, "length")}</span><span class="pressure">Pressure: ${shown(value.pressureBar, "pressure")}</span><span class="velocity">Velocity: ${shown(value.velocityMs, "velocity")}</span><span class="energy">Energy: ${shown(value.energyJ, "energy")}</span><span>Burnt propellant: ${formatNumber(value.z * 100, 1)} %</span>`;
+    tooltip.style.left = `${Math.min(Math.max(event.offsetX + 12, 6), chart.clientWidth - 190)}px`;
+    tooltip.style.top = "12px";
+    tooltip.classList.add("visible");
+  });
+  chart?.addEventListener("pointerleave", () => {
+    chart.classList.remove("cursor-visible");
+    tooltip?.classList.remove("visible");
+  });
+  app.querySelectorAll<HTMLElement>("[data-close]").forEach((element) => element.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const index = Number(element.dataset.close);
+    loads.splice(index, 1);
+    activeTab = "database";
+    status = "Load closed";
+    render();
+  }));
+  const picker = app.querySelector<HTMLInputElement>("#file-picker");
+  app.querySelector("#open-load")?.addEventListener("click", () => picker?.click());
+  picker?.addEventListener("change", async () => {
+    for (const file of Array.from(picker.files ?? [])) {
+      try {
+        const load = await readLoadFile(file);
+        loads.push(load);
+        activeTab = `load-${loads.length - 1}`;
+        status = `Opened ${file.name}`;
+      } catch (error) {
+        status = `Cannot read ${file.name}: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    }
+    render();
+  });
+}
+
+function showDisclaimer(): void {
+  if (localStorage.getItem("csr-disclaimer-accepted") === "yes") return;
+  const dialog = document.createElement("dialog");
+  dialog.className = "disclaimer";
+  dialog.innerHTML = `<h1>Safety notice</h1><p>The results are calculated and can differ considerably from reality. Compare every load with current manufacturer data and start low.</p><p>Reloading ammunition is dangerous and is done entirely at your own responsibility.</p><button autofocus>I understand</button>`;
+  document.body.append(dialog);
+  dialog.querySelector("button")?.addEventListener("click", () => {
+    localStorage.setItem("csr-disclaimer-accepted", "yes");
+    dialog.close();
+    dialog.remove();
+  });
+  dialog.showModal();
+}
+
+registerSW({
+  onNeedRefresh() { status = "An update is ready; reload to use it."; render(); }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (!event.ctrlKey || event.altKey) return;
+  if (event.key.toLowerCase() === "z") {
+    event.preventDefault();
+    undoActive(event.shiftKey);
+  } else if (event.key.toLowerCase() === "y") {
+    event.preventDefault();
+    undoActive(true);
+  }
+});
+
+render();
+showDisclaimer();
+
+void import("./lib/projectdb").then(async (database) => {
+  projectDatabase = database;
+  try {
+    await refreshOwnDatabase();
+    if (status === "Loading project database…") status = databaseStatus();
+  } catch (error) {
+    ownDatabaseError = error instanceof Error ? error.message : String(error);
+    if (status === "Loading project database…") status = `Personal database unavailable: ${ownDatabaseError}`;
+  }
+  render();
+}).catch((error: unknown) => {
+  projectDatabaseError = error instanceof Error ? error.message : String(error);
+  if (status === "Loading project database…") status = `Cannot load project database: ${projectDatabaseError}`;
+  render();
+});

@@ -48,6 +48,15 @@ CLAUDE.md
 # files exchanged with the VM that runs the original program
 results/
 *.log
+/PWA_COMPARISON/native-qa-profile/
+/PWA_COMPARISON/native-*
+
+# PWA build and test output
+/pwa/node_modules/
+/pwa/dist/
+/pwa/coverage/
+/pwa/test-results/
+/pwa/playwright-report/
 
 # manufacturer catalogues used as data sources (not ours to redistribute)
 /Vectan-Reloading-catalogue*.pdf
