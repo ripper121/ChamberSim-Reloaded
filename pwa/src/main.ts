@@ -3,8 +3,9 @@ import "./styles.css";
 import { readLoadFile, serializeLoadXml, type Entry, type FileFormat, type LoadFile, type MeasurementSeries } from "./lib/loadfile";
 import { LoadHistory, type LoadSection } from "./lib/loadedit";
 import shotPartData from "../../data/shotshell/parts.json";
-import { createMeasuredCharge, emptyMeasurementSeries, hasMeasuredCharge, measurementPredictions, parsePastedShots, pressureStatistics, velocityStatistics, type MeasurementPrediction } from "./lib/measurement";
+import { createMeasuredCharge, emptyMeasurementSeries, hasMeasuredCharge, measurementPredictions, parsePastedShots, pressureStatistics, statistics, velocityStatistics, type MeasurementPrediction } from "./lib/measurement";
 import { measurementChartSvg, predictionAt } from "./lib/measurementchart";
+import { chronographFormatName, readChronograph, type ChronographFile } from "./lib/chronograph";
 import type { DatabaseColumn, ProjectRecord, ProjectTable } from "./lib/projectdb";
 import { OwnDatabase, projectValidationProblems, recordFileName, recordJson, recordTitle } from "./lib/owndb";
 import { readBulletFile, sameBullet } from "./lib/bulletfile";
@@ -203,7 +204,7 @@ function measurementView(load: LoadFile): string {
   const shots = selectedCharge?.shots.map((shot, index) => `<tr data-measurement-shot="${index}" tabindex="0" class="${shotSelection.has(index) ? "focused" : ""}" aria-selected="${shotSelection.has(index)}"><th>${index + 1}</th><td><input data-measurement-shot-velocity="${index}" aria-label="Shot ${index + 1} velocity" inputmode="decimal" value="${shot.velocityMs > 0 ? formatUnit(shot.velocityMs, velocityUnit, 1) : ""}"></td><td><input data-measurement-shot-pressure="${index}" aria-label="Shot ${index + 1} pressure" inputmode="decimal" value="${shot.pressureBar > 0 ? formatUnit(shot.pressureBar, pressureUnit, 0) : ""}"></td></tr>`).join("") ?? "";
   const shotCaption = selectedCharge ? `Shots of ${escapeHtml(selectedCharge.name)} (${formatUnit(selectedCharge.chargeKg * 1e3, chargeUnit)} ${chargeUnit.symbol})` : "Shots — select a charge";
   return `<div class="measurement-view"><div class="measurement-toolbar"><label>Series: <select id="measurement-series" ${load.measurements.length > 1 ? "" : "disabled"}>${seriesOptions}</select></label><button id="measurement-new-series">New series</button><button id="measurement-remove-series" ${load.measurements.length > 1 || series.charges.length ? "" : "disabled"}>Remove series</button><label class="measurement-title">Title: <input id="measurement-title" value="${escapeHtml(series.title)}" aria-label="Measurement series title"></label></div>
-    <div class="button-row"><button id="measurement-add-charge" class="primary">Add charge</button>${addLadder}<button id="measurement-remove-charge" ${selectedCharge ? "" : "disabled"}>Remove charge</button><button disabled title="Chronograph import is the next compatibility milestone">Import chronograph file…</button><button disabled title="Powder fitting is not ported yet">Fit to measurements…</button></div>
+    <div class="button-row"><button id="measurement-add-charge" class="primary">Add charge</button>${addLadder}<button id="measurement-remove-charge" ${selectedCharge ? "" : "disabled"}>Remove charge</button><button id="measurement-import-chronograph">Import chronograph file…</button><button disabled title="Powder fitting is not ported yet">Fit to measurements…</button></div>
     ${series.charges.length ? "" : `<p class="measurement-hint"><i>Record chronograph results here: add a charge, then its shots (velocity and, if measured, the peak pressure). The statistics are compared with the simulation of this load.</i></p>`}
     <div class="table-scroll measurement-charge-scroll"><table class="measurement-table"><thead><tr><th>Name</th><th>Charge [${chargeUnit.symbol}]</th><th>Shots</th><th title="Mean muzzle velocity of the shots">Velocity [${velocityUnit.symbol}]</th><th title="Standard deviation of the velocity">SD</th><th title="Extreme spread of the velocity (fastest - slowest)">ES</th><th>Simulated</th><th>Δ</th><th>Pressure [${pressureUnit.symbol}]</th><th>Simulated</th><th>Δ</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="measurement-lower"><section class="measurement-shots"><h3>${shotCaption}</h3><input id="measurement-note" aria-label="Measurement charge note" placeholder="Note (rifle, chronograph, conditions, …)" value="${escapeHtml(selectedCharge?.note ?? "")}" ${selectedCharge ? "" : "disabled"}><div class="button-row"><button id="measurement-add-shot" ${selectedCharge ? "" : "disabled"}>Add shot</button><button id="measurement-remove-shot" ${selectedCharge?.shots.length ? "" : "disabled"}>Remove shot</button><button id="measurement-paste-shots" ${selectedCharge ? "" : "disabled"}>Paste shots</button></div><div class="table-scroll"><table class="measurement-shot-table"><thead><tr><th></th><th>Velocity [${velocityUnit.symbol}]</th><th>Pressure [${pressureUnit.symbol}]</th></tr></thead><tbody>${shots}</tbody></table></div></section>${measurementChartSvg(series, predictions, { charge: chargeUnit, velocity: velocityUnit, pressure: pressureUnit })}</div></div>`;
@@ -502,7 +503,7 @@ function render(): void {
   const current = activeLoad();
   const currentHistory = current ? historyFor(current) : undefined;
   const tabs = [`<button data-tab="database" class="${activeTab === "database" ? "active" : ""}">Database</button>`, ...loads.map((load, index) => `<button data-tab="load-${index}" class="${activeTab === `load-${index}` ? "active" : ""}">${escapeHtml(load.fileName.replace(/\.(csrload|grtload)$/i, ""))}${historyFor(load).modified ? "*" : ""}<span class="close" data-close="${index}" aria-label="Close load">×</span></button>`)].join("");
-  app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu"><button>File</button><button id="save-csr" ${current ? "" : "disabled"}>Save CSR</button><button id="export-grt" ${current ? "" : "disabled"}>Export GRT</button><button>Edit</button><button id="undo" ${currentHistory?.canUndo ? "" : "disabled"}>Undo</button><button id="redo" ${currentHistory?.canRedo ? "" : "disabled"}>Redo</button><button>View</button><button>Tools</button><label class="menu-select">Units <select id="unit-system" aria-label="Unit system"><option value="metric" ${unitPreferences.system === "metric" ? "selected" : ""}>Metric</option><option value="imperial" ${unitPreferences.system === "imperial" ? "selected" : ""}>Imperial</option><option value="original" ${unitPreferences.system === "original" ? "selected" : ""}>Original</option></select></label><button id="reset-field-units">Reset field units</button><button>Help</button></nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden />`;
+  app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu"><button>File</button><button id="save-csr" ${current ? "" : "disabled"}>Save CSR</button><button id="export-grt" ${current ? "" : "disabled"}>Export GRT</button><button>Edit</button><button id="undo" ${currentHistory?.canUndo ? "" : "disabled"}>Undo</button><button id="redo" ${currentHistory?.canRedo ? "" : "disabled"}>Redo</button><button>View</button><button>Tools</button><label class="menu-select">Units <select id="unit-system" aria-label="Unit system"><option value="metric" ${unitPreferences.system === "metric" ? "selected" : ""}>Metric</option><option value="imperial" ${unitPreferences.system === "imperial" ? "selected" : ""}>Imperial</option><option value="original" ${unitPreferences.system === "original" ? "selected" : ""}>Original</option></select></label><button id="reset-field-units">Reset field units</button><button>Help</button></nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden /><input id="chronograph-picker" type="file" accept=".fit,.FIT,.csv,.CSV" hidden />`;
   const fileButton = app.querySelector<HTMLButtonElement>(".menubar > button:first-child");
   if (fileButton) { fileButton.id = "settings"; fileButton.title = "Settings, including the optional Original GRT database"; }
   bindEvents();
@@ -1044,6 +1045,59 @@ async function importBulletFile(file: File): Promise<void> {
   render();
 }
 
+function openChronographImportDialog(load: LoadFile, parsed: ChronographFile, sourceName: string): void {
+  const seriesIndex = clampInteger(measurementSeriesSelections.get(load) ?? 0, 0, Math.max(load.measurements.length - 1, 0));
+  const chargeUnit = unitPreferences.unitFor("bulletMass");
+  const velocityUnit = unitPreferences.unitFor("velocity");
+  const defaultChargeG = measurementSuggestedCharges(load)[0] ?? 0;
+  const defaultText = formatUnit(defaultChargeG, chargeUnit);
+  const rows = parsed.series.map((series, index) => {
+    const summary = statistics(series.velocitiesMs);
+    return `<tr><td><input type="checkbox" data-chronograph-use="${index}" aria-label="Import ${escapeHtml(series.name)}" checked></td><td>${escapeHtml(series.name)}</td><td>${series.velocitiesMs.length}</td><td>${formatUnit(summary.mean, velocityUnit, 1)}</td><td>${summary.count > 1 ? formatUnit(summary.sd, velocityUnit, 1) : "—"}</td><td><input data-chronograph-charge="${index}" aria-label="Charge for ${escapeHtml(series.name)}" inputmode="decimal" value="${escapeHtml(defaultText)}"></td></tr>`;
+  }).join("");
+  const dialog = document.createElement("dialog");
+  dialog.className = "chronograph-dialog";
+  dialog.setAttribute("aria-labelledby", "chronograph-dialog-title");
+  dialog.innerHTML = `<form method="dialog"><h2 id="chronograph-dialog-title">Import chronograph file</h2><p>${chronographFormatName(parsed.format)} file with ${parsed.series.length} series. Every ticked series becomes a charge with its shots.</p><div class="chronograph-table-scroll"><table><thead><tr><th>Import</th><th>Series</th><th>Shots</th><th>Velocity [${escapeHtml(velocityUnit.symbol)}]</th><th>SD</th><th title="The powder charge of this series (the file does not contain it)">Charge [${escapeHtml(chargeUnit.symbol)}]</th></tr></thead><tbody>${rows}</tbody></table></div><div class="dialog-buttons"><button type="button" data-chronograph-cancel>Cancel</button><button type="button" data-chronograph-import>Import</button></div></form>`;
+  const close = (): void => { dialog.close(); };
+  dialog.querySelector("[data-chronograph-cancel]")?.addEventListener("click", close);
+  dialog.querySelector("[data-chronograph-import]")?.addEventListener("click", () => {
+    const selected = parsed.series.flatMap((series, index) => {
+      const checked = dialog.querySelector<HTMLInputElement>(`[data-chronograph-use="${index}"]`)?.checked;
+      if (!checked) return [];
+      const text = dialog.querySelector<HTMLInputElement>(`[data-chronograph-charge="${index}"]`)?.value ?? "";
+      const edited = text === defaultText ? undefined : parseToBase(text, chargeUnit);
+      return [{ series, chargeG: edited !== undefined && edited > 0 ? edited : defaultChargeG }];
+    });
+    close();
+    if (!selected.length) return;
+    mutateMeasurements(load, (current) => {
+      const target = ensureMeasurementSeries(current, seriesIndex);
+      for (const imported of selected) {
+        const charge = createMeasuredCharge(imported.series.name, imported.chargeG);
+        charge.shots.push(...imported.series.velocitiesMs.map((velocityMs) => ({ name: "", velocityMs, pressureBar: 0 })));
+        target.charges.push(charge);
+      }
+    }, `Imported ${selected.length} chronograph series from ${sourceName}`);
+    measurementChargeSelections.set(load, ensureMeasurementSeries(load, seriesIndex).charges.length - 1);
+    measurementShotSelections.set(load, new Set());
+  });
+  document.body.append(dialog);
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.showModal();
+}
+
+async function importChronographFile(load: LoadFile, file: File): Promise<void> {
+  try {
+    openChronographImportDialog(load, readChronograph(await file.arrayBuffer()), file.name);
+  } catch (problem) {
+    const detail = problem instanceof Error ? problem.message : String(problem);
+    status = `${file.name} cannot be imported: ${detail}`;
+    render();
+    window.alert(status);
+  }
+}
+
 function ensureMeasurementSeries(load: LoadFile, index: number): MeasurementSeries {
   while (load.measurements.length <= index) load.measurements.push(emptyMeasurementSeries(load.measurements.length + 1));
   return load.measurements[index]!;
@@ -1065,6 +1119,14 @@ function bindMeasurementEvents(): void {
   const chargeUnit = unitPreferences.unitFor("bulletMass");
   const velocityUnit = unitPreferences.unitFor("velocity");
   const pressureUnit = unitPreferences.unitFor("pressure");
+  const chronographPicker = app.querySelector<HTMLInputElement>("#chronograph-picker");
+
+  app.querySelector("#measurement-import-chronograph")?.addEventListener("click", () => chronographPicker?.click());
+  chronographPicker?.addEventListener("change", () => {
+    const file = chronographPicker.files?.[0];
+    chronographPicker.value = "";
+    if (file) void importChronographFile(load, file);
+  });
 
   app.querySelector<HTMLSelectElement>("#measurement-series")?.addEventListener("change", (event) => {
     measurementSeriesSelections.set(load, Number((event.currentTarget as HTMLSelectElement).value));

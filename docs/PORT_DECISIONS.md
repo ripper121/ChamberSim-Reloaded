@@ -125,3 +125,9 @@ Last updated: 2026-10-21
 **Decision:** Represent every measurement series, charge and shot as editable structured load data while retaining the native raw measurement/charge attributes and nested non-shot XML. Generate the comparison curve by running the selected solver profile at the native 13 padded charge points and render it as an accessible inline SVG.
 
 **Rationale:** Measurements are part of the portable load appendix, not browser-only state. DOM patching preserves pressure traces and unrelated appendix data while permitting native-compatible additions and removals. Using the actual solver for each cached charge reproduces the desktop table and chart semantics without fitted or decorative curves; separating statistics, curve construction and SVG rendering keeps the behavior unit-testable. Browser clipboard access remains an explicit user gesture and maps directly to the desktop Paste shots action.
+
+## D-020 — Parse chronograph files locally before measurement import
+
+**Decision:** Port the native Garmin FIT/CSV, MagnetoSpeed and Labradar parsers directly to TypeScript and read user-selected files entirely in the browser. Present the same per-series statistics, selection and powder-charge review before adding shots to the active measurement series.
+
+**Rationale:** Chronograph files contain range data that need not leave the user's device, and browsers cannot reuse a desktop path or invoke the native importer. A byte-level FIT parser and source-equivalent text parsers preserve file detection, unit conversion, missed-shot filtering, ordering and error semantics without a runtime dependency. One full-load history mutation makes a multi-series import undoable as a single native-style operation; the explicit file picker is the only required platform adaptation.

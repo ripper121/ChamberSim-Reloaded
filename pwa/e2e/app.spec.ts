@@ -466,6 +466,56 @@ test("edits measurement series and compares measured shots with simulation", asy
   expect(errors).toEqual([]);
 });
 
+test("imports native chronograph formats into measurement charges", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.getByLabel("Unit system").selectOption("metric");
+  await page.locator("#file-picker").setInputFiles(measurementLoad);
+  await page.getByRole("button", { name: "Measurements", exact: true }).click();
+
+  const magneto = "Series,15, Shots:,3\r\nSeries,Shot,Speed\r\n15,1,2721,ft/s\r\n15,2,2722,ft/s\r\n15,3,2745,ft/s\r\n"
+    + "Series,16, Shots:,2\r\nSeries,Shot,Speed\r\n16,1,830.5,m/s\r\n16,2,0,m/s\r\n";
+  await page.locator("#chronograph-picker").setInputFiles({ name: "magneto.csv", mimeType: "text/csv", buffer: Buffer.from(magneto) });
+  let dialog = page.getByRole("dialog", { name: "Import chronograph file" });
+  await expect(dialog.getByText("MagnetoSpeed file with 2 series. Every ticked series becomes a charge with its shots.", { exact: true })).toBeVisible();
+  await expect(dialog.locator("tbody tr")).toHaveCount(2);
+  await expect(dialog.locator("tbody tr").first()).toContainText("831.9");
+  await expect(dialog.getByLabel("Charge for Series 15")).toHaveValue("2.722");
+  await dialog.getByLabel("Charge for Series 15").fill("2.8");
+  await dialog.getByLabel("Charge for Series 16").fill("not a charge");
+  await dialog.getByRole("button", { name: "Import", exact: true }).click();
+
+  await expect(page.locator(".measurement-table tbody tr")).toHaveCount(4);
+  await expect(page.locator(".measurement-table tbody tr").nth(2).getByLabel("Charge name")).toHaveValue("Series 15");
+  await expect(page.locator(".measurement-table tbody tr").nth(2).getByLabel("Charge", { exact: true })).toHaveValue("2.800");
+  await expect(page.locator(".measurement-table tbody tr").nth(2).locator("td").nth(2)).toHaveText("3");
+  await expect(page.locator(".measurement-table tbody tr").nth(3).getByLabel("Charge", { exact: true })).toHaveValue("2.722");
+  await expect(page.locator(".measurement-table tbody tr").nth(3).locator("td").nth(2)).toHaveText("1");
+  await expect(page.getByText("Imported 2 chronograph series from magneto.csv", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Shot 1 velocity")).toHaveValue("830.5");
+
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.locator(".measurement-table tbody tr")).toHaveCount(2);
+  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await expect(page.locator(".measurement-table tbody tr")).toHaveCount(4);
+
+  await page.locator("#chronograph-picker").setInputFiles(resolve(repositoryRoot, "tests/fixtures/xero/garmin-xero.fit"));
+  dialog = page.getByRole("dialog", { name: "Import chronograph file" });
+  await expect(dialog.getByText("Garmin Xero file with 1 series. Every ticked series becomes a charge with its shots.", { exact: true })).toBeVisible();
+  await expect(dialog.locator("tbody tr").first().locator("td").nth(2)).toHaveText("5");
+  await dialog.locator("[data-chronograph-use='0']").uncheck();
+  await dialog.getByRole("button", { name: "Import", exact: true }).click();
+  await expect(page.locator(".measurement-table tbody tr")).toHaveCount(4);
+
+  page.once("dialog", (warning) => warning.accept());
+  await page.locator("#chronograph-picker").setInputFiles({ name: "unknown.csv", mimeType: "text/csv", buffer: Buffer.from("a,b,c\n1,2,3\n") });
+  await expect(page.getByText("unknown.csv cannot be imported: Not a Garmin Xero, MagnetoSpeed or Labradar file.", { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("runs verified Physical and Original simulations in the results view", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
