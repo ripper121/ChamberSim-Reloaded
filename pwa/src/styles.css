@@ -93,7 +93,11 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .results-placeholder dl { display: grid; grid-template-columns: auto auto; gap: 5px 15px; text-align: left; justify-self: center; }
 .results-placeholder dt { color: #999; }
 .measurement-toolbar { display: flex; gap: 8px; align-items: center; padding: 5px 8px; border-bottom: 1px solid #444; }
-.output:has(.measurement-toolbar) { grid-template-rows: 35px auto auto minmax(0, 1fr) 50%; }
+.output:has(.measurement-view) { grid-template-rows: 35px minmax(0, 1fr); }
+.measurement-view { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto minmax(90px, .55fr) minmax(270px, 1.7fr); }
+.measurement-view:has(.measurement-hint) { grid-template-rows: auto auto auto minmax(90px, .55fr) minmax(270px, 1.7fr); }
+.measurement-title { flex: 1; display: grid; grid-template-columns: auto minmax(100px, 1fr); align-items: center; gap: 6px; }
+.measurement-hint { margin: 0; padding: 7px 9px; color: #b9c0c5; }
 .output:has(.result-toolbar) { grid-template-rows: 35px auto minmax(160px, auto) auto minmax(260px, 1fr) auto; }
 .result-toolbar { display: flex; align-items: center; gap: 16px; padding: 5px 8px; border-bottom: 1px solid #444; color: #aeb5ba; }
 .profile-choice { display: flex; align-items: center; gap: 7px; color: #e7e7e7; }
@@ -156,12 +160,36 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .energy-key { color: #3fc1b0; }
 .velocity-key { color: #7a86e8; }
 .output > .button-row { padding: 6px 8px; }
+.measurement-charge-scroll { border-block: 1px solid #444; }
+.measurement-table { width: max-content; min-width: 100%; font-variant-numeric: tabular-nums; }
 .measurement-table th:not(:first-child), .measurement-table td:not(:first-child) { text-align: right; }
+.measurement-table td { padding: 0 6px; }
+.measurement-table td input { width: 100%; min-width: 5.5rem; border: 0; background: transparent; text-align: inherit; }
+.measurement-table td:first-child input { min-width: 10rem; text-align: left; }
+.measurement-table tr.focused td, .measurement-shot-table tr.focused td, .measurement-shot-table tr.focused th { background: #287fae; color: white; }
 .measurement-lower { min-height: 0; display: grid; grid-template-columns: minmax(240px, 28%) 1fr; border-top: 5px solid #444; }
-.measurement-lower section { padding: 8px; border-right: 5px solid #444; overflow: auto; }
+.measurement-lower section { padding: 8px; border-right: 5px solid #444; overflow: hidden; }
 .measurement-lower h3 { margin: 0 0 8px; font-size: 1rem; }
-.shot-row { display: grid; grid-template-columns: 35px 1fr 1fr; padding: 5px; border-bottom: 1px solid #3f3f3f; }
-.chart-placeholder { display: grid; place-content: center; text-align: center; color: #8d969c; }
+.measurement-shots { min-height: 0; display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); }
+.measurement-shots > input { width: 100%; }
+.measurement-shots .button-row { padding-block: 7px; }
+.measurement-shot-table th:first-child { width: 2rem; text-align: right; }
+.measurement-shot-table input { width: 100%; min-width: 5rem; border: 0; background: transparent; text-align: right; }
+.measurement-chart-wrap { position: relative; min-width: 0; min-height: 0; padding: 4px; background: #202020; }
+.measurement-chart { display: block; width: 100%; height: 100%; min-height: 230px; }
+.measurement-chart .grid { stroke: #454545; stroke-width: 1; }
+.measurement-chart .axis { stroke: #aaa; stroke-width: 1; }
+.measurement-chart .axis-label, .measurement-chart .axis-title, .measurement-chart .measurement-legend { fill: #c8c8c8; font-size: 11px; }
+.measurement-sim-velocity { fill: none; stroke: #2f7fd0; stroke-width: 2; }
+.measurement-sim-pressure { fill: none; stroke: #d04a3a; stroke-width: 2; stroke-dasharray: 7 4; }
+.measurement-shot-velocity { fill: #62a1df; stroke: #2f7fd0; }
+.measurement-mean { fill: #2465a6; stroke: #eee; }
+.measurement-error { stroke: #2f7fd0; stroke-width: 2; }
+.measurement-shot-pressure { fill: #df6d60; stroke: #d04a3a; }
+.measurement-cursor { visibility: hidden; stroke: #ddd; stroke-width: 1; stroke-dasharray: 4 3; }
+.measurement-chart.cursor-visible .measurement-cursor { visibility: visible; }
+.measurement-chart-tooltip { display: none; position: absolute; z-index: 2; min-width: 190px; padding: 7px; border: 1px solid #777; border-radius: 4px; background: rgb(27 27 27 / .94); box-shadow: 0 2px 8px #000; pointer-events: none; font-size: .82rem; }
+.measurement-chart-tooltip.visible { display: grid; gap: 2px; }
 .record-dialog { width: min(900px, calc(100% - 32px)); height: min(760px, calc(100% - 32px)); padding: 0; color: #eee; background: #303030; border: 1px solid #666; box-shadow: 0 15px 60px #000; }
 .record-dialog::backdrop { background: rgb(0 0 0 / .75); }
 .record-dialog form { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto auto; gap: 7px; padding: 12px; }

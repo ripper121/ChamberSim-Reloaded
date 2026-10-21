@@ -14,16 +14,21 @@ export interface Shot {
   pressureBar: number;
 }
 
+export type RawAttributes = Array<[name: string, value: string]>;
+
 export interface MeasuredCharge {
   name: string;
   chargeKg: number;
   note: string;
   shots: Shot[];
+  attributes?: RawAttributes;
+  extraXml?: string;
 }
 
 export interface MeasurementSeries {
   title: string;
   charges: MeasuredCharge[];
+  attributes?: RawAttributes;
 }
 
 export interface LoadFile {
@@ -62,6 +67,10 @@ function directChild(parent: Element, tagName: string): Element | undefined {
   return Array.from(parent.children).find((child) => child.tagName === tagName);
 }
 
+function rawAttributes(element: Element): RawAttributes {
+  return Array.from(element.attributes, (attribute) => [attribute.name, attribute.value]);
+}
+
 function readEntries(parent: Element, sectionName: string, childTag: "input" | "var" | "config" = "input"): Entry[] {
   const section = sectionName === "config" ? parent : directChild(parent, sectionName);
   if (!section) return [];
@@ -84,12 +93,17 @@ function readMeasurements(load: Element): MeasurementSeries[] {
     .filter((element) => element.tagName === "Measurement")
     .map((measurement) => ({
       title: decode(measurement.getAttribute("title") ?? ""),
+      attributes: rawAttributes(measurement),
       charges: Array.from(measurement.children)
         .filter((element) => element.tagName === "charge")
         .map((charge) => ({
           name: decode(charge.getAttribute("name") ?? ""),
           chargeKg: finiteNumber(charge.getAttribute("value")),
           note: decode(charge.getAttribute("note") ?? ""),
+          attributes: rawAttributes(charge),
+          extraXml: Array.from(charge.childNodes)
+            .filter((node) => !(node instanceof Element && node.tagName === "shot"))
+            .map((node) => new XMLSerializer().serializeToString(node)).join(""),
           shots: Array.from(charge.children)
             .filter((element) => element.tagName === "shot")
             .map((shot) => ({
@@ -166,9 +180,79 @@ function writeSection(tag: string, child: "input" | "var", entries: readonly Ent
   return `<${tag}>${entries.map((entry) => writeEntry(child, entry)).join("")}</${tag}>`;
 }
 
-function appendixInner(xml: string): string {
-  const document = new DOMParser().parseFromString(xml, "application/xml");
-  const appendix = document.querySelector("appendix");
+function writeAttributes(element: Element, raw: RawAttributes | undefined, own: RawAttributes): void {
+  for (const [name, value] of raw ?? []) element.setAttribute(name, value);
+  for (const [name, value] of own) element.setAttribute(name, value);
+}
+
+function appendXml(document: XMLDocument, parent: Element, xml: string): void {
+  if (!xml) return;
+  const parsed = new DOMParser().parseFromString(`<x>${xml}</x>`, "application/xml");
+  if (parsed.querySelector("parsererror")) return;
+  for (const node of Array.from(parsed.documentElement.childNodes)) parent.append(document.importNode(node, true));
+}
+
+function measurementElement(document: XMLDocument, measurement: MeasurementSeries, index: number): Element {
+  const element = document.createElement("Measurement");
+  const own: RawAttributes = [["title", percentEncode(measurement.title)]];
+  if (!(measurement.attributes ?? []).some(([name]) => name === "index")) own.unshift(["index", String(index)]);
+  if (!(measurement.attributes ?? []).some(([name]) => name === "showinreport")) own.push(["showinreport", "true"]);
+  writeAttributes(element, measurement.attributes, own);
+  for (const charge of measurement.charges) {
+    const chargeElement = document.createElement("charge");
+    const defaults: RawAttributes = [
+      ["name", percentEncode(charge.name)], ["showinreport", "true"], ["expanded", "true"],
+      ["expandedstats", "false"], ["note", percentEncode(charge.note)], ["value", String(charge.chargeKg)],
+      ["menu", ""], ["menuvalue", ""], ["menuunit", "m"], ["source", ""], ["sourceoptions", "%7B%7D"]
+    ];
+    const ownNames = new Set(["name", "note", "value"]);
+    writeAttributes(chargeElement, charge.attributes, defaults.filter(([name]) => ownNames.has(name)
+      || !(charge.attributes ?? []).some(([rawName]) => rawName === name)));
+    for (const shot of charge.shots) {
+      const shotElement = document.createElement("shot");
+      writeAttributes(shotElement, undefined, [
+        ["name", percentEncode(shot.name)], ["velocity", String(shot.velocityMs)], ["pressure", String(shot.pressureBar)]
+      ]);
+      chargeElement.append(shotElement);
+    }
+    appendXml(document, chargeElement, charge.extraXml ?? "");
+    element.append(chargeElement);
+  }
+  return element;
+}
+
+function patchMeasurements(document: XMLDocument, body: Element, measurements: readonly MeasurementSeries[]): void {
+  let appendix = directElement(body, "appendix");
+  const existing = appendix ? Array.from(appendix.children).filter((element) => element.tagName === "Measurement") : [];
+  if (!appendix && measurements.length === 0) return;
+  if (!appendix) {
+    appendix = document.createElement("appendix");
+    body.append(appendix);
+  }
+  // Existing Measurement nodes may be stale source snapshots after an in-memory remove/add sequence. The next
+  // native tab index follows the appendix elements that remain plus the raw indexes of the current series.
+  let nextIndex = Math.max(
+    0,
+    ...Array.from(appendix.children).filter((element) => element.tagName !== "Measurement")
+      .map((element) => Number(element.getAttribute("index")) || 0),
+    ...measurements.map((measurement) => Number(measurement.attributes?.find(([name]) => name === "index")?.[1]) || 0)
+  );
+  measurements.forEach((measurement, index) => {
+    const rawIndex = Number(measurement.attributes?.find(([name]) => name === "index")?.[1]);
+    const assigned = rawIndex > 0 ? rawIndex : ++nextIndex;
+    const replacement = measurementElement(document, measurement, assigned);
+    if (existing[index]) existing[index].replaceWith(replacement);
+    else appendix!.append(replacement);
+  });
+  for (let index = measurements.length; index < existing.length; index += 1) existing[index]!.remove();
+}
+
+function appendixInner(load: LoadFile): string {
+  const document = new DOMParser().parseFromString(load.sourceXml, "application/xml");
+  const body = document.querySelector("load, InnerBallistikInput");
+  if (!body) return "";
+  patchMeasurements(document, body, load.measurements);
+  const appendix = directElement(body, "appendix");
   if (!appendix) return "";
   const serializer = new XMLSerializer();
   return Array.from(appendix.childNodes).map((node) => serializer.serializeToString(node)).join("");
@@ -236,6 +320,7 @@ function patchReloadSource(load: LoadFile): string | undefined {
   patchSection(document, body, "propellant", "input", load.propellant);
   patchSection(document, body, "shotshell", "input", load.shotshell);
   patchSection(document, body, "physical", "input", load.physical);
+  patchMeasurements(document, body, load.measurements);
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${new XMLSerializer().serializeToString(root)}\n`;
 }
 
@@ -267,6 +352,6 @@ export function serializeLoadXml(load: LoadFile, format: FileFormat = "reload"):
   ];
   if (!original && load.shotshell.length > 0) sections.push(writeSection("shotshell", "input", load.shotshell));
   if (!original && load.physical.length > 0) sections.push(writeSection("physical", "input", load.physical));
-  sections.push(`<appendix>${appendixInner(load.sourceXml)}</appendix>`);
+  sections.push(`<appendix>${appendixInner(load)}</appendix>`);
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><${root}${rootAttributes}><${loadTag}>${sections.join("")}</${loadTag}></${root}>\n`;
 }

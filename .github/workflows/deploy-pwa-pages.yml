@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - pwa/**
+      - data/**
       - resources/icons/**
       - .github/workflows/deploy-pwa-pages.yml
   workflow_dispatch:

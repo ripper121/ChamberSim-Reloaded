@@ -1,9 +1,10 @@
 import { registerSW } from "virtual:pwa-register";
 import "./styles.css";
-import { readLoadFile, serializeLoadXml, type Entry, type FileFormat, type LoadFile } from "./lib/loadfile";
+import { readLoadFile, serializeLoadXml, type Entry, type FileFormat, type LoadFile, type MeasurementSeries } from "./lib/loadfile";
 import { LoadHistory, type LoadSection } from "./lib/loadedit";
 import shotPartData from "../../data/shotshell/parts.json";
-import { pressureStatistics, velocityStatistics } from "./lib/measurement";
+import { createMeasuredCharge, emptyMeasurementSeries, hasMeasuredCharge, measurementPredictions, parsePastedShots, pressureStatistics, velocityStatistics, type MeasurementPrediction } from "./lib/measurement";
+import { measurementChartSvg, predictionAt } from "./lib/measurementchart";
 import type { DatabaseColumn, ProjectRecord, ProjectTable } from "./lib/projectdb";
 import { OwnDatabase, projectValidationProblems, recordFileName, recordJson, recordTitle } from "./lib/owndb";
 import { readBulletFile, sameBullet } from "./lib/bulletfile";
@@ -13,7 +14,7 @@ import type { OriginalDatabaseInfo } from "./lib/originaldb";
 import { technicalDrawingView } from "./lib/drawingview";
 import { copyRecordValues, parseRecordNumber, recordFields, shownRecordNumber, type RecordField } from "./lib/recordfields";
 import { simInputFromLoad, type SimInput } from "./lib/siminput";
-import { calibrationFor, simulateLadder, vivacityCurve, type CalibrationProfile, type LadderResult, type SimPoint, type SimResult } from "./lib/solver";
+import { calibrationFor, simulate, simulateLadder, vivacityCurve, type CalibrationProfile, type LadderResult, type SimPoint, type SimResult } from "./lib/solver";
 import { formatUnit, parseToBase, quantityOfFileUnit, toDisplay, UnitPreferences, unitsOf, type Quantity, type UnitSystem } from "./lib/units";
 
 const appNode = document.querySelector<HTMLDivElement>("#app");
@@ -28,6 +29,10 @@ let activeProfile: CalibrationProfile = "physical";
 let status = "Loading project database…";
 const simulationCache = new WeakMap<LoadFile, Map<CalibrationProfile, LadderResult[]>>();
 const ladderFocus = new WeakMap<LoadFile, number>();
+const measurementSeriesSelections = new WeakMap<LoadFile, number>();
+const measurementChargeSelections = new WeakMap<LoadFile, number>();
+const measurementShotSelections = new WeakMap<LoadFile, Set<number>>();
+const measurementSimulationCache = new WeakMap<LoadFile, Map<CalibrationProfile, Map<number, SimResult>>>();
 const histories = new WeakMap<LoadFile, LoadHistory>();
 const unitPreferences = new UnitPreferences(localStorage);
 let chartAxis: "time" | "position" = "time";
@@ -142,21 +147,66 @@ function activeLoad(): LoadFile | undefined {
   return activeTab.startsWith("load-") ? loads[index] : undefined;
 }
 
+function measurementSuggestedCharges(load: LoadFile): number[] {
+  const ladder = simulationFor(load);
+  const focus = clampInteger(ladderFocus.get(load) ?? 0, 0, Math.max(ladder.length - 1, 0));
+  const selected = ladder[focus]?.chargeG;
+  return selected === undefined ? [] : [selected, ...ladder.filter((_, index) => index !== focus).map((entry) => entry.chargeG)];
+}
+
+function measurementResult(load: LoadFile, chargeG: number): SimResult {
+  let profiles = measurementSimulationCache.get(load);
+  if (!profiles) { profiles = new Map(); measurementSimulationCache.set(load, profiles); }
+  let charges = profiles.get(activeProfile);
+  if (!charges) { charges = new Map(); profiles.set(activeProfile, charges); }
+  const key = Math.round(chargeG * 1e6);
+  let result = charges.get(key);
+  if (!result) {
+    result = simulate({ ...simInputFromLoad(load), chargeG }, calibrationFor(activeProfile));
+    charges.set(key, result);
+  }
+  return result;
+}
+
+function measurementCurve(load: LoadFile, series: MeasurementSeries): MeasurementPrediction[] {
+  return measurementPredictions(series, measurementSuggestedCharges(load), (chargeG) => measurementResult(load, chargeG));
+}
+
+function percentDelta(value: number, reference: number): string {
+  return value > 0 && reference > 0 ? `${formatNumber(100 * (value / reference - 1), 1)} %` : "—";
+}
+
 function measurementView(load: LoadFile): string {
-  const series = load.measurements[0];
-  if (!series) return `<div class="empty-panel">No measurement series in this load.</div>`;
+  const seriesIndex = clampInteger(measurementSeriesSelections.get(load) ?? 0, 0, Math.max(load.measurements.length - 1, 0));
+  measurementSeriesSelections.set(load, seriesIndex);
+  const series = load.measurements[seriesIndex] ?? emptyMeasurementSeries(1);
+  const chargeIndex = clampInteger(measurementChargeSelections.get(load) ?? 0, 0, Math.max(series.charges.length - 1, 0));
+  measurementChargeSelections.set(load, chargeIndex);
+  const selectedCharge = series.charges[chargeIndex];
+  let shotSelection = measurementShotSelections.get(load);
+  if (!shotSelection) { shotSelection = new Set(selectedCharge?.shots.length ? [0] : []); measurementShotSelections.set(load, shotSelection); }
+  for (const index of shotSelection) if (index >= (selectedCharge?.shots.length ?? 0)) shotSelection.delete(index);
   const chargeUnit = unitPreferences.unitFor("bulletMass");
   const velocityUnit = unitPreferences.unitFor("velocity");
   const pressureUnit = unitPreferences.unitFor("pressure");
-  const rows = series.charges.map((charge) => {
+  const predictions = measurementCurve(load, series);
+  const rows = series.charges.map((charge, index) => {
     const velocity = velocityStatistics(charge.shots);
     const pressure = pressureStatistics(charge.shots);
-    return `<tr><td>${escapeHtml(charge.name)}</td><td>${formatUnit(charge.chargeKg * 1000, chargeUnit)}</td><td>${velocity.count}</td><td>${velocity.count ? formatUnit(velocity.mean, velocityUnit) : "—"}</td><td>${velocity.count > 1 ? formatUnit(velocity.sd, velocityUnit) : "—"}</td><td>${velocity.count ? formatUnit(velocity.extremeSpread, velocityUnit) : "—"}</td><td>${pressure.count ? formatUnit(pressure.mean, pressureUnit) : "—"}</td></tr>`;
+    const simulated = measurementResult(load, charge.chargeKg * 1e3);
+    const ok = simulated.status === "ok";
+    return `<tr data-measurement-charge="${index}" class="${index === chargeIndex ? "focused" : ""}" aria-selected="${index === chargeIndex}"><td><input data-measurement-charge-name="${index}" aria-label="Charge name" value="${escapeHtml(charge.name)}"></td><td><input data-measurement-charge-value="${index}" aria-label="Charge" inputmode="decimal" value="${formatUnit(charge.chargeKg * 1e3, chargeUnit)}"></td><td>${charge.shots.length}</td><td>${velocity.count ? formatUnit(velocity.mean, velocityUnit, 1) : "—"}</td><td>${velocity.count > 1 ? formatUnit(velocity.sd, velocityUnit, 1) : "—"}</td><td>${velocity.count > 1 ? formatUnit(velocity.extremeSpread, velocityUnit, 1) : "—"}</td><td title="${ok ? "Muzzle velocity simulated for this charge" : "This charge cannot be simulated (does not fit into the case?)"}">${ok ? formatUnit(simulated.muzzleVelocityMs, velocityUnit, 1) : "—"}</td><td>${ok ? percentDelta(simulated.muzzleVelocityMs, velocity.mean) : "—"}</td><td>${pressure.count ? formatUnit(pressure.mean, pressureUnit, 0) : "—"}</td><td title="${ok ? "Peak pressure simulated for this charge" : "This charge cannot be simulated (does not fit into the case?)"}">${ok ? formatUnit(simulated.maxPressureBar, pressureUnit, 0) : "—"}</td><td>${ok ? percentDelta(simulated.maxPressureBar, pressure.mean) : "—"}</td></tr>`;
   }).join("");
-  return `<div class="measurement-toolbar"><span>Series: <strong>${escapeHtml(series.title || "MEASUREMENTS")}</strong></span><button disabled>New series</button><button disabled>Remove series</button></div>
-    <div class="button-row"><button disabled>Add charge</button><button disabled>Remove charge</button><button disabled>Import chronograph file</button><button disabled>Fit to measurements</button></div>
-    <div class="table-scroll"><table class="measurement-table"><thead><tr><th>Name</th><th>Charge [${chargeUnit.symbol}]</th><th>Shots</th><th>Velocity [${velocityUnit.symbol}]</th><th>SD</th><th>ES</th><th>Pressure [${pressureUnit.symbol}]</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="measurement-lower"><section><h3>Shots</h3>${series.charges[0]?.shots.map((shot, index) => `<div class="shot-row"><span>${index + 1}</span><span>${shown(shot.velocityMs, "velocity")}</span><span>${shot.pressureBar > 0 ? shown(shot.pressureBar, "pressure") : "—"}</span></div>`).join("") || "No shots"}</section><div class="chart-placeholder">Measurement chart<br><small>Simulation comparison will appear after solver parity is implemented.</small></div></div>`;
+  const seriesOptions = (load.measurements.length ? load.measurements : [series]).map((candidate, index) => `<option value="${index}" ${index === seriesIndex ? "selected" : ""}>${escapeHtml(candidate.title || `Series ${index + 1}`)}</option>`).join("");
+  const suggested = measurementSuggestedCharges(load);
+  const addLadder = suggested.length > 1 ? `<button id="measurement-add-ladder">Add ladder charges</button>` : "";
+  const shots = selectedCharge?.shots.map((shot, index) => `<tr data-measurement-shot="${index}" tabindex="0" class="${shotSelection.has(index) ? "focused" : ""}" aria-selected="${shotSelection.has(index)}"><th>${index + 1}</th><td><input data-measurement-shot-velocity="${index}" aria-label="Shot ${index + 1} velocity" inputmode="decimal" value="${shot.velocityMs > 0 ? formatUnit(shot.velocityMs, velocityUnit, 1) : ""}"></td><td><input data-measurement-shot-pressure="${index}" aria-label="Shot ${index + 1} pressure" inputmode="decimal" value="${shot.pressureBar > 0 ? formatUnit(shot.pressureBar, pressureUnit, 0) : ""}"></td></tr>`).join("") ?? "";
+  const shotCaption = selectedCharge ? `Shots of ${escapeHtml(selectedCharge.name)} (${formatUnit(selectedCharge.chargeKg * 1e3, chargeUnit)} ${chargeUnit.symbol})` : "Shots — select a charge";
+  return `<div class="measurement-view"><div class="measurement-toolbar"><label>Series: <select id="measurement-series" ${load.measurements.length > 1 ? "" : "disabled"}>${seriesOptions}</select></label><button id="measurement-new-series">New series</button><button id="measurement-remove-series" ${load.measurements.length > 1 || series.charges.length ? "" : "disabled"}>Remove series</button><label class="measurement-title">Title: <input id="measurement-title" value="${escapeHtml(series.title)}" aria-label="Measurement series title"></label></div>
+    <div class="button-row"><button id="measurement-add-charge" class="primary">Add charge</button>${addLadder}<button id="measurement-remove-charge" ${selectedCharge ? "" : "disabled"}>Remove charge</button><button disabled title="Chronograph import is the next compatibility milestone">Import chronograph file…</button><button disabled title="Powder fitting is not ported yet">Fit to measurements…</button></div>
+    ${series.charges.length ? "" : `<p class="measurement-hint"><i>Record chronograph results here: add a charge, then its shots (velocity and, if measured, the peak pressure). The statistics are compared with the simulation of this load.</i></p>`}
+    <div class="table-scroll measurement-charge-scroll"><table class="measurement-table"><thead><tr><th>Name</th><th>Charge [${chargeUnit.symbol}]</th><th>Shots</th><th title="Mean muzzle velocity of the shots">Velocity [${velocityUnit.symbol}]</th><th title="Standard deviation of the velocity">SD</th><th title="Extreme spread of the velocity (fastest - slowest)">ES</th><th>Simulated</th><th>Δ</th><th>Pressure [${pressureUnit.symbol}]</th><th>Simulated</th><th>Δ</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="measurement-lower"><section class="measurement-shots"><h3>${shotCaption}</h3><input id="measurement-note" aria-label="Measurement charge note" placeholder="Note (rifle, chronograph, conditions, …)" value="${escapeHtml(selectedCharge?.note ?? "")}" ${selectedCharge ? "" : "disabled"}><div class="button-row"><button id="measurement-add-shot" ${selectedCharge ? "" : "disabled"}>Add shot</button><button id="measurement-remove-shot" ${selectedCharge?.shots.length ? "" : "disabled"}>Remove shot</button><button id="measurement-paste-shots" ${selectedCharge ? "" : "disabled"}>Paste shots</button></div><div class="table-scroll"><table class="measurement-shot-table"><thead><tr><th></th><th>Velocity [${velocityUnit.symbol}]</th><th>Pressure [${pressureUnit.symbol}]</th></tr></thead><tbody>${shots}</tbody></table></div></section>${measurementChartSvg(series, predictions, { charge: chargeUnit, velocity: velocityUnit, pressure: pressureUnit })}</div></div>`;
 }
 
 const chartBox = { left: 58, right: 696, top: 28, bottom: 270 } as const;
@@ -460,6 +510,7 @@ function render(): void {
 
 function invalidateLoad(load: LoadFile): void {
   simulationCache.delete(load);
+  measurementSimulationCache.delete(load);
   const count = Math.max(simInputFromLoad(load).ladderCount, 1);
   ladderFocus.set(load, clampInteger(ladderFocus.get(load) ?? 0, 0, Math.min(count, 10) - 1));
 }
@@ -993,6 +1044,191 @@ async function importBulletFile(file: File): Promise<void> {
   render();
 }
 
+function ensureMeasurementSeries(load: LoadFile, index: number): MeasurementSeries {
+  while (load.measurements.length <= index) load.measurements.push(emptyMeasurementSeries(load.measurements.length + 1));
+  return load.measurements[index]!;
+}
+
+function mutateMeasurements(load: LoadFile, change: (load: LoadFile) => void, message: string): void {
+  historyFor(load).mutate(load, change);
+  status = message;
+  queueMicrotask(render);
+}
+
+function bindMeasurementEvents(): void {
+  const load = activeLoad();
+  if (!load || activeResult !== "measurements") return;
+  const seriesIndex = clampInteger(measurementSeriesSelections.get(load) ?? 0, 0, Math.max(load.measurements.length - 1, 0));
+  const series = load.measurements[seriesIndex] ?? emptyMeasurementSeries(1);
+  const chargeIndex = clampInteger(measurementChargeSelections.get(load) ?? 0, 0, Math.max(series.charges.length - 1, 0));
+  const selectedCharge = series.charges[chargeIndex];
+  const chargeUnit = unitPreferences.unitFor("bulletMass");
+  const velocityUnit = unitPreferences.unitFor("velocity");
+  const pressureUnit = unitPreferences.unitFor("pressure");
+
+  app.querySelector<HTMLSelectElement>("#measurement-series")?.addEventListener("change", (event) => {
+    measurementSeriesSelections.set(load, Number((event.currentTarget as HTMLSelectElement).value));
+    measurementChargeSelections.set(load, 0); measurementShotSelections.set(load, new Set()); render();
+  });
+  app.querySelector("#measurement-new-series")?.addEventListener("click", () => {
+    const next = Math.max(load.measurements.length, 1);
+    mutateMeasurements(load, (current) => {
+      if (current.measurements.length === 0) current.measurements.push(emptyMeasurementSeries(1));
+      current.measurements.push(emptyMeasurementSeries(current.measurements.length + 1));
+    }, "Added measurement series");
+    measurementSeriesSelections.set(load, next); measurementChargeSelections.set(load, 0); measurementShotSelections.set(load, new Set());
+  });
+  app.querySelector("#measurement-remove-series")?.addEventListener("click", () => {
+    mutateMeasurements(load, (current) => {
+      if (current.measurements.length <= 1) current.measurements = [emptyMeasurementSeries(1)];
+      else current.measurements.splice(seriesIndex, 1);
+    }, "Removed measurement series");
+    measurementSeriesSelections.set(load, Math.max(0, Math.min(seriesIndex, load.measurements.length - 1)));
+    measurementChargeSelections.set(load, 0); measurementShotSelections.set(load, new Set());
+  });
+  app.querySelector<HTMLInputElement>("#measurement-title")?.addEventListener("change", (event) => {
+    const title = (event.currentTarget as HTMLInputElement).value;
+    if (title === series.title) return;
+    mutateMeasurements(load, (current) => { ensureMeasurementSeries(current, seriesIndex).title = title; }, "Edited measurement series title");
+  });
+  app.querySelector("#measurement-add-charge")?.addEventListener("click", () => {
+    const suggested = measurementSuggestedCharges(load);
+    let chargeG = suggested.find((charge) => !hasMeasuredCharge(series, charge)) ?? suggested[0] ?? 0;
+    if (chargeG <= 0 && series.charges.length) chargeG = series.charges.at(-1)!.chargeKg * 1e3;
+    const name = `${formatUnit(chargeG, chargeUnit)} ${chargeUnit.symbol}`;
+    mutateMeasurements(load, (current) => { ensureMeasurementSeries(current, seriesIndex).charges.push(createMeasuredCharge(name, chargeG)); }, "Added measured charge");
+    measurementChargeSelections.set(load, Math.max(0, series.charges.length - 1)); measurementShotSelections.set(load, new Set());
+  });
+  app.querySelector("#measurement-add-ladder")?.addEventListener("click", () => {
+    const add = [...measurementSuggestedCharges(load)].sort((a, b) => a - b).filter((charge) => !hasMeasuredCharge(series, charge));
+    if (!add.length) return;
+    mutateMeasurements(load, (current) => {
+      const target = ensureMeasurementSeries(current, seriesIndex);
+      for (const charge of add) target.charges.push(createMeasuredCharge(`${formatUnit(charge, chargeUnit)} ${chargeUnit.symbol}`, charge));
+    }, `Added ${add.length} ladder charges`);
+    measurementChargeSelections.set(load, 0); measurementShotSelections.set(load, new Set());
+  });
+  app.querySelector("#measurement-remove-charge")?.addEventListener("click", () => {
+    if (!selectedCharge) return;
+    mutateMeasurements(load, (current) => { ensureMeasurementSeries(current, seriesIndex).charges.splice(chargeIndex, 1); }, "Removed measured charge");
+    measurementChargeSelections.set(load, Math.max(0, Math.min(chargeIndex, series.charges.length - 1))); measurementShotSelections.set(load, new Set());
+  });
+  app.querySelectorAll<HTMLElement>("[data-measurement-charge]").forEach((row) => row.addEventListener("click", (event) => {
+    if ((event.target as Element).closest("input")) return;
+    measurementChargeSelections.set(load, Number(row.dataset.measurementCharge)); measurementShotSelections.set(load, new Set()); render();
+  }));
+  app.querySelectorAll<HTMLInputElement>("[data-measurement-charge-name]").forEach((input) => input.addEventListener("change", (event) => {
+    const index = Number(input.dataset.measurementChargeName), name = (event.currentTarget as HTMLInputElement).value;
+    if (series.charges[index]?.name === name) return;
+    mutateMeasurements(load, (current) => { ensureMeasurementSeries(current, seriesIndex).charges[index]!.name = name; }, "Edited measured charge name");
+  }));
+  app.querySelectorAll<HTMLInputElement>("[data-measurement-charge-value]").forEach((input) => input.addEventListener("change", (event) => {
+    const index = Number(input.dataset.measurementChargeValue), value = parseToBase((event.currentTarget as HTMLInputElement).value, chargeUnit);
+    if (value === undefined || value <= 0) { status = "Invalid measured charge; the previous value was restored"; render(); return; }
+    mutateMeasurements(load, (current) => { ensureMeasurementSeries(current, seriesIndex).charges[index]!.chargeKg = value * 1e-3; }, "Edited measured charge");
+  }));
+  app.querySelector<HTMLInputElement>("#measurement-note")?.addEventListener("change", (event) => {
+    const note = (event.currentTarget as HTMLInputElement).value;
+    if (!selectedCharge || note === selectedCharge.note) return;
+    mutateMeasurements(load, (current) => { ensureMeasurementSeries(current, seriesIndex).charges[chargeIndex]!.note = note; }, "Edited measurement note");
+  });
+  app.querySelector("#measurement-add-shot")?.addEventListener("click", () => {
+    if (!selectedCharge) return;
+    const next = selectedCharge.shots.length;
+    mutateMeasurements(load, (current) => { ensureMeasurementSeries(current, seriesIndex).charges[chargeIndex]!.shots.push({ name: "", velocityMs: 0, pressureBar: 0 }); }, "Added measurement shot");
+    measurementShotSelections.set(load, new Set([next]));
+  });
+  const removeSelectedShots = (): void => {
+    if (!selectedCharge?.shots.length) return;
+    const selected = [...(measurementShotSelections.get(load) ?? [])].filter((index) => index < selectedCharge.shots.length).sort((a, b) => b - a);
+    if (!selected.length) selected.push(0);
+    const first = selected.at(-1)!;
+    mutateMeasurements(load, (current) => {
+      const shots = ensureMeasurementSeries(current, seriesIndex).charges[chargeIndex]!.shots;
+      for (const index of selected) shots.splice(index, 1);
+    }, `Removed ${selected.length} measurement shot${selected.length === 1 ? "" : "s"}`);
+    measurementShotSelections.set(load, selectedCharge.shots.length ? new Set([Math.min(first, selectedCharge.shots.length - 1)]) : new Set());
+  };
+  app.querySelector("#measurement-remove-shot")?.addEventListener("click", removeSelectedShots);
+  app.querySelectorAll<HTMLElement>("[data-measurement-shot]").forEach((row) => row.addEventListener("click", (event) => {
+    if ((event.target as Element).closest("input")) return;
+    const index = Number(row.dataset.measurementShot);
+    const current = measurementShotSelections.get(load) ?? new Set<number>();
+    if ((event as MouseEvent).shiftKey && current.size) {
+      const anchor = [...current].at(-1)!;
+      const range = new Set<number>();
+      for (let value = Math.min(anchor, index); value <= Math.max(anchor, index); value += 1) range.add(value);
+      measurementShotSelections.set(load, range);
+    } else if ((event as MouseEvent).ctrlKey || (event as MouseEvent).metaKey) {
+      const next = new Set(current);
+      if (next.has(index)) next.delete(index); else next.add(index);
+      measurementShotSelections.set(load, next);
+    } else measurementShotSelections.set(load, new Set([index]));
+    render();
+  }));
+  app.querySelector(".measurement-shot-table")?.addEventListener("keydown", (event) => {
+    if ((event as KeyboardEvent).key === "Delete" && !(event.target as Element).closest("input")) { event.preventDefault(); removeSelectedShots(); }
+  });
+  const bindShotValue = (selector: string, field: "velocityMs" | "pressureBar", unit: typeof velocityUnit): void => {
+    app.querySelectorAll<HTMLInputElement>(selector).forEach((input) => input.addEventListener("change", (event) => {
+      const index = Number(field === "velocityMs" ? input.dataset.measurementShotVelocity : input.dataset.measurementShotPressure);
+      const text = (event.currentTarget as HTMLInputElement).value.trim();
+      const parsed = text ? parseToBase(text, unit) : 0;
+      const value = parsed !== undefined && parsed >= 0 ? parsed : 0;
+      mutateMeasurements(load, (current) => { ensureMeasurementSeries(current, seriesIndex).charges[chargeIndex]!.shots[index]![field] = value; }, `Edited shot ${field === "velocityMs" ? "velocity" : "pressure"}`);
+    }));
+  };
+  bindShotValue("[data-measurement-shot-velocity]", "velocityMs", velocityUnit);
+  bindShotValue("[data-measurement-shot-pressure]", "pressureBar", pressureUnit);
+  app.querySelector("#measurement-paste-shots")?.addEventListener("click", async () => {
+    if (!selectedCharge) return;
+    try {
+      const shots = parsePastedShots(await navigator.clipboard.readText(), velocityUnit, pressureUnit);
+      if (!shots.length) { status = "The clipboard contains no valid velocity rows"; render(); return; }
+      mutateMeasurements(load, (current) => { ensureMeasurementSeries(current, seriesIndex).charges[chargeIndex]!.shots.push(...shots); }, `Pasted ${shots.length} measurement shots`);
+    } catch (error) {
+      status = `Cannot read the clipboard: ${error instanceof Error ? error.message : String(error)}`; render();
+    }
+  });
+
+  const chart = app.querySelector<SVGSVGElement>(".measurement-chart");
+  const tooltip = app.querySelector<HTMLElement>(".measurement-chart-tooltip");
+  chart?.addEventListener("pointermove", (event) => {
+    const matrix = chart.getScreenCTM();
+    if (!matrix || !tooltip) return;
+    const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+    const left = Number(chart.dataset.plotLeft), right = Number(chart.dataset.plotRight);
+    if (point.x < left || point.x > right || point.y < 22 || point.y > 248) { chart.classList.remove("cursor-visible"); tooltip.classList.remove("visible"); return; }
+    const low = Number(chart.dataset.xLow), high = Number(chart.dataset.xHigh);
+    let shownCharge = low + (point.x - left) / (right - left) * (high - low);
+    let chargeG = shownCharge * chargeUnit.factor + chargeUnit.offset;
+    const snap = series.charges.reduce<{ chargeG: number; distance: number } | undefined>((best, charge) => {
+      const candidate = charge.chargeKg * 1e3;
+      const candidateShown = (candidate - chargeUnit.offset) / chargeUnit.factor;
+      const distance = Math.abs((candidateShown - shownCharge) / (high - low) * (right - left));
+      return distance <= 12 && (!best || distance < best.distance) ? { chargeG: candidate, distance } : best;
+    }, undefined);
+    if (snap) { chargeG = snap.chargeG; shownCharge = (chargeG - chargeUnit.offset) / chargeUnit.factor; }
+    const cursorX = left + (shownCharge - low) / (high - low) * (right - left);
+    const cursor = chart.querySelector<SVGLineElement>(".measurement-cursor"); cursor?.setAttribute("x1", String(cursorX)); cursor?.setAttribute("x2", String(cursorX));
+    const prediction = predictionAt(measurementCurve(load, series), chargeG);
+    const near = snap ? series.charges.find((charge) => Math.abs(charge.chargeKg * 1e3 - chargeG) < 1e-6) : undefined;
+    const lines = [`Charge: ${formatUnit(chargeG, chargeUnit)} ${chargeUnit.symbol}`];
+    if (prediction) lines.push(`Velocity (sim.): ${formatUnit(prediction.velocityMs, velocityUnit)} ${velocityUnit.symbol}`, `Pressure (sim.): ${formatUnit(prediction.pressureBar, pressureUnit)} ${pressureUnit.symbol}`);
+    if (near) {
+      const velocity = velocityStatistics(near.shots), pressure = pressureStatistics(near.shots);
+      if (velocity.count) lines.push(`Velocity: ${formatUnit(velocity.mean, velocityUnit)} ± ${formatUnit(velocity.sd, velocityUnit)} ${velocityUnit.symbol} (${velocity.count} shot${velocity.count === 1 ? "" : "s"})`, `Extreme spread: ${formatUnit(velocity.extremeSpread, velocityUnit)} ${velocityUnit.symbol}`);
+      if (velocity.count && prediction) lines.push(`Deviation from sim.: ${formatNumber(100 * (velocity.mean / prediction.velocityMs - 1), 1)} %`);
+      if (pressure.count) lines.push(`Pressure: ${formatUnit(pressure.mean, pressureUnit)} ${pressureUnit.symbol} (${pressure.count} shot${pressure.count === 1 ? "" : "s"})`);
+      if (pressure.count && prediction) lines.push(`Deviation from sim.: ${formatNumber(100 * (pressure.mean / prediction.pressureBar - 1), 1)} %`);
+    }
+    tooltip.innerHTML = lines.map((line) => `<span>${escapeHtml(line)}</span>`).join("");
+    tooltip.style.left = `${Math.min(Math.max(event.offsetX + 12, 6), chart.clientWidth - 220)}px`; tooltip.style.top = "12px";
+    chart.classList.add("cursor-visible"); tooltip.classList.add("visible");
+  });
+  chart?.addEventListener("pointerleave", () => { chart.classList.remove("cursor-visible"); tooltip?.classList.remove("visible"); });
+}
+
 function bindEvents(): void {
   app.querySelector("#settings")?.addEventListener("click", openDatabaseSettings);
   app.querySelectorAll<HTMLElement>("[data-tab]").forEach((element) => element.addEventListener("click", () => { activeTab = element.dataset.tab ?? "database"; render(); }));
@@ -1021,6 +1257,7 @@ function bindEvents(): void {
     document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once: true }); dialog.showModal();
   });
   app.querySelectorAll<HTMLElement>("[data-result]").forEach((element) => element.addEventListener("click", () => { activeResult = element.dataset.result ?? "results"; render(); }));
+  bindMeasurementEvents();
   app.querySelector("#new-record")?.addEventListener("click", () => { void openRecordDialog("new"); });
   app.querySelector("#copy-record")?.addEventListener("click", () => { void openRecordDialog("copy"); });
   app.querySelector("#edit-record")?.addEventListener("click", () => { void openRecordDialog("edit"); });

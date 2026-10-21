@@ -9,6 +9,7 @@ const pwaRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const repositoryRoot = resolve(pwaRoot, "..");
 const referenceLoad = resolve(repositoryRoot, "build/release/223Rem_D0735_RWS.csrload");
 const originalLoad = resolve(repositoryRoot, "tests/fixtures/8x57is.grtload");
+const measurementLoad = resolve(repositoryRoot, "tests/fixtures/measurements.grtload");
 const bulletFile = resolve(repositoryRoot, "tests/fixtures/example.csrbullets");
 const nativeSimulator = resolve(repositoryRoot, "build/release/csr_sim.exe");
 
@@ -380,9 +381,88 @@ test("opens the release CSR load and exposes its native panels", async ({ page }
   await chamberLength.hover();
   await expect(page.locator('[data-drawing-measure="c_L3"]')).not.toHaveAttribute("hidden", "");
   if (process.env.PARITY_DRAWING_DIR) await page.screenshot({ path: resolve(process.env.PARITY_DRAWING_DIR, "chamber-current.png") });
-  await page.getByRole("button", { name: "Measurements" }).click();
-  await expect(page.getByText("900.5 m/s", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Measurements", exact: true }).click();
+  await expect(page.getByLabel("Shot 1 velocity")).toHaveValue("900.5");
   await expect(page.getByText("Opened 223Rem_D0735_RWS.csrload", { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("edits measurement series and compares measured shots with simulation", async ({ context, page }) => {
+  const errors: string[] = [];
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  page.on("pageerror", (error) => errors.push(error.message));
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: "http://127.0.0.1:4173" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.getByLabel("Unit system").selectOption("metric");
+  await page.locator("#file-picker").setInputFiles(measurementLoad);
+  await page.getByRole("button", { name: "Measurements", exact: true }).click();
+
+  await expect(page.getByLabel("Measurement series title")).toHaveValue("MEASUREMENTS");
+  await expect(page.locator(".measurement-table tbody tr")).toHaveCount(2);
+  await expect(page.locator(".measurement-table tbody tr").first()).toContainText("848.3");
+  await expect(page.locator(".measurement-table tbody tr").first().locator("td").nth(6)).toHaveText("684.7");
+  await expect(page.locator(".measurement-table tbody tr").first().locator("td").nth(9)).toHaveText("2,892");
+  await expect(page.locator(".measurement-table tbody tr").nth(1).locator("td").nth(6)).toHaveText("722.8");
+  await expect(page.locator(".measurement-table tbody tr").nth(1).locator("td").nth(9)).toHaveText("3,369");
+  await expect(page.getByRole("img", { name: "Measured and simulated velocity and peak pressure by charge" })).toBeVisible();
+  await expect(page.locator(".measurement-sim-velocity").first()).toHaveAttribute("d", /^M/);
+  await expect(page.locator(".measurement-mean[data-charge-g]")).toHaveCount(2);
+  const chartBox = await page.getByRole("img", { name: "Measured and simulated velocity and peak pressure by charge" }).boundingBox();
+  expect(chartBox).not.toBeNull();
+  await page.mouse.move(chartBox!.x + chartBox!.width * 0.5, chartBox!.y + chartBox!.height * 0.45);
+  await expect(page.locator(".measurement-chart-tooltip")).toContainText("Velocity (sim.)");
+  if (process.env.PARITY_MEASUREMENT_DIR) await page.screenshot({ path: resolve(process.env.PARITY_MEASUREMENT_DIR, "measurements-current.png") });
+
+  await page.locator(".measurement-table tbody tr").first().click();
+  await page.getByLabel("Measurement charge note").fill("Browser range session");
+  await page.getByLabel("Measurement charge note").press("Tab");
+  await page.getByRole("button", { name: "Add shot", exact: true }).click();
+  await page.getByLabel("Shot 5 velocity").fill("852.0");
+  await page.getByLabel("Shot 5 velocity").press("Tab");
+  await page.getByLabel("Shot 5 pressure").fill("3500");
+  await page.getByLabel("Shot 5 pressure").press("Tab");
+  await expect(page.locator(".measurement-table tbody tr").first().locator("td").nth(2)).toHaveText("5");
+
+  await page.evaluate(() => Object.defineProperty(navigator, "clipboard", {
+    configurable: true, value: { readText: async () => "Velocity Pressure\n853.0 3520\n855.0\nheader text" }
+  }));
+  await page.getByRole("button", { name: "Paste shots" }).click();
+  await expect(page.getByText("Pasted 2 measurement shots", { exact: true })).toBeVisible();
+  await expect(page.locator(".measurement-table tbody tr").first().locator("td").nth(2)).toHaveText("7");
+  await page.locator("[data-measurement-shot='0'] th").click();
+  await page.locator("[data-measurement-shot='1'] th").click({ modifiers: ["Control"] });
+  await page.getByRole("button", { name: "Remove shot", exact: true }).click();
+  await expect(page.getByText("Removed 2 measurement shots", { exact: true })).toBeVisible();
+  await expect(page.locator(".measurement-table tbody tr").first().locator("td").nth(2)).toHaveText("5");
+
+  await page.getByRole("button", { name: "New series" }).click();
+  await expect(page.getByLabel("Measurement series title")).toHaveValue("MEASUREMENTS 2");
+  await page.getByLabel("Measurement series title").fill("Browser session 2");
+  await page.getByLabel("Measurement series title").press("Tab");
+  await page.getByRole("button", { name: "Add charge", exact: true }).click();
+  await page.getByLabel("Charge name").fill("Browser charge");
+  await page.getByLabel("Charge name").press("Tab");
+  await page.getByLabel("Charge", { exact: true }).fill("2.500");
+  await page.getByLabel("Charge", { exact: true }).press("Tab");
+  await page.getByRole("button", { name: "Add shot", exact: true }).click();
+  await page.getByLabel("Shot 1 velocity").fill("810");
+  await page.getByLabel("Shot 1 velocity").press("Tab");
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.getByLabel("Shot 1 velocity")).toHaveValue("");
+  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await expect(page.getByLabel("Shot 1 velocity")).toHaveValue("810.0");
+  await expect(page.getByRole("button", { name: /measurements\*/i })).toBeVisible();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save CSR" }).click();
+  const saved = readFileSync((await (await downloadPromise).path())!, "utf8");
+  expect(saved.match(/<Measurement/g)).toHaveLength(2);
+  expect(saved).toContain("Browser%20range%20session");
+  expect(saved).toContain('velocity="855"');
+  expect(saved).toContain('title="Browser%20session%202"');
+  expect(saved).toContain('name="Browser%20charge"');
+  expect(saved).toContain('value="0.0025"');
   expect(errors).toEqual([]);
 });
 

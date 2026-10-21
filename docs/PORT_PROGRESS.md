@@ -8,7 +8,7 @@ Port ChamberSim Reloaded to an installable PWA with verified behavioral, numeric
 
 ## Current state (working / failing / blocked)
 
-Working, not blocked. The original Qt application and both release CLIs run locally. The PWA source builds successfully. Sixty-two unit tests, the latest typecheck, production build, nineteen live Edge end-to-end checks, and dependency audit pass. The generated service worker was verified by an offline browser reload, including the project database and lazy SQLite reader. Numerical profiles, charts, cartridge/chamber/powder drawings, editable inputs, dependent-field rules, deterministic recalculation, dirty state, undo/redo, lossless CSR save, compatible GRT export, native unit preferences, shotshell pressure-group choices, all three database sources, persistent personal-record CRUD/JSON export/photos, manufacturer bullet-file import, New Load, and database-backed component replacement now work. Reports and many secondary workflows remain incomplete.
+Working, not blocked. The original Qt application and both release CLIs run locally. The PWA source builds successfully. Sixty-seven unit tests, the latest typecheck, production build, twenty live Edge end-to-end checks, and dependency audit pass. The generated service worker was verified by an offline browser reload, including the project database and lazy SQLite reader. Numerical profiles, result and measurement charts, cartridge/chamber/powder drawings, editable inputs and measurement series, dependent-field rules, deterministic recalculation, dirty state, undo/redo, lossless CSR save, compatible GRT export, native unit preferences, shotshell pressure-group choices, all three database sources, persistent personal-record CRUD/JSON export/photos, manufacturer bullet-file import, New Load, and database-backed component replacement now work. Reports and many secondary workflows remain incomplete.
 
 ## Completed since previous checkpoint
 
@@ -82,21 +82,25 @@ Working, not blocked. The original Qt application and both release CLIs run loca
 - Replaced the cartridge and chamber placeholders with accessible inline SVG drawings, native dimension tables and linked hover overlays. Added the shotshell hull, head, powder, wad, shot-column and crimp drawing path.
 - Added three deterministic drawing tests against the native 8×57 geometry, case-capacity/powder solve, and edited length/OAL behavior. Edge verifies the cartridge, chamber, linked c_L3 dimension, shotshell parts and Original-load 57.30 mm chamber length.
 - Captured and inspected the 1280×800 Cartridge and Chamber panels against the native manual image, including the native A/B/C dimension spacing.
+- Ported the complete native measurement-series editor: multiple series, titles, charge names/weights/notes, focused charge and shot rows, single/range/additive shot selection, add/remove operations, ladder-charge insertion, unit-aware clipboard paste, validation, dirty state, and full-load undo/redo.
+- Extended measurement XML handling to preserve measurement/charge attributes, unrelated appendix elements and nested pressure-trace XML while editing shots or adding/removing series. New blocks receive the native `index` and `showinreport` attributes and charges receive the complete native attribute set.
+- Added the dual-axis measurement SVG chart with 13-point direct solver predictions, measured velocity/pressure scatter points, velocity mean and sample-SD bars, native range padding, profile/unit updates, cursor snapping, interpolation and measured/simulated hover details.
+- Ran the released CLI at both fixture charges and matched 684.7 m/s / 2,892 bar and 722.8 m/s / 3,369 bar in Edge. Captured both the native GUI and PWA at the same fixture and inspected their table, shot panel and chart layout.
 
 ## In-progress work (files/functions and exact remaining steps)
 
 - `pwa/src/lib/loadfile.ts`: read, lossless CSR update/download and compatible GRT export work. Native direct-path atomic replacement is intentionally mapped to an explicit browser download.
 - The manifest now exposes verified 192/256/512 px PNGs. A browser install prompt/installed-window check remains pending because the available automation does not expose installability UI.
 - `pwa/src/main.ts` now implements chart interactions and source-derived cartridge/chamber/shotshell drawings. Direct 1280×800 comparisons were performed; finer widget/style differences keep the broader shell row `IN PROGRESS`.
-- Unit conversion is implemented for the current property/result/chart/measurement surfaces. Remaining future surfaces (reports, database dialogs, unit converter and measurement editing) must use the same unit service as they are ported.
+- Unit conversion is implemented for the current property/result/chart/measurement-editor surfaces. Remaining future surfaces (reports, database dialogs and unit converter) must use the same unit service as they are ported.
 - `pwa/src/lib/owndb.ts`, `originaldb.ts`, `recordfields.ts`, `bulletfile.ts`, and `photos.ts` now cover persistent Personal records/images, a persistent read-only Original snapshot, the native editor schema/photo slots, JSON contribution export, and bullet-file import.
 - `pwa/src/lib/loadbuilder.ts` and the New Load/component dialogs reproduce the main selection/default/replacement semantics. The checklist remains `IN PROGRESS` pending broader direct GUI comparisons and replacement coverage for every component/reset combination.
 
 ## Next actions (ordered, directly actionable)
 
-1. Port measurement-series editing and the native comparison chart.
-2. Port reports/printing and remaining file-import workflows.
-3. Port chronograph imports and powder fitting.
+1. Port Garmin FIT/CSV, MagnetoSpeed and Labradar chronograph imports into the completed measurement workflow.
+2. Port reports/printing and template behavior.
+3. Port powder fitting and reference overlays.
 4. Continue screenshot-level shell and widget refinements without changing native workflows.
 
 ## How to run (working commands, directories, server URL/port if known)
@@ -125,11 +129,11 @@ Native references from the repository root:
 
 ## Tests and parity verification (commands, results, known failures)
 
-- `npm test`: PASS, 13 files and 62 tests, including exact cartridge/chamber/cavity/powder geometry, Original SQLite schema/default/image/error behavior, native photo scale-bar choices, complete project-data counts/order, personal-record normalization/export, native bullet-file parsing, load building/component replacement, tolerant database filtering/sorting, XML round trips, load editing/history, units and solver goldens.
+- `npm test`: PASS, 14 files and 67 tests, including measurement editing helpers, prediction/chart geometry and lossless nested measurement XML, exact cartridge/chamber/cavity/powder geometry, Original SQLite schema/default/image/error behavior, native photo scale-bar choices, complete project-data counts/order, personal-record normalization/export, native bullet-file parsing, load building/component replacement, tolerant database filtering/sorting, XML round trips, load editing/history, units and solver goldens.
 - `npm run typecheck`: PASS.
 - `npm audit`: PASS, zero vulnerabilities.
-- `npm run build`: PASS; 20 Workbox precache entries totaling 2,352.66 KiB uncompressed. The initial application JavaScript is 144.42 KiB (47.28 KiB gzip); the Original importer is a lazy 42.83 KiB (15.53 KiB gzip) JavaScript chunk plus 684.89 KiB (338.96 KiB gzip) WASM; the project/Physical-data database remains a lazy 149.19 KiB gzip chunk.
-- `npm run test:e2e`: PASS, 19 tests, including complete Project/Personal/Original database browsing/filtering/sorting/virtual scrolling/offline loading, native-scale Original import/persistence/removal/copy/image retention, personal CRUD/export/photos, photo resize/scale/reload/view/enlarge/remove, bullet-file import/persistence/duplicate suppression, New Load, native-CLI verification of the generated download, component replacement/Undo, unit persistence, shotshell groups, downloads, editing and simulations.
+- `npm run build`: PASS; 20 Workbox precache entries totaling 2,372.74 KiB uncompressed. The initial application JavaScript is 162.74 KiB (52.77 KiB gzip); the Original importer is a lazy 42.83 KiB (15.53 KiB gzip) JavaScript chunk plus 684.89 KiB (338.96 KiB gzip) WASM; the project/Physical-data database remains a lazy 149.19 KiB gzip chunk.
+- `npm run test:e2e`: PASS, 20 tests, including complete measurement series/charge/shot editing, unit-aware paste, multi-shot removal, solver comparison goldens, chart hover, undo/redo and saved XML; complete Project/Personal/Original database browsing/filtering/sorting/virtual scrolling/offline loading; native-scale Original import/persistence/removal/copy/image retention; personal CRUD/export/photos; bullet-file import; New Load; native-CLI verification; component replacement; unit persistence; shotshell groups; downloads and simulations.
 - `npm audit`: PASS, zero vulnerabilities after the save/export milestone.
 - Chrome DevTools browser connection: unavailable because Google Chrome is not installed. Playwright successfully launches installed Edge at `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`.
 - Native release regression command using the CMake-cache `ctest.exe`: exits 0 but reports `No tests were found`; the release preset/build does not contain configured test executables.
@@ -139,9 +143,8 @@ Native references from the repository root:
 
 ## Known issues and blockers
 
-- Reports, chronograph imports, fitting, most settings, translations, measurement editing and many secondary interactions are not yet ported. These are tracked as TODO or `IN PROGRESS` rather than hidden or simulated.
+- Reports, chronograph imports, fitting, most settings, translations and many secondary interactions are not yet ported. These are tracked as TODO or `IN PROGRESS` rather than hidden or simulated.
 - The proprietary Original GRT database is intentionally absent. Import was verified with the exact native SQLite table shape and the 578/5,659/683 counts used by native tests, but compatibility with a user's particular GRT release can only be exercised when that user supplies their own decrypted copy.
-- Measurement extra attributes/elements are retained only inside `sourceXml`; structured lossless editing is not implemented.
 - Manifest icon descriptors and actual 192/512 image dimensions are verified in Edge; install-prompt UI cannot be exercised through the current automation interface.
 - Native screenshot mode produced two usable screenshots; one concurrent screenshot process did not exit and was stopped after its executable path was verified.
 - No blockers require user input.

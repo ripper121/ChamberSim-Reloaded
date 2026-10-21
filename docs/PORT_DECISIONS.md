@@ -119,3 +119,9 @@ Last updated: 2026-10-21
 **Decision:** Port the cartridge, chamber and shotshell geometry calculations directly from the native views into a browser-independent module, then render their output as accessible inline SVG with dimension-table hover linkage.
 
 **Rationale:** The native views derive their profiles from load dimensions, solve wall thickness from case capacity, and integrate powder height rather than displaying decorative artwork. Keeping those calculations separate from SVG rendering preserves exact edited-load behavior and makes the geometry deterministic in unit tests. Inline SVG maps the native painter primitives and hover measurements directly to browser geometry without introducing an approximation library or bitmap-only result.
+
+## D-019 — Structured, lossless measurement editing with direct solver comparison
+
+**Decision:** Represent every measurement series, charge and shot as editable structured load data while retaining the native raw measurement/charge attributes and nested non-shot XML. Generate the comparison curve by running the selected solver profile at the native 13 padded charge points and render it as an accessible inline SVG.
+
+**Rationale:** Measurements are part of the portable load appendix, not browser-only state. DOM patching preserves pressure traces and unrelated appendix data while permitting native-compatible additions and removals. Using the actual solver for each cached charge reproduces the desktop table and chart semantics without fitted or decorative curves; separating statistics, curve construction and SVG rendering keeps the behavior unit-testable. Browser clipboard access remains an explicit user gesture and maps directly to the desktop Paste shots action.
