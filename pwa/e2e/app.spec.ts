@@ -268,7 +268,7 @@ test("creates a simulatable load through the native two-step database workflow",
 
   await expect(page.getByRole("button", { name: "Untitled 1" })).toBeVisible();
   await expect(page.getByText(/New load created: 223 Rem\./)).toBeVisible();
-  await expect(page.getByText("Physical model · 2000 points", { exact: true })).toBeVisible();
+  await expect(page.getByText("Model: Physical Model", { exact: true })).toBeVisible();
   await expect(page.getByRole("definition").filter({ hasText: "1,992 bar" })).toBeVisible();
   await expect(page.getByRole("definition").filter({ hasText: "786.8 m/s" })).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
@@ -703,7 +703,7 @@ test("runs verified Physical and Original simulations in the results view", asyn
   await expect(heading.getByRole("row", { name: /Projectile length: 16.20 mm/ })).toBeVisible();
   await expect(page.getByText("3,614 bar", { exact: true })).toBeVisible();
   await expect(page.getByText("903.2 m/s", { exact: true })).toBeVisible();
-  await expect(page.getByText("Physical model · 2000 points", { exact: true })).toBeVisible();
+  await expect(page.getByText("Model: Physical Model", { exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: "Burn rate Ba times phi of z" })).toBeVisible();
   await expect(page.locator(".event-marker")).toHaveCount(4);
 
@@ -1140,7 +1140,26 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(page.getByText("484 Einträge", { exact: true })).toBeVisible();
   await page.locator("#unit-system").selectOption("metric");
   await page.locator("#file-picker").setInputFiles(referenceLoad);
-  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Patrone & Waffe", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Geschoss", exact: true })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Shotshell", exact: true })).toContainText("nein");
+  await expect(page.getByRole("combobox", { name: "Shotshell", exact: true })).toContainText("ja");
+  await page.getByRole("button", { name: "Pulver", exact: true }).click();
+  await expect(page.getByRole("columnheader", { name: "Eigenschaft", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Wert", exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Einheit", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pulver wählen…", exact: true })).toHaveAttribute("title", "Diese Komponente durch einen anderen Datensatz der Datenbank ersetzen");
+  await expect(page.getByRole("button", { name: "Ergebnisse", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Messungen", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Bericht", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Patrone", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Patronenlager", exact: true })).toBeVisible();
+  await expect(page.getByText("Maximaldruck", { exact: true })).toBeVisible();
+  await expect(page.getByText("Mündungsgeschwindigkeit", { exact: true })).toBeVisible();
+  await expect(page.locator("#solver-profile")).toContainText("Physikalisches Modell");
+  await expect(page.getByText("Modell: Physikalisches Modell", { exact: true })).toBeVisible();
+  await expect(page.locator("#chart-axis")).toContainText("Zeitachse");
+  await expect(page.locator("#chart-axis")).toContainText("Wegachse");
   const charge = page.getByRole("textbox", { name: "Powder Charge", exact: true });
   await expect(charge).toHaveValue("1,639");
   await charge.fill("1,5");
