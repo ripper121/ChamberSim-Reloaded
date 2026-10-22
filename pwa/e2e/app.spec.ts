@@ -87,7 +87,7 @@ test("sorts and filters the native burn-rate table and converts every unit group
   await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
 
   const openTool = async (name: string): Promise<void> => {
-    await page.locator(".menu-dropdown summary").click();
+    await page.locator(".menu-dropdown summary").filter({ hasText: "Tools" }).click();
     await page.getByRole("button", { name, exact: true }).click();
   };
   await openTool("Burn rate table…");
@@ -1047,6 +1047,56 @@ test("shows app update state at the right of the menu and checks on click", asyn
     return getComputedStyle(dot).backgroundColor;
   });
   expect(outdatedColor).toBe("rgb(237, 75, 75)");
+});
+
+test("switches and persists System default, Light, and Dark themes", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  const root = page.locator("html");
+  await expect(root).toHaveAttribute("data-theme-preference", "system");
+  await expect(root).toHaveAttribute("data-theme", "dark");
+
+  const openView = async (): Promise<void> => {
+    await page.locator(".view-menu summary").click();
+  };
+  await openView();
+  await expect(page.getByRole("menuitemradio", { name: "System default", exact: true })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("menuitemradio", { name: "Light", exact: true }).click();
+  await expect(root).toHaveAttribute("data-theme", "light");
+  await expect(page.locator(".app-shell")).toHaveCSS("background-color", "rgb(239, 239, 239)");
+  expect(await page.evaluate(() => localStorage.getItem("csr-theme"))).toBe("light");
+
+  await page.locator(".menu-dropdown summary").filter({ hasText: "Tools" }).click();
+  await page.getByRole("button", { name: "Unit converter…", exact: true }).click();
+  const converter = page.getByRole("dialog", { name: "Unit converter" });
+  await expect(converter).toHaveCSS("background-color", "rgb(239, 239, 239)");
+  await converter.getByRole("button", { name: "Close", exact: true }).click();
+
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await expect(page.locator(".result-chart")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(page.locator(".technical-svg .case-cavity")).toHaveCSS("fill", "rgb(244, 240, 230)");
+  await openView();
+  await page.getByRole("menuitemradio", { name: "Dark", exact: true }).click();
+  await expect(page.locator(".result-chart")).toHaveCSS("background-color", "rgb(32, 32, 32)");
+  await expect(page.locator(".technical-svg .case-cavity")).toHaveCSS("fill", "rgb(24, 28, 34)");
+  await openView();
+  await page.getByRole("menuitemradio", { name: "Light", exact: true }).click();
+
+  await page.reload();
+  await expect(root).toHaveAttribute("data-theme-preference", "light");
+  await expect(root).toHaveAttribute("data-theme", "light");
+  await openView();
+  await page.getByRole("menuitemradio", { name: "Dark", exact: true }).click();
+  await expect(root).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator(".app-shell")).toHaveCSS("background-color", "rgb(40, 40, 40)");
+
+  await openView();
+  await page.getByRole("menuitemradio", { name: "System default", exact: true }).click();
+  expect(await page.evaluate(() => localStorage.getItem("csr-theme"))).toBeNull();
+  await expect(root).toHaveAttribute("data-theme", "dark");
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(root).toHaveAttribute("data-theme", "light");
 });
 
 test("the golden load fixture used by browser QA is present", () => {

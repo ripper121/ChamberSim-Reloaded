@@ -1,0 +1,59 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import { ThemePreference } from "./theme";
+
+class SystemTheme extends EventTarget {
+  media = "(prefers-color-scheme: dark)";
+  onchange = null;
+
+  constructor(public matches: boolean) { super(); }
+
+  change(matches: boolean): void {
+    this.matches = matches;
+    this.dispatchEvent(new Event("change"));
+  }
+}
+
+describe("ThemePreference", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.removeAttribute("data-theme-preference");
+    document.head.innerHTML = '<meta name="theme-color" content="#252525">';
+  });
+
+  it("uses and follows the browser scheme for System default", () => {
+    const system = new SystemTheme(false);
+    const preference = new ThemePreference(localStorage, document.documentElement, system as unknown as MediaQueryList);
+    expect(preference.mode).toBe("system");
+    expect(preference.effective).toBe("light");
+    expect(document.documentElement.dataset.theme).toBe("light");
+
+    system.change(true);
+    expect(preference.effective).toBe("dark");
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content).toBe("#2b313b");
+  });
+
+  it("persists explicit modes and removes the override for System default", () => {
+    const system = new SystemTheme(true);
+    const preference = new ThemePreference(localStorage, document.documentElement, system as unknown as MediaQueryList);
+    preference.set("light");
+    expect(localStorage.getItem("csr-theme")).toBe("light");
+    expect(document.documentElement.dataset.theme).toBe("light");
+    system.change(false);
+    system.change(true);
+    expect(document.documentElement.dataset.theme).toBe("light");
+
+    preference.set("system");
+    expect(localStorage.getItem("csr-theme")).toBeNull();
+    expect(document.documentElement.dataset.theme).toBe("dark");
+  });
+
+  it("restores a saved dark preference", () => {
+    localStorage.setItem("csr-theme", "dark");
+    const preference = new ThemePreference(localStorage, document.documentElement, new SystemTheme(false) as unknown as MediaQueryList);
+    expect(preference.mode).toBe("dark");
+    expect(preference.effective).toBe("dark");
+    expect(document.documentElement.style.colorScheme).toBe("dark");
+  });
+});

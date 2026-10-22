@@ -24,10 +24,12 @@ import { applyPowderFit, defaultPowderFitParams, fitPowderAll, powderFitQuality,
 import { parseReferenceRun, referenceNumber, type ReferenceRun } from "./lib/reference";
 import { burnRateRows, filterBurnRateRows, sortBurnRateRows, type BurnRateColumn, type BurnRateFactor } from "./lib/burnrate";
 import { convertUnitValues, converterQuantities, type ConvertibleQuantity } from "./lib/unitconverter";
+import { ThemePreference, type ThemeMode } from "./lib/theme";
 
 const appNode = document.querySelector<HTMLDivElement>("#app");
 if (!appNode) throw new Error("Application root is missing");
 const app: HTMLDivElement = appNode;
+const themePreference = new ThemePreference(localStorage, document.documentElement, window.matchMedia("(prefers-color-scheme: dark)"));
 
 const loads: LoadFile[] = [];
 let activeTab = "database";
@@ -645,7 +647,9 @@ function render(): void {
   const current = activeLoad();
   const currentHistory = current ? historyFor(current) : undefined;
   const tabs = [`<button data-tab="database" class="${activeTab === "database" ? "active" : ""}">Database</button>`, ...loads.map((load, index) => `<button data-tab="load-${index}" class="${activeTab === `load-${index}` ? "active" : ""}">${escapeHtml(load.fileName.replace(/\.(csrload|grtload)$/i, ""))}${historyFor(load).modified ? "*" : ""}<span class="close" data-close="${index}" aria-label="Close load">×</span></button>`)].join("");
-  app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu"><button>File</button><button id="save-csr" ${current ? "" : "disabled"}>Save CSR</button><button id="export-grt" ${current ? "" : "disabled"}>Export GRT</button><button id="overlay-reference" ${current ? "" : "disabled"} title="Overlay an original-program reference result (Ctrl+R)">Overlay reference…</button><button id="clear-reference" ${current && referenceRuns.has(current) ? "" : "disabled"}>Clear reference</button><button>Edit</button><button id="undo" ${currentHistory?.canUndo ? "" : "disabled"}>Undo</button><button id="redo" ${currentHistory?.canRedo ? "" : "disabled"}>Redo</button><button>View</button><details class="menu-dropdown"><summary>Tools</summary><div class="menu-popup"><button id="burn-rate-table" ${projectDatabase ? "" : "disabled"}>Burn rate table…</button><button id="unit-converter">Unit converter…</button></div></details><label class="menu-select">Units <select id="unit-system" aria-label="Unit system"><option value="metric" ${unitPreferences.system === "metric" ? "selected" : ""}>Metric</option><option value="imperial" ${unitPreferences.system === "imperial" ? "selected" : ""}>Imperial</option><option value="original" ${unitPreferences.system === "original" ? "selected" : ""}>Original</option></select></label><button id="reset-field-units">Reset field units</button><button>Help</button></nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="reference-picker" type="file" accept=".json,application/json" hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden /><input id="chronograph-picker" type="file" accept=".fit,.FIT,.csv,.CSV" hidden />`;
+  const themeOptions: Array<[ThemeMode, string]> = [["system", "System default"], ["light", "Light"], ["dark", "Dark"]];
+  const themeMenu = themeOptions.map(([mode, label]) => `<button role="menuitemradio" aria-checked="${themePreference.mode === mode}" data-theme-mode="${mode}"><span aria-hidden="true">${themePreference.mode === mode ? "✓" : ""}</span>${label}</button>`).join("");
+  app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu"><button>File</button><button id="save-csr" ${current ? "" : "disabled"}>Save CSR</button><button id="export-grt" ${current ? "" : "disabled"}>Export GRT</button><button id="overlay-reference" ${current ? "" : "disabled"} title="Overlay an original-program reference result (Ctrl+R)">Overlay reference…</button><button id="clear-reference" ${current && referenceRuns.has(current) ? "" : "disabled"}>Clear reference</button><button>Edit</button><button id="undo" ${currentHistory?.canUndo ? "" : "disabled"}>Undo</button><button id="redo" ${currentHistory?.canRedo ? "" : "disabled"}>Redo</button><details class="menu-dropdown view-menu"><summary>View</summary><div class="menu-popup" role="menu" aria-label="View"><span class="menu-heading">Theme</span>${themeMenu}</div></details><details class="menu-dropdown"><summary>Tools</summary><div class="menu-popup"><button id="burn-rate-table" ${projectDatabase ? "" : "disabled"}>Burn rate table…</button><button id="unit-converter">Unit converter…</button></div></details><label class="menu-select">Units <select id="unit-system" aria-label="Unit system"><option value="metric" ${unitPreferences.system === "metric" ? "selected" : ""}>Metric</option><option value="imperial" ${unitPreferences.system === "imperial" ? "selected" : ""}>Imperial</option><option value="original" ${unitPreferences.system === "original" ? "selected" : ""}>Original</option></select></label><button id="reset-field-units">Reset field units</button><button>Help</button></nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="reference-picker" type="file" accept=".json,application/json" hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden /><input id="chronograph-picker" type="file" accept=".fit,.FIT,.csv,.CSV" hidden />`;
   const syncLabel = appSyncState === "outdated" ? "Update available" : appSyncState === "checking" ? "Checking for updates" : appSyncState === "updating" ? "Applying update" : "App is up to date";
   app.querySelector(".menubar")?.insertAdjacentHTML("beforeend", `<button id="app-sync" class="app-sync ${appSyncState}" aria-label="${syncLabel}" title="${syncLabel}. Click to check for and load the latest app version." ${appSyncState === "checking" || appSyncState === "updating" ? "disabled" : ""}><span class="sync-dot" aria-hidden="true"></span><span>Sync</span></button>`);
   const fileButton = app.querySelector<HTMLButtonElement>(".menubar > button:first-child");
@@ -1718,13 +1722,19 @@ function bindSplitters(root: ParentNode = app): void {
 function bindEvents(): void {
   bindSplitters();
   app.querySelector("#app-sync")?.addEventListener("click", () => { void syncLatestApp(); });
+  app.querySelectorAll<HTMLButtonElement>("[data-theme-mode]").forEach((button) => button.addEventListener("click", () => {
+    const mode = button.dataset.themeMode as ThemeMode;
+    themePreference.set(mode);
+    status = `Theme: ${button.textContent?.trim() ?? mode}`;
+    render();
+  }));
   app.querySelector("#settings")?.addEventListener("click", openDatabaseSettings);
-  app.querySelector("#burn-rate-table")?.addEventListener("click", () => {
-    app.querySelector<HTMLDetailsElement>(".menu-dropdown")?.removeAttribute("open");
+  app.querySelector("#burn-rate-table")?.addEventListener("click", (event) => {
+    (event.currentTarget as HTMLElement).closest("details")?.removeAttribute("open");
     openBurnRateDialog();
   });
-  app.querySelector("#unit-converter")?.addEventListener("click", () => {
-    app.querySelector<HTMLDetailsElement>(".menu-dropdown")?.removeAttribute("open");
+  app.querySelector("#unit-converter")?.addEventListener("click", (event) => {
+    (event.currentTarget as HTMLElement).closest("details")?.removeAttribute("open");
     openUnitConverterDialog();
   });
   app.querySelectorAll<HTMLElement>("[data-tab]").forEach((element) => element.addEventListener("click", () => { activeTab = element.dataset.tab ?? "database"; render(); }));
