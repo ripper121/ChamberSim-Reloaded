@@ -1,6 +1,6 @@
 # PWA Port Decisions
 
-Last updated: 2026-10-21
+Last updated: 2026-10-22
 
 ## D-001 — Keep the PWA isolated under `pwa/`
 
@@ -131,3 +131,9 @@ Last updated: 2026-10-21
 **Decision:** Port the native Garmin FIT/CSV, MagnetoSpeed and Labradar parsers directly to TypeScript and read user-selected files entirely in the browser. Present the same per-series statistics, selection and powder-charge review before adding shots to the active measurement series.
 
 **Rationale:** Chronograph files contain range data that need not leave the user's device, and browsers cannot reuse a desktop path or invoke the native importer. A byte-level FIT parser and source-equivalent text parsers preserve file detection, unit conversion, missed-shot filtering, ordering and error semantics without a runtime dependency. One full-load history mutation makes a multi-series import undoable as a single native-style operation; the explicit file picker is the only required platform adaptation.
+
+## D-021 — Keep the report language independent from browser output
+
+**Decision:** Port the native number-format, placeholder and safe wiki-markup engines into a pure TypeScript report module before attaching them to the Report tab or browser printing APIs.
+
+**Rationale:** Custom templates are portable user data whose expansion semantics must not depend on the DOM, a print library or a particular browser. A pure renderer permits direct coverage of the native core tests, keeps untrusted template text escaped, and lets the same generated HTML drive the on-screen report, live editor preview and print/PDF layout. Browser print dialogs and PDF saving remain explicit platform adaptations layered above this compatibility core.

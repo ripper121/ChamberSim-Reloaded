@@ -1,6 +1,6 @@
 # PWA Port Progress
 
-Last updated: 2026-10-21
+Last updated: 2026-10-22
 
 ## Current objective
 
@@ -89,6 +89,8 @@ Working, not blocked. The original Qt application and both release CLIs run loca
 - Ported `chronograph.cpp` directly into `pwa/src/lib/chronograph.ts`: Garmin shot-session FIT definitions/data, localized and quoted Garmin CSV, MagnetoSpeed multi-series CSV, NUL-padded Labradar reports, native unit conversions, zero-speed miss filtering, shot-number ordering and exact rejection messages.
 - Added the native-style chronograph review dialog with per-series selection, shot count, mean/sample SD, unit-aware editable powder charge, exact unrounded default retention and invalid/non-positive fallback. Selected series become measurement charges with velocity-only shots in one undoable history action.
 - Matched all repository Xero fixtures and native synthetic cases: exact shot counts and first velocities for four additional FIT files and four localized CSV files, the complete five-shot Garmin vector, localized title preservation, and truncated/damaged/foreign/empty-file rejection. Edge verifies both import formats, dialog behavior, missed-shot omission, last-charge selection, undo/redo and malformed-file recovery.
+- Ported the reusable report-language core from `reportformat.cpp`, `report.cpp` and `wiki.cpp` into `pwa/src/lib/report.ts`: native half-away number formatting, automatic units, case-insensitive placeholders, safe markup, headings/paragraphs/lists/tables/code, links, colors/sizes, image sizing/alignment and print page breaks.
+- Added the complete native default report template and 42 direct compatibility cases covering the original core tests, including hostile-template escaping and Metric/Imperial placeholder semantics. The focused test file and TypeScript check pass; the Report tab and output workflow remain the next part of this feature.
 
 ## In-progress work (files/functions and exact remaining steps)
 
@@ -99,10 +101,11 @@ Working, not blocked. The original Qt application and both release CLIs run loca
 - `pwa/src/lib/owndb.ts`, `originaldb.ts`, `recordfields.ts`, `bulletfile.ts`, and `photos.ts` now cover persistent Personal records/images, a persistent read-only Original snapshot, the native editor schema/photo slots, JSON contribution export, and bullet-file import.
 - `pwa/src/lib/loadbuilder.ts` and the New Load/component dialogs reproduce the main selection/default/replacement semantics. The checklist remains `IN PROGRESS` pending broader direct GUI comparisons and replacement coverage for every component/reset combination.
 - `pwa/src/lib/chronograph.ts` and the measurement import dialog cover every native chronograph format and tracked fixture. Direct filesystem paths are intentionally translated to an explicit browser file picker.
+- `pwa/src/lib/report.ts` now covers the source-equivalent pure report/template engine. Next, build report data and browser-renderable diagrams from the active load, then wire the tab, editor, persistent 50–200% scale and print/PDF actions.
 
 ## Next actions (ordered, directly actionable)
 
-1. Port reports/printing and template behavior.
+1. Complete the Report tab: build active-load/diagram/measurement data, add the live template editor and persistent scale, and verify browser print/PDF behavior.
 2. Port powder fitting and reference overlays.
 3. Continue screenshot-level shell and widget refinements without changing native workflows.
 
