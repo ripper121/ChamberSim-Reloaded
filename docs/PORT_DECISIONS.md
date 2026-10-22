@@ -137,3 +137,9 @@ Last updated: 2026-10-22
 **Decision:** Port the native number-format, placeholder and safe wiki-markup engines into a pure TypeScript report module before attaching them to the Report tab or browser printing APIs.
 
 **Rationale:** Custom templates are portable user data whose expansion semantics must not depend on the DOM, a print library or a particular browser. A pure renderer permits direct coverage of the native core tests, keeps untrusted template text escaped, and lets the same generated HTML drive the on-screen report, live editor preview and print/PDF layout. Browser print dialogs and PDF saving remain explicit platform adaptations layered above this compatibility core.
+
+## D-022 — Use one A4 browser document for preview, print and PDF
+
+**Decision:** Render the same safe report HTML and source-derived SVG images on screen and in an A4 document with 15 mm print margins. Map desktop Print to the browser print dialog, Print preview to a separate same-origin report window, and Export PDF to the print dialog with explicit “Save as PDF” guidance.
+
+**Rationale:** Browser security does not provide a portable API that writes a generated PDF to an arbitrary path, while every target browser provides print preview and a PDF destination. Sharing one document preserves report content, scale, page breaks and images without adding a second PDF renderer whose layout could diverge from the visible report. The extra destination selection is the unavoidable browser interaction.

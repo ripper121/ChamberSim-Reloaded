@@ -1,5 +1,6 @@
 import { registerSW } from "virtual:pwa-register";
 import "./styles.css";
+import packageInfo from "../package.json";
 import { readLoadFile, serializeLoadXml, type Entry, type FileFormat, type LoadFile, type MeasurementSeries } from "./lib/loadfile";
 import { LoadHistory, type LoadSection } from "./lib/loadedit";
 import shotPartData from "../../data/shotshell/parts.json";
@@ -13,6 +14,8 @@ import { applyCaliber, applyProjectile, applyPropellant, buildLoad, defaultBarre
 import { preparePhoto, scaleBarMm, type StoredImage } from "./lib/photos";
 import type { OriginalDatabaseInfo } from "./lib/originaldb";
 import { technicalDrawingView } from "./lib/drawingview";
+import { buildReportData } from "./lib/reportdata";
+import { defaultReportTemplate, renderReport, reportImage, reportUnitForSystem, type ReportData, type ReportValue } from "./lib/report";
 import { copyRecordValues, parseRecordNumber, recordFields, shownRecordNumber, type RecordField } from "./lib/recordfields";
 import { simInputFromLoad, type SimInput } from "./lib/siminput";
 import { calibrationFor, simulate, simulateLadder, vivacityCurve, type CalibrationProfile, type LadderResult, type SimPoint, type SimResult } from "./lib/solver";
@@ -59,6 +62,8 @@ let projectDatabaseError = "";
 let untitledCounter = 0;
 const databaseRowHeight = 22;
 const databaseWindowSize = 120;
+const reportTemplateKey = "csr-report-template";
+const reportScaleKey = "csr-report-scale";
 
 const fieldLabels: Record<string, string> = {
   CaliberName: "Caliber Name", oal: "Cartridge Overall Length", caselen: "Case Length", casevol: "Case Volume",
@@ -394,13 +399,94 @@ function drawingView(load: LoadFile): string {
   return `<div class="drawing-panel powder-photo-view">${tabs}<div class="photo-choice"><button data-photo-show="0" class="${selected === 0 ? "active" : ""}" ${photos[0] ? "" : "disabled"} title="Photo of the powder grains">Overview</button><button data-photo-show="1" class="${selected === 1 ? "active" : ""}" ${photos[1] ? "" : "disabled"} title="Close-up photo of a grain">Detail</button></div><figure data-enlarge-photo title="Double-click to enlarge"><div class="photo-image-wrap"><img src="${escapeHtml(photo.dataUrl)}" alt="${escapeHtml(photo.name || "Powder photo")}">${bar}</div><figcaption>${escapeHtml(photo.name)}</figcaption></figure></div>`;
 }
 
+function storedReportScale(): number {
+  const value = Number(localStorage.getItem(reportScaleKey) ?? "100");
+  return Number.isFinite(value) ? clampInteger(value, 50, 200) : 100;
+}
+
+function storedReportTemplate(): string { return localStorage.getItem(reportTemplateKey) || defaultReportTemplate; }
+
+const reportSvgStyle = `<style>
+  svg{background:#fff;color:#111;font-family:Segoe UI,Arial,sans-serif} .grid{stroke:#ddd!important;stroke-width:1}.axis{stroke:#555!important}
+  .axis-label,.axis-title,.marker-label,text{fill:#222!important}.pressure-curve{stroke:#c43d3d!important}.energy-curve{stroke:#168b78!important}
+  .velocity-curve{stroke:#4057c5!important}.ladder-curve{opacity:.3}.permitted-line{stroke:#9c3c8c!important}.event-marker{stroke:#777!important}
+  .measurement-sim-velocity{fill:none;stroke:#2465a6;stroke-width:2}.measurement-sim-pressure{fill:none;stroke:#c43d3d;stroke-width:2;stroke-dasharray:7 4}
+  .measurement-shot-velocity{fill:#62a1df;stroke:#2465a6}.measurement-shot-pressure{fill:#df6d60;stroke:#c43d3d}.measurement-mean{fill:#2465a6;stroke:#222}
+  .measurement-error{stroke:#2465a6;stroke-width:2}.measurement-cursor,.chart-cursor,.cursor-dot{display:none}.fixed-dimension{stroke:#222;fill:#222}.fixed-dimension text{stroke:none;fill:#222}
+  [data-drawing-measure]{display:none}.groove-line{stroke:#555;stroke-dasharray:4 3}
+</style>`;
+
+function reportSvg(markup: string, className: string, width: number, height: number) {
+  const holder = document.createElement("div");
+  holder.innerHTML = markup;
+  const svg = holder.querySelector<SVGSVGElement>(`svg.${className}`);
+  if (!svg) return reportImage("", width, height);
+  svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  svg.insertAdjacentHTML("afterbegin", reportSvgStyle);
+  return reportImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.outerHTML)}`, width, height);
+}
+
+function stackedReportSvg(top: ReportValue, bottom: ReportValue): ReportValue {
+  if (top.kind !== "image" || bottom.kind !== "image") return reportImage("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 1160"><rect width="1100" height="1160" fill="white"/><image href="${top.src}" width="1100" height="560"/><image href="${bottom.src}" y="560" width="1100" height="600"/></svg>`;
+  return reportImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, 1100, 1160);
+}
+
+function reportDataFor(load: LoadFile): ReportData {
+  const ladder = simulationFor(load);
+  const focus = clampInteger(ladderFocus.get(load) ?? 0, 0, Math.max(ladder.length - 1, 0));
+  const focused = ladder[focus];
+  const baseInput = simInputFromLoad(load);
+  const input = focused ? { ...baseInput, chargeG: focused.chargeG } : baseInput;
+  const result = focused?.result ?? simulate(input, calibrationFor(activeProfile));
+  const otherResults = ladder.filter((_, index) => index !== focus).map((candidate) => candidate.result);
+  const seriesIndex = clampInteger(measurementSeriesSelections.get(load) ?? 0, 0, Math.max(load.measurements.length - 1, 0));
+  const measurement = load.measurements[seriesIndex];
+  const predictions = measurement ? measurementCurve(load, measurement) : [];
+  const reportPredictions = measurement?.charges.map((charge) => {
+    const chargeG = charge.chargeKg * 1e3, value = measurementResult(load, chargeG);
+    return { chargeG, velocityMs: value.status === "ok" ? value.muzzleVelocityMs : 0, pressureBar: value.status === "ok" ? value.maxPressureBar : 0 };
+  }) ?? [];
+  const measurementMarkup = measurement ? measurementChartSvg(measurement, predictions, {
+    charge: unitPreferences.unitFor("bulletMass"), velocity: unitPreferences.unitFor("velocity"), pressure: unitPreferences.unitFor("pressure")
+  }) : "";
+  const images: Record<string, ReportValue> = {};
+  if (result.status === "ok") {
+    const curves = reportSvg(chartView(result, otherResults, input), "result-chart", 1100, 560);
+    const burn = reportSvg(vivacityView(input), "vivacity-chart", 1100, 600);
+    Object.assign(images, {
+      "result.diagramm.png": stackedReportSvg(curves, burn), "result.diagramCurves.png": curves, "result.diagramPropellant.png": burn,
+      "caliber.drawing.png": reportSvg(technicalDrawingView(load, "cartridge", unitPreferences), "technical-svg", 420, 760),
+      "caliber.chamber.png": reportSvg(technicalDrawingView(load, "chamber", unitPreferences), "technical-svg", 420, 760)
+    });
+    if (measurementMarkup) images["measurement.chart.png"] = reportSvg(measurementMarkup, "measurement-chart", 1100, 480);
+  }
+  return buildReportData(load, input, result, {
+    appVersion: packageInfo.version, fileName: load.fileName, measurement: result.status === "ok" ? measurement : undefined, measurementPredictions: reportPredictions,
+    measurementChart: images["measurement.chart.png"], images,
+    unitFor: (quantity) => unitPreferences.unitFor(quantity)
+  });
+}
+
+function renderedReport(load: LoadFile): string {
+  const html = renderReport(storedReportTemplate(), reportDataFor(load), {
+    unitFor: reportUnitForSystem(unitPreferences.system), pageWidth: 720
+  });
+  return /<body>([\s\S]*)<\/body>/.exec(html)?.[1] ?? html;
+}
+
+function reportView(load: LoadFile): string {
+  const scale = storedReportScale();
+  return `<div class="report-view"><div class="report-toolbar"><button id="edit-report-template">Edit template</button><label>Scale <input id="report-scale" type="number" min="50" max="200" step="5" value="${scale}" aria-label="Report scale"> %</label><span></span><button class="primary" id="report-preview">Print preview</button><button class="primary" id="report-print">Print</button><button class="primary" id="report-pdf">Export PDF</button></div><div class="report-scroll"><article class="report-paper"><div class="report-content" style="zoom:${scale / 100}">${renderedReport(load)}</div></article></div></div>`;
+}
+
 function loadWorkspace(load: LoadFile): string {
   const inputSections: Array<{ section: LoadSection; entries: readonly Entry[] }> = activeInput === "cartridge"
     ? [{ section: "caliber", entries: load.caliber }, { section: "shotshell", entries: load.shotshell }, { section: "gun", entries: load.gun }]
     : activeInput === "projectile" ? [{ section: "projectile", entries: load.projectile }]
       : [{ section: "propellant", entries: load.propellant }, { section: "physical", entries: load.physical }, { section: "shotshell", entries: load.shotshell }];
   const resultContent = activeResult === "measurements" ? measurementView(load) : activeResult === "report"
-    ? `<div class="empty-panel">Report rendering is not implemented yet.</div>`
+    ? reportView(load)
     : resultView(load);
   const component: ProjectTable = activeInput === "cartridge" ? "caliber" : activeInput as ProjectTable;
   const selectLabel = component === "caliber" ? "Select Caliber" : component === "projectile" ? "Select Projectile" : "Select Propellant";
@@ -1291,6 +1377,61 @@ function bindMeasurementEvents(): void {
   chart?.addEventListener("pointerleave", () => { chart.classList.remove("cursor-visible"); tooltip?.classList.remove("visible"); });
 }
 
+function reportDocument(load: LoadFile, includeToolbar: boolean): string {
+  const scale = storedReportScale();
+  const toolbar = includeToolbar ? `<div class="preview-toolbar"><button onclick="window.print()">Print</button><span>A4 · 15 mm margins · ${scale}% scale</span></div>` : "";
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(load.title)} — Report</title><style>
+    @page{size:A4;margin:15mm}*{box-sizing:border-box}body{margin:0;background:#e4e4e4;color:#111;font:10pt Arial,sans-serif}
+    .preview-toolbar{position:sticky;top:0;z-index:3;display:flex;gap:12px;align-items:center;padding:8px;background:#333;color:#fff}.preview-toolbar button{padding:5px 18px}
+    article{width:180mm;min-height:267mm;margin:12px auto;padding:0;background:#fff;box-shadow:0 2px 14px #0005}.report-content{zoom:${scale / 100}}h1,h2,h3,h4,h5{break-after:avoid}table{width:100%;border-collapse:collapse;break-inside:avoid}th,td{padding:4px;border:1px solid #777;text-align:left}img{max-width:100%;height:auto}a{color:#174f9b}
+    @media print{body{background:#fff}.preview-toolbar{display:none}article{width:auto;min-height:0;margin:0;box-shadow:none}}
+  </style></head><body>${toolbar}<article><div class="report-content">${renderedReport(load)}</div></article></body></html>`;
+}
+
+function openReportOutput(load: LoadFile, printNow: boolean, pdf = false): void {
+  const popup = window.open("", "_blank");
+  if (!popup) { status = "The browser blocked the report window; allow pop-ups and try again"; render(); return; }
+  popup.document.open(); popup.document.write(reportDocument(load, !printNow)); popup.document.close();
+  if (printNow) window.setTimeout(() => popup.print(), 0);
+  status = pdf ? "In the browser print dialog, choose Save as PDF" : printNow ? "Opened the browser print dialog" : "Opened report print preview";
+  const footer = app.querySelector("footer"); if (footer) footer.textContent = status;
+}
+
+function openReportTemplateEditor(load: LoadFile): void {
+  const data = reportDataFor(load);
+  const dialog = document.createElement("dialog");
+  dialog.className = "report-template-dialog"; dialog.setAttribute("aria-label", "Edit report template");
+  const groups = new Map<string, string[]>();
+  for (const key of [...data.keys()].sort()) {
+    const [group = "values"] = key.split(".");
+    const keys = groups.get(group) ?? []; keys.push(key); groups.set(group, keys);
+  }
+  const options = [...groups].map(([group, keys]) => `<optgroup label="${escapeHtml(group)}">${keys.map((key) => `<option value="${escapeHtml(key)}">${escapeHtml(key.slice(key.indexOf(".") + 1))}</option>`).join("")}</optgroup>`).join("");
+  dialog.innerHTML = `<form><div class="report-editor-bar"><label>Insert value <select data-report-insert><option value="">Choose…</option>${options}</select></label><button type="button" data-report-reset>Reset to default</button><span>Placeholders: <code>~~source.property~~</code> or <code>~~source.property("#.00")~~</code></span></div><div class="report-editor-split"><textarea aria-label="Report template" spellcheck="false"></textarea><div class="report-editor-preview"></div></div><div class="dialog-buttons"><button type="button" data-report-cancel>Cancel</button><button class="primary" type="submit">OK</button></div></form>`;
+  document.body.append(dialog);
+  const editor = dialog.querySelector<HTMLTextAreaElement>("textarea")!;
+  const preview = dialog.querySelector<HTMLElement>(".report-editor-preview")!;
+  editor.value = storedReportTemplate();
+  let timer = 0;
+  const update = (): void => { preview.innerHTML = /<body>([\s\S]*)<\/body>/.exec(renderReport(editor.value, data, { unitFor: reportUnitForSystem(unitPreferences.system), pageWidth: 720 }))?.[1] ?? ""; };
+  editor.addEventListener("input", () => { clearTimeout(timer); timer = window.setTimeout(update, 250); });
+  dialog.querySelector<HTMLSelectElement>("[data-report-insert]")?.addEventListener("change", (event) => {
+    const key = (event.currentTarget as HTMLSelectElement).value; if (!key) return;
+    editor.setRangeText(`~~${key}~~`, editor.selectionStart, editor.selectionEnd, "end"); editor.focus(); editor.dispatchEvent(new Event("input"));
+    (event.currentTarget as HTMLSelectElement).value = "";
+  });
+  dialog.querySelector("[data-report-reset]")?.addEventListener("click", () => { editor.value = defaultReportTemplate; update(); });
+  const close = (): void => { clearTimeout(timer); dialog.close(); dialog.remove(); };
+  dialog.querySelector("[data-report-cancel]")?.addEventListener("click", close);
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.querySelector("form")?.addEventListener("submit", (event) => {
+    event.preventDefault(); const value = editor.value;
+    if (!value.trim() || value === defaultReportTemplate) localStorage.removeItem(reportTemplateKey); else localStorage.setItem(reportTemplateKey, value);
+    close(); status = "Report template updated"; render();
+  });
+  update(); dialog.showModal(); editor.focus();
+}
+
 function bindEvents(): void {
   app.querySelector("#settings")?.addEventListener("click", openDatabaseSettings);
   app.querySelectorAll<HTMLElement>("[data-tab]").forEach((element) => element.addEventListener("click", () => { activeTab = element.dataset.tab ?? "database"; render(); }));
@@ -1319,6 +1460,18 @@ function bindEvents(): void {
     document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once: true }); dialog.showModal();
   });
   app.querySelectorAll<HTMLElement>("[data-result]").forEach((element) => element.addEventListener("click", () => { activeResult = element.dataset.result ?? "results"; render(); }));
+  const reportLoad = activeLoad();
+  if (reportLoad && activeResult === "report") {
+    app.querySelector("#edit-report-template")?.addEventListener("click", () => openReportTemplateEditor(reportLoad));
+    app.querySelector<HTMLInputElement>("#report-scale")?.addEventListener("change", (event) => {
+      const value = clampInteger(Number((event.currentTarget as HTMLInputElement).value), 50, 200);
+      if (value === 100) localStorage.removeItem(reportScaleKey); else localStorage.setItem(reportScaleKey, String(value));
+      status = `Report scale: ${value} %`; render();
+    });
+    app.querySelector("#report-preview")?.addEventListener("click", () => openReportOutput(reportLoad, false));
+    app.querySelector("#report-print")?.addEventListener("click", () => openReportOutput(reportLoad, true));
+    app.querySelector("#report-pdf")?.addEventListener("click", () => openReportOutput(reportLoad, true, true));
+  }
   bindMeasurementEvents();
   app.querySelector("#new-record")?.addEventListener("click", () => { void openRecordDialog("new"); });
   app.querySelector("#copy-record")?.addEventListener("click", () => { void openRecordDialog("copy"); });

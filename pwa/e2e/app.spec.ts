@@ -628,6 +628,50 @@ test("downloads an edited CSR and a compatible original GRT export", async ({ pa
   expect(grtXml).toMatch(/name="gfrictionUnlock" value="true"/);
 });
 
+test("renders, customizes, scales, previews and prints the active-load report", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.getByLabel("Unit system").selectOption("metric");
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await page.getByRole("button", { name: "Report", exact: true }).click();
+
+  const paper = page.locator(".report-paper");
+  await expect(paper.getByRole("heading", { name: "223Rem_D0735_RWS" })).toBeVisible();
+  await expect(paper).toContainText("3614 bar");
+  await expect(paper).toContainText("903.2 m/s");
+  await expect(paper).toContainText("MEASUREMENTS");
+  await expect(paper.locator("img")).toHaveCount(5);
+  await expect(paper).not.toContainText("[result.");
+
+  await page.getByLabel("Unit system").selectOption("imperial");
+  await expect(paper).toContainText("psi");
+  await expect(paper).toContainText("ft/s");
+  await page.getByLabel("Report scale").fill("135");
+  await page.getByLabel("Report scale").press("Tab");
+  await expect(paper.locator(".report-content")).toHaveAttribute("style", /1\.35/);
+  expect(await page.evaluate(() => localStorage.getItem("csr-report-scale"))).toBe("135");
+
+  await page.getByRole("button", { name: "Edit template" }).click();
+  const editor = page.getByRole("dialog", { name: "Edit report template" });
+  await editor.getByLabel("Report template").fill("====== Compact ======\n~~work.CaliberName~~ · ~~result.MaxPressure~~");
+  await expect(editor.locator(".report-editor-preview")).toContainText("Compact");
+  await editor.getByRole("button", { name: "OK" }).click();
+  await expect(paper.getByRole("heading", { name: "Compact" })).toBeVisible();
+
+  const previewPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Print preview" }).click();
+  const preview = await previewPromise;
+  await expect(preview.locator("article")).toContainText("Compact");
+  await expect(preview.getByText("A4 · 15 mm margins · 135% scale")).toBeVisible();
+  await preview.close();
+
+  const pdfPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Export PDF" }).click();
+  const pdf = await pdfPromise;
+  await expect(page.getByText("In the browser print dialog, choose Save as PDF", { exact: true })).toBeVisible();
+  await pdf.close();
+});
+
 test("reports malformed files without crashing", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
