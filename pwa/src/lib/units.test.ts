@@ -19,6 +19,7 @@ describe("native unit conversion tables", () => {
     expect(toDisplay(0, fahrenheit)).toBeCloseTo(32, 12);
     expect(fromDisplay(212, fahrenheit)).toBeCloseTo(100, 12);
     expect(parseToBase("212", fahrenheit)).toBeCloseTo(100, 12);
+    expect(parseToBase("1,000", findUnit("pressure", "bar")!)).toBe(1000);
     expect(formatUnit(25.4, inch)).toBe(new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 3, maximumFractionDigits: 3
     }).format(1));

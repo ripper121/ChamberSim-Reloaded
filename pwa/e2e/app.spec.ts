@@ -78,6 +78,67 @@ test("browses, filters, sorts, and selects the complete project database", async
   expect(errors).toEqual([]);
 });
 
+test("sorts and filters the native burn-rate table and converts every unit group", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+
+  const openTool = async (name: string): Promise<void> => {
+    await page.locator(".menu-dropdown summary").click();
+    await page.getByRole("button", { name, exact: true }).click();
+  };
+  await openTool("Burn rate table…");
+  let dialog = page.getByRole("dialog", { name: "Burn rate table" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Progressivity", exact: true })).toHaveAttribute("aria-pressed", "true");
+  const rows = dialog.locator("tbody tr");
+  expect(await rows.count()).toBeGreaterThan(50);
+  const progressivity = (await rows.locator("td:nth-child(6)").allTextContents()).slice(0, 20).map(Number);
+  expect(progressivity).toEqual([...progressivity].sort((left, right) => right - left));
+
+  await dialog.getByRole("button", { name: "Brisance", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Brisance", exact: true })).toHaveAttribute("aria-pressed", "true");
+  const brisance = (await rows.locator("td:nth-child(5)").allTextContents()).slice(0, 20).map(Number);
+  expect(brisance).toEqual([...brisance].sort((left, right) => right - left));
+  await dialog.getByLabel("Search manufacturer or name").fill("vihtavuori");
+  expect(await rows.count()).toBeGreaterThanOrEqual(16);
+  expect((await rows.locator("td:first-child").allTextContents()).every((maker) => maker === "Vihtavuori")).toBe(true);
+  await dialog.getByLabel("Search manufacturer or name").fill("no such powder");
+  await expect(dialog.getByText("0 propellants", { exact: true })).toBeVisible();
+  await dialog.getByLabel("All lots").check();
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+
+  await openTool("Burn rate table…");
+  dialog = page.getByRole("dialog", { name: "Burn rate table" });
+  await expect(dialog.getByLabel("All lots")).toBeChecked();
+  await expect(dialog.getByRole("button", { name: "Brisance", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+
+  await openTool("Unit converter…");
+  dialog = page.getByRole("dialog", { name: "Unit converter" });
+  await expect(dialog.getByLabel("Quantity")).toHaveValue("pressure");
+  await dialog.getByLabel("Convert", { exact: true }).fill("1000");
+  await expect(dialog.locator("tbody tr").filter({ hasText: /^psi/ }).locator("td").nth(1)).toHaveText("14,503.77");
+  await expect(dialog.locator("tbody tr").filter({ hasText: /^MPa/ }).locator("td").nth(1)).toHaveText("100");
+  await dialog.getByLabel("Quantity").selectOption("temperature");
+  await expect(dialog.getByLabel("Convert from unit")).toHaveValue("cel");
+  await dialog.getByLabel("Convert", { exact: true }).fill("100");
+  await expect(dialog.locator("tbody tr").filter({ hasText: /^°F/ }).locator("td").nth(1)).toHaveText("212");
+  await dialog.getByLabel("Convert", { exact: true }).fill("abc");
+  expect(await dialog.locator("tbody td:nth-child(2)").allTextContents()).toEqual(["", ""]);
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+
+  await openTool("Unit converter…");
+  dialog = page.getByRole("dialog", { name: "Unit converter" });
+  await expect(dialog.getByLabel("Quantity")).toHaveValue("temperature");
+  await expect(dialog.getByLabel("Convert from unit")).toHaveValue("cel");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  expect(errors).toEqual([]);
+});
+
 test("copies, edits, exports, persists, and deletes a personal database record", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
@@ -618,6 +679,12 @@ test("runs verified Physical and Original simulations in the results view", asyn
   await page.getByRole("button", { name: "I understand" }).click();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
 
+  const heading = page.getByRole("region", { name: "Load summary" });
+  await expect(heading.getByRole("heading", { name: "223 Rem. (.223 Rem.)" })).toBeVisible();
+  await expect(heading.getByRole("row", { name: /Projectile: RWS, Scorion Hpbt-Match 2313343, 0.224, 52.00 grain/ })).toBeVisible();
+  await expect(heading.getByRole("row", { name: /Propellant: Lovex D073.4 Charge: 25.30 grain Case volume: 30.34 grain H₂O/ })).toBeVisible();
+  await expect(heading.getByRole("row", { name: /L3\/CL: 44.70 mm L6\/OAL: 54.65 mm Seating depth: 6.25 mm/ })).toBeVisible();
+  await expect(heading.getByRole("row", { name: /Projectile length: 16.20 mm/ })).toBeVisible();
   await expect(page.getByText("3,614 bar", { exact: true })).toBeVisible();
   await expect(page.getByText("903.2 m/s", { exact: true })).toBeVisible();
   await expect(page.getByText("Physical model · 2000 points", { exact: true })).toBeVisible();

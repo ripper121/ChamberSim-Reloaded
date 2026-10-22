@@ -8,7 +8,7 @@ Port ChamberSim Reloaded to an installable PWA with verified behavioral, numeric
 
 ## Current state (working / failing / blocked)
 
-Working, not blocked. The original Qt application and both release CLIs run locally. The PWA source builds successfully. One hundred thirty unit tests, the latest typecheck, production build, twenty-five live Edge end-to-end checks, and dependency audit pass. The generated service worker was verified by an offline browser reload, including the project database and lazy SQLite reader. Numerical profiles, result and measurement charts, original-reference overlays, cartridge/chamber/powder drawings, editable inputs and measurement series, chronograph imports, powder fitting, load reports/printing, persistent resizable workspaces, dependent-field rules, deterministic recalculation, dirty state, undo/redo, lossless CSR save, compatible GRT export, native unit preferences, shotshell pressure-group choices, all three database sources, persistent personal-record CRUD/JSON export/photos, manufacturer bullet-file import, New Load, and database-backed component replacement now work. Many secondary workflows remain incomplete.
+Working, not blocked. The original Qt application and both release CLIs run locally. The PWA source builds successfully. One hundred thirty-five unit tests, the latest typecheck, production build, twenty-six live Edge end-to-end checks, and dependency audit pass. The generated service worker was verified by an offline browser reload, including the project database and lazy SQLite reader. Numerical profiles, result and measurement charts, original-reference overlays, cartridge/chamber/powder drawings, editable inputs and measurement series, chronograph imports, powder fitting, load reports/printing, burn-rate and unit-converter tools, persistent resizable workspaces, dependent-field rules, deterministic recalculation, dirty state, undo/redo, lossless CSR save, compatible GRT export, native unit preferences, shotshell pressure-group choices, all three database sources, persistent personal-record CRUD/JSON export/photos, manufacturer bullet-file import, New Load, and database-backed component replacement now work. Many secondary workflows remain incomplete.
 
 ## Completed since previous checkpoint
 
@@ -102,13 +102,17 @@ Working, not blocked. The original Qt application and both release CLIs run loca
 - Captured direct release CLI references for `measurements.grtload`. The Original result matches; the current-source Physical result differs by under 0.5% because current data applies the 8 x 57 IS caliber factor (D-024). Added three unit tests and one live Edge apply/save/download workflow.
 - Ported `reference.cpp` and the complete overlay workflow: source-compatible GRT runner JSON parsing, per-load browser import/Ctrl+R, stale warnings, malformed replacement handling, native six-value summary comparison, dashed pressure/energy/velocity curves, combined plot ranges, time/position switching and explicit clearing.
 - Added three reference-parser tests and a live Edge workflow that exercises the actual file chooser, summary deltas, all three SVG overlays, axis remapping, stale and malformed warnings, retention after a bad replacement and clearing. All 25 Edge tests pass.
+- Replaced the free-form Results title with the exact four-row structure from `LoadView::headingHtml`: caliber, projectile, propellant, focused charge, case volume, L3/CL, L6/OAL, seating depth and projectile length in current user units. The golden-load Edge workflow asserts every row and the repeatable 1280×800 capture was inspected against the native main screen.
+- Ported `BurnRateDialog`: all combined database powders, stored-or-derived Br/Bp/Brp values, newest-lot collapsing, optional all-lot rows, native four-decimal values and relative bars, quality, all-column sorting, three persisted factor sorts, tolerant manufacturer/name search, count and warning text.
+- Ported `UnitConverterDialog` on the shared native unit tables: all 13 quantities and every unit, factor/offset conversion, locale/group parsing, seven-significant-digit values, invalid-input clearing and persisted quantity/from-unit choices. The Tools dropdown now exposes both native tools.
+- Added five direct tool tests and one live Edge workflow covering native GUI reference cases, real project-data ordering/filtering, state persistence and a clean console. `capture:comparison` now preserves burn-rate and converter screenshots. All 135 unit tests and 26 Edge tests pass.
 
 ## In-progress work (files/functions and exact remaining steps)
 
 - `pwa/src/lib/loadfile.ts`: read, lossless CSR update/download and compatible GRT export work. Native direct-path atomic replacement is intentionally mapped to an explicit browser download.
 - The manifest now exposes verified 192/256/512 px PNGs. A browser install prompt/installed-window check remains pending because the available automation does not expose installability UI.
 - `pwa/src/main.ts` now implements chart interactions and source-derived cartridge/chamber/shotshell drawings. Direct 1280×800 comparisons were performed; finer widget/style differences keep the broader shell row `IN PROGRESS`.
-- Unit conversion is implemented for the current property/result/chart/measurement/report surfaces. Remaining future surfaces (database dialogs and unit converter) must use the same unit service as they are ported.
+- Unit conversion is implemented for property/result/chart/measurement/report/database-dialog surfaces and the complete unit converter through the same native unit service.
 - `pwa/src/lib/owndb.ts`, `originaldb.ts`, `recordfields.ts`, `bulletfile.ts`, and `photos.ts` now cover persistent Personal records/images, a persistent read-only Original snapshot, the native editor schema/photo slots, JSON contribution export, and bullet-file import.
 - `pwa/src/lib/loadbuilder.ts` and the New Load/component dialogs reproduce the main selection/default/replacement semantics. The checklist remains `IN PROGRESS` pending broader direct GUI comparisons and replacement coverage for every component/reset combination.
 - `pwa/src/lib/chronograph.ts` and the measurement import dialog cover every native chronograph format and tracked fixture. Direct filesystem paths are intentionally translated to an explicit browser file picker.
@@ -117,9 +121,9 @@ Working, not blocked. The original Qt application and both release CLIs run loca
 
 ## Next actions (ordered, directly actionable)
 
-1. Continue screenshot-level shell and widget refinements without changing native workflows.
-2. Port the burn-rate table and unit converter.
-3. Port remaining settings, themes and translations in source-defined groups.
+1. Port the native System default/Light/Dark theme group with persistent live switching across the shell, tools and dialogs.
+2. Port English/German/French/Italian selection and the native restart semantics from the shipped translations.
+3. Port remaining solver, start-up/session, report and logging settings in source-defined groups.
 
 ## How to run (working commands, directories, server URL/port if known)
 
@@ -147,17 +151,17 @@ Native references from the repository root:
 
 ## Tests and parity verification (commands, results, known failures)
 
-- `npm test`: PASS, 19 files and 130 tests, including reference-run JSON mapping/default/error behavior; powder-fit extraction, release comparisons, apply and quality; 45 report language/data cases; native chronograph synthetic cases and every tracked Garmin fixture; measurement editing helpers, prediction/chart geometry and lossless nested measurement XML; exact cartridge/chamber/cavity/powder geometry; Original SQLite schema/default/image/error behavior; native photo scale-bar choices; complete project-data counts/order; personal-record normalization/export; native bullet-file parsing; load building/component replacement; tolerant database filtering/sorting; XML round trips; load editing/history; units and solver goldens.
+- `npm test`: PASS, 21 files and 135 tests, including burn-rate derivation/newest-lot/filter/sort and all unit-converter quantities/native pressure/offset/invalid cases; reference-run JSON mapping/default/error behavior; powder-fit extraction, release comparisons, apply and quality; 45 report language/data cases; native chronograph synthetic cases and every tracked Garmin fixture; measurement editing helpers, prediction/chart geometry and lossless nested measurement XML; exact cartridge/chamber/cavity/powder geometry; Original SQLite schema/default/image/error behavior; native photo scale-bar choices; complete project-data counts/order; personal-record normalization/export; native bullet-file parsing; load building/component replacement; tolerant database filtering/sorting; XML round trips; load editing/history; units and solver goldens.
 - `npm run typecheck`: PASS.
 - `npm audit`: PASS, zero vulnerabilities.
-- `npm run build`: PASS; 20 Workbox precache entries totaling 2,430.72 KiB uncompressed. The initial application JavaScript is 215.14 KiB (71.20 KiB gzip); the Original importer is a lazy 42.83 KiB (15.53 KiB gzip) JavaScript chunk plus 684.89 KiB (338.96 KiB gzip) WASM; the project/Physical-data database remains a lazy 149.19 KiB gzip chunk.
-- `npm run test:e2e`: PASS, 25 tests, including original-reference chooser/deltas/curves/axis/stale/error/clear behavior; powder-fit dialog/apply/personal-record save/download; all persistent draggable/keyboard workspace splitters; the default report's values/diagrams/measurements, Metric/Imperial units, live template editing, persistent scale, A4 preview and print/PDF handoff; native chronograph dialog/import/error behavior; complete measurement editing; solver goldens; complete Project/Personal/Original database workflows; personal CRUD/export/photos; New Load; native-CLI verification; component replacement; unit persistence; shotshell groups; downloads and simulations.
+- `npm run build`: PASS; 20 Workbox precache entries totaling 2,442.08 KiB uncompressed. The initial application JavaScript is 224.26 KiB (73.71 KiB gzip); the Original importer is a lazy 42.83 KiB (15.53 KiB gzip) JavaScript chunk plus 684.89 KiB (338.96 KiB gzip) WASM; the project/Physical-data database remains a lazy 148.88 KiB gzip chunk.
+- `npm run test:e2e`: PASS, 26 tests, including the burn-rate and unit-converter dialogs, original-reference chooser/deltas/curves/axis/stale/error/clear behavior; powder-fit dialog/apply/personal-record save/download; all persistent draggable/keyboard workspace splitters; the default report's values/diagrams/measurements, Metric/Imperial units, live template editing, persistent scale, A4 preview and print/PDF handoff; native chronograph dialog/import/error behavior; complete measurement editing; solver goldens; complete Project/Personal/Original database workflows; personal CRUD/export/photos; New Load; native-CLI verification; component replacement; unit persistence; shotshell groups; downloads and simulations.
 - `npm audit`: PASS, zero vulnerabilities after the save/export milestone.
 - Chrome DevTools browser connection: unavailable because Google Chrome is not installed. Playwright successfully launches installed Edge at `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`.
 - Native release regression command using the CMake-cache `ctest.exe`: exits 0 but reports `No tests were found`; the release preset/build does not contain configured test executables.
 - Default physical CLI golden: peak 3614.471964703715 bar, muzzle velocity 903.2301893320783 m/s.
 - Original-profile CLI golden: peak 3546.47 bar, muzzle velocity 872.578 m/s.
-- `npm run capture:comparison`: PASS; produced a 1280×800 Edge capture from the production bundle for manual comparison.
+- `npm run capture:comparison`: PASS; produced 1280×800 Edge captures of the main window, database, record editor, burn-rate table and unit converter from the production bundle for manual comparison.
 
 ## Known issues and blockers
 

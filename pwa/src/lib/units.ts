@@ -78,8 +78,12 @@ export function formatUnit(base: number, displayUnit: Unit, decimals = displayUn
 }
 
 export function parseToBase(text: string, displayUnit: Unit): number | undefined {
-  const decimal = new Intl.NumberFormat("en-US").formatToParts(1.1).find((part) => part.type === "decimal")?.value ?? ".";
+  const parts = new Intl.NumberFormat("en-US").formatToParts(12345.6);
+  const decimal = parts.find((part) => part.type === "decimal")?.value ?? ".";
+  const group = parts.find((part) => part.type === "group")?.value;
   let normalized = text.trim();
+  if (!normalized) return undefined;
+  if (group) normalized = normalized.replaceAll(group, "");
   if (decimal !== ".") normalized = normalized.replace(decimal, ".");
   const value = Number(normalized);
   return Number.isFinite(value) ? fromDisplay(value, displayUnit) : undefined;

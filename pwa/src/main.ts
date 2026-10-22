@@ -22,6 +22,8 @@ import { calibrationFor, simulate, simulateLadder, vivacityCurve, type Calibrati
 import { formatUnit, parseToBase, quantityOfFileUnit, toDisplay, UnitPreferences, unitsOf, type Quantity, type UnitSystem } from "./lib/units";
 import { applyPowderFit, defaultPowderFitParams, fitPowderAll, powderFitQuality, powderFitSamples, type PowderFitParam, type PowderFitResult } from "./lib/powderfit";
 import { parseReferenceRun, referenceNumber, type ReferenceRun } from "./lib/reference";
+import { burnRateRows, filterBurnRateRows, sortBurnRateRows, type BurnRateColumn, type BurnRateFactor } from "./lib/burnrate";
+import { convertUnitValues, converterQuantities, type ConvertibleQuantity } from "./lib/unitconverter";
 
 const appNode = document.querySelector<HTMLDivElement>("#app");
 if (!appNode) throw new Error("Application root is missing");
@@ -105,6 +107,19 @@ function formatNumber(value: number, digits = 3): string {
 function shown(value: number, quantity: Exclude<Quantity, "none">, decimals?: number): string {
   const unit = unitPreferences.unitFor(quantity);
   return `${formatUnit(value, unit, decimals)} ${unit.symbol}`;
+}
+
+function resultHeading(load: LoadFile, input: SimInput, chargeG: number): string {
+  const caliber = entryValue(load.caliber, "CaliberName");
+  const projectile = entryValue(load.projectile, "ProjectileName");
+  const propellant = `${entryValue(load.propellant, "mname")} ${entryValue(load.propellant, "pname")}`.trim();
+  const overallLengthMm = Number(entryValue(load.caliber, "oal")) || 0;
+  return `<section class="result-heading" aria-label="Load summary"><h2>${escapeHtml(caliber)}</h2><table><tbody>
+    <tr><th scope="row">Projectile:</th><td colspan="5"><em>${escapeHtml(projectile)}</em></td></tr>
+    <tr><th scope="row">Propellant:</th><td><em>${escapeHtml(propellant)}</em></td><th scope="row">Charge:</th><td><em>${shown(chargeG, "bulletMass")}</em></td><th scope="row">Case volume:</th><td><em>${shown(input.caseVolumeCm3, "volume")}</em></td></tr>
+    <tr><th scope="row">L3/CL:</th><td><em>${shown(input.caseLengthMm, "length")}</em></td><th scope="row">L6/OAL:</th><td><em>${shown(overallLengthMm, "length")}</em></td><th scope="row">Seating depth:</th><td><em>${shown(input.seatingDepthMm, "length")}</em></td></tr>
+    <tr><th scope="row">Projectile length:</th><td colspan="5"><em>${shown(input.bulletLengthMm, "length")}</em></td></tr>
+  </tbody></table></section>`;
 }
 
 interface Choice { value: string; label: string; title?: string }
@@ -375,7 +390,7 @@ function resultView(load: LoadFile): string {
   const burnNotice = activeProfile === "physical" && !input.shotshell && !input.physicalBurn ? `<div class="notice-banner"><strong>No physical burn values</strong> for this propellant (or its burn values were changed): the load's burn rate is scaled; results are less accurate than for powders with Physical Model data.</div>` : "";
   const gasVelocity = input.chargeG > 0 ? result.gasImpulseNs / (focused.chargeG * 1e-3) : 0;
   return `<div class="result-view"${splitStyle("results")}><div class="result-toolbar">${profile}<span>${escapeHtml(activeProfile[0]!.toUpperCase() + activeProfile.slice(1))} model · ${result.points.length} points</span><span>${sourceFormat}</span></div>
-    <div class="result-top"><section><h2>${escapeHtml(load.title)}</h2>${overpressure}${burnNotice}<div class="result-summary"><dl><dt>Maximum pressure</dt><dd>${shown(result.maxPressureBar, "pressure")}</dd><dt>Muzzle pressure</dt><dd>${shown(result.muzzlePressureBar, "pressure")}</dd><dt>Projectile energy</dt><dd>${shown(result.muzzleEnergyJ, "energy")}</dd><dt>Muzzle velocity</dt><dd>${shown(result.muzzleVelocityMs, "velocity")}</dd><dt>Barrel time (BT)</dt><dd>${formatNumber(result.muzzleTimeMs, 4)} ms</dd></dl><dl><dt>Burnout pressure</dt><dd>${result.burnoutInBarrel ? shown(result.burnoutPressureBar, "pressure") : "not burnt out"}</dd><dt>Gas outflow velocity</dt><dd>${shown(gasVelocity, "velocity")}</dd><dt>Projectile speed</dt><dd>${result.muzzleRpm > 0 ? `${formatNumber(result.muzzleRpm / 1000, 1)} k/min` : "—"}</dd><dt>Recoil energy</dt><dd>${result.recoilEnergyJ > 0 ? shown(result.recoilEnergyJ, "energy") : "— (gun weight 0)"}</dd><dt>IPSC / MIP factor</dt><dd>${formatNumber(result.ipscFactor, 0)}, ${formatNumber(result.mipFactor, 0)}</dd></dl><dl><dt>Load ratio</dt><dd>${formatNumber(result.loadRatio * 100, 1)} %</dd><dt>Burnt propellant</dt><dd>${formatNumber(result.burntFraction * 100, 1)} %</dd><dt>Effective efficiency</dt><dd>${formatNumber(result.efficiency * 100, 1)} %</dd><dt>Heat / friction loss</dt><dd>${result.heatLossJ > 0 ? shown(result.heatLossJ, "energy") : "—"}, ${shown(result.muzzleFrictionEnergyJ, "energy")}</dd></dl></div>${reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>Charge</th><th>Max. pressure</th><th>Velocity</th><th>Energy</th><th>Load ratio</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input)}</div>
+    <div class="result-top"><section>${resultHeading(load, input, focused.chargeG)}${overpressure}${burnNotice}<div class="result-summary"><dl><dt>Maximum pressure</dt><dd>${shown(result.maxPressureBar, "pressure")}</dd><dt>Muzzle pressure</dt><dd>${shown(result.muzzlePressureBar, "pressure")}</dd><dt>Projectile energy</dt><dd>${shown(result.muzzleEnergyJ, "energy")}</dd><dt>Muzzle velocity</dt><dd>${shown(result.muzzleVelocityMs, "velocity")}</dd><dt>Barrel time (BT)</dt><dd>${formatNumber(result.muzzleTimeMs, 4)} ms</dd></dl><dl><dt>Burnout pressure</dt><dd>${result.burnoutInBarrel ? shown(result.burnoutPressureBar, "pressure") : "not burnt out"}</dd><dt>Gas outflow velocity</dt><dd>${shown(gasVelocity, "velocity")}</dd><dt>Projectile speed</dt><dd>${result.muzzleRpm > 0 ? `${formatNumber(result.muzzleRpm / 1000, 1)} k/min` : "—"}</dd><dt>Recoil energy</dt><dd>${result.recoilEnergyJ > 0 ? shown(result.recoilEnergyJ, "energy") : "— (gun weight 0)"}</dd><dt>IPSC / MIP factor</dt><dd>${formatNumber(result.ipscFactor, 0)}, ${formatNumber(result.mipFactor, 0)}</dd></dl><dl><dt>Load ratio</dt><dd>${formatNumber(result.loadRatio * 100, 1)} %</dd><dt>Burnt propellant</dt><dd>${formatNumber(result.burntFraction * 100, 1)} %</dd><dt>Effective efficiency</dt><dd>${formatNumber(result.efficiency * 100, 1)} %</dd><dt>Heat / friction loss</dt><dd>${result.heatLossJ > 0 ? shown(result.heatLossJ, "energy") : "—"}, ${shown(result.muzzleFrictionEnergyJ, "energy")}</dd></dl></div>${reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>Charge</th><th>Max. pressure</th><th>Velocity</th><th>Energy</th><th>Load ratio</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input)}</div>
     ${splitter("results", "horizontal", "Resize result summary and chart", 150, 250)}<div class="result-chart-pane"><div class="chart-controls">${tabs}<label>Horizontal axis <select id="chart-axis"><option value="time" ${chartAxis === "time" ? "selected" : ""}>Time axis</option><option value="position" ${chartAxis === "position" ? "selected" : ""}>Position axis</option></select></label></div>
     ${chartView(result, ladder.filter((_, index) => index !== focus).map((entry) => entry.result), input, reference)}
     <div class="chart-legend"><span class="pressure-key">Pressure</span><span class="permitted-key">Pmax permitted</span><span class="energy-key">Energy</span><span class="velocity-key">Velocity</span>${reference?.points.length ? `<span class="reference-key">Original reference</span>` : ""}</div></div></div>`;
@@ -628,7 +643,7 @@ function render(): void {
   const current = activeLoad();
   const currentHistory = current ? historyFor(current) : undefined;
   const tabs = [`<button data-tab="database" class="${activeTab === "database" ? "active" : ""}">Database</button>`, ...loads.map((load, index) => `<button data-tab="load-${index}" class="${activeTab === `load-${index}` ? "active" : ""}">${escapeHtml(load.fileName.replace(/\.(csrload|grtload)$/i, ""))}${historyFor(load).modified ? "*" : ""}<span class="close" data-close="${index}" aria-label="Close load">×</span></button>`)].join("");
-  app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu"><button>File</button><button id="save-csr" ${current ? "" : "disabled"}>Save CSR</button><button id="export-grt" ${current ? "" : "disabled"}>Export GRT</button><button id="overlay-reference" ${current ? "" : "disabled"} title="Overlay an original-program reference result (Ctrl+R)">Overlay reference…</button><button id="clear-reference" ${current && referenceRuns.has(current) ? "" : "disabled"}>Clear reference</button><button>Edit</button><button id="undo" ${currentHistory?.canUndo ? "" : "disabled"}>Undo</button><button id="redo" ${currentHistory?.canRedo ? "" : "disabled"}>Redo</button><button>View</button><button>Tools</button><label class="menu-select">Units <select id="unit-system" aria-label="Unit system"><option value="metric" ${unitPreferences.system === "metric" ? "selected" : ""}>Metric</option><option value="imperial" ${unitPreferences.system === "imperial" ? "selected" : ""}>Imperial</option><option value="original" ${unitPreferences.system === "original" ? "selected" : ""}>Original</option></select></label><button id="reset-field-units">Reset field units</button><button>Help</button></nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="reference-picker" type="file" accept=".json,application/json" hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden /><input id="chronograph-picker" type="file" accept=".fit,.FIT,.csv,.CSV" hidden />`;
+  app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu"><button>File</button><button id="save-csr" ${current ? "" : "disabled"}>Save CSR</button><button id="export-grt" ${current ? "" : "disabled"}>Export GRT</button><button id="overlay-reference" ${current ? "" : "disabled"} title="Overlay an original-program reference result (Ctrl+R)">Overlay reference…</button><button id="clear-reference" ${current && referenceRuns.has(current) ? "" : "disabled"}>Clear reference</button><button>Edit</button><button id="undo" ${currentHistory?.canUndo ? "" : "disabled"}>Undo</button><button id="redo" ${currentHistory?.canRedo ? "" : "disabled"}>Redo</button><button>View</button><details class="menu-dropdown"><summary>Tools</summary><div class="menu-popup"><button id="burn-rate-table" ${projectDatabase ? "" : "disabled"}>Burn rate table…</button><button id="unit-converter">Unit converter…</button></div></details><label class="menu-select">Units <select id="unit-system" aria-label="Unit system"><option value="metric" ${unitPreferences.system === "metric" ? "selected" : ""}>Metric</option><option value="imperial" ${unitPreferences.system === "imperial" ? "selected" : ""}>Imperial</option><option value="original" ${unitPreferences.system === "original" ? "selected" : ""}>Original</option></select></label><button id="reset-field-units">Reset field units</button><button>Help</button></nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="reference-picker" type="file" accept=".json,application/json" hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden /><input id="chronograph-picker" type="file" accept=".fit,.FIT,.csv,.CSV" hidden />`;
   const fileButton = app.querySelector<HTMLButtonElement>(".menubar > button:first-child");
   if (fileButton) { fileButton.id = "settings"; fileButton.title = "Settings, including the optional Original GRT database"; }
   bindEvents();
@@ -795,6 +810,99 @@ function openDatabaseSettings(): void {
     }
   });
   update();
+  dialog.showModal();
+}
+
+function openBurnRateDialog(): void {
+  if (!projectDatabase) return;
+  const records = combinedDatabaseRecords("propellant");
+  const storedFactor = localStorage.getItem("csr-burnrate-factor");
+  let factor: BurnRateFactor = storedFactor === "br" || storedFactor === "brp" ? storedFactor : "bp";
+  let allLots = localStorage.getItem("csr-burnrate-all-lots") === "yes";
+  let sort: { column: BurnRateColumn; direction: "asc" | "desc" } = { column: factor, direction: "desc" };
+  const dialog = document.createElement("dialog");
+  dialog.className = "tool-dialog burn-rate-dialog";
+  dialog.setAttribute("aria-labelledby", "burn-rate-title");
+  const headers: Array<[BurnRateColumn, string]> = [
+    ["maker", "Manufacturer"], ["name", "Name"], ["lot", "Lot"], ["ba", "Burn rate (Ba)"],
+    ["br", "Brisance (Br)"], ["bp", "Progressivity (Bp)"], ["brp", "Combined (Brp)"], ["quality", "Quality"]
+  ];
+  dialog.innerHTML = `<form method="dialog"><h2 id="burn-rate-title">Burn rate table</h2><div class="burn-rate-toolbar"><span>Sort by:</span><button type="button" data-burn-factor="bp">Progressivity</button><button type="button" data-burn-factor="br">Brisance</button><button type="button" data-burn-factor="brp">Brisance &amp; progressivity</button><span></span><input type="search" aria-label="Search manufacturer or name" placeholder="Search manufacturer or name"></div><div class="burn-rate-scroll"><table><thead><tr>${headers.map(([column, label]) => `<th data-burn-heading="${column}"><button type="button" data-burn-sort="${column}">${label}</button></th>`).join("")}</tr></thead><tbody></tbody></table></div><div class="burn-rate-bottom"><label><input type="checkbox" data-burn-all-lots ${allLots ? "checked" : ""}> All lots</label><output data-burn-count></output></div><p class="setting-note">The table is a rough overview of how the powders of different manufacturers compare. It says nothing about how a powder behaves in the pressure curve of a particular load: powders at the same level are not 1:1 substitutes.</p><div class="dialog-buttons"><button>Close</button></div></form>`;
+  document.body.append(dialog);
+  const search = dialog.querySelector<HTMLInputElement>('input[type="search"]')!;
+  const body = dialog.querySelector<HTMLTableSectionElement>("tbody")!;
+  const count = dialog.querySelector<HTMLOutputElement>("[data-burn-count]")!;
+  const renderRows = (): void => {
+    const source = burnRateRows(records, allLots);
+    const rows = sortBurnRateRows(filterBurnRateRows(source, search.value), sort.column, sort.direction);
+    const maximum = (column: "ba" | BurnRateFactor): number => Math.max(0, ...source.map((row) => row[column]));
+    const maxima = { ba: maximum("ba"), br: maximum("br"), bp: maximum("bp"), brp: maximum("brp") };
+    const value = (number: number, column: keyof typeof maxima): string => `<span class="burn-rate-value" style="--share:${maxima[column] > 0 ? Math.max(0, Math.min(1, number / maxima[column])) : 0}">${number.toFixed(4)}</span>`;
+    body.innerHTML = rows.map((row) => `<tr><td>${escapeHtml(row.maker)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.lot)}</td><td>${value(row.ba, "ba")}</td><td>${value(row.br, "br")}</td><td>${value(row.bp, "bp")}</td><td>${value(row.brp, "brp")}</td><td>${row.quality > 0 ? `<span class="burn-rate-value quality" style="--share:${Math.min(row.quality, 1)}">${row.quality.toFixed(2)}</span>` : "-"}</td></tr>`).join("");
+    count.textContent = `${rows.length} propellant${rows.length === 1 ? "" : "s"}`;
+    dialog.querySelectorAll<HTMLButtonElement>("[data-burn-factor]").forEach((button) => {
+      const active = button.dataset.burnFactor === factor && sort.column === factor;
+      button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
+    });
+    dialog.querySelectorAll<HTMLElement>("[data-burn-heading]").forEach((heading) => {
+      const active = heading.dataset.burnHeading === sort.column;
+      if (active) heading.setAttribute("aria-sort", sort.direction === "asc" ? "ascending" : "descending"); else heading.removeAttribute("aria-sort");
+    });
+  };
+  dialog.querySelectorAll<HTMLButtonElement>("[data-burn-factor]").forEach((button) => button.addEventListener("click", () => {
+    factor = button.dataset.burnFactor as BurnRateFactor;
+    sort = { column: factor, direction: "desc" };
+    localStorage.setItem("csr-burnrate-factor", factor);
+    renderRows();
+  }));
+  dialog.querySelectorAll<HTMLButtonElement>("[data-burn-sort]").forEach((button) => button.addEventListener("click", () => {
+    const column = button.dataset.burnSort as BurnRateColumn;
+    sort = { column, direction: sort.column === column && sort.direction === "asc" ? "desc" : "asc" };
+    if (column === "br" || column === "bp" || column === "brp") factor = column;
+    renderRows();
+  }));
+  search.addEventListener("input", renderRows);
+  dialog.querySelector<HTMLInputElement>("[data-burn-all-lots]")!.addEventListener("change", (event) => {
+    allLots = (event.currentTarget as HTMLInputElement).checked;
+    localStorage.setItem("csr-burnrate-all-lots", allLots ? "yes" : "no");
+    renderRows();
+  });
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  renderRows();
+  dialog.showModal();
+}
+
+function openUnitConverterDialog(): void {
+  const stored = localStorage.getItem("csr-unit-converter-quantity");
+  let quantity: ConvertibleQuantity = converterQuantities.some((item) => item.quantity === stored) ? stored as ConvertibleQuantity : "pressure";
+  let fromId = localStorage.getItem("csr-unit-converter-unit") ?? "";
+  const dialog = document.createElement("dialog");
+  dialog.className = "tool-dialog unit-converter-dialog";
+  dialog.setAttribute("aria-labelledby", "unit-converter-title");
+  dialog.innerHTML = `<form method="dialog"><h2 id="unit-converter-title">Unit converter</h2><div class="unit-converter-form"><label for="converter-quantity">Quantity</label><select id="converter-quantity">${converterQuantities.map((item) => `<option value="${item.quantity}" ${item.quantity === quantity ? "selected" : ""}>${item.label}</option>`).join("")}</select><label for="converter-input">Convert</label><div><input id="converter-input" inputmode="decimal" placeholder="Value" value="1"><select id="converter-from" aria-label="Convert from unit"></select></div></div><div class="unit-converter-scroll"><table class="unit-converter-table"><thead><tr><th>Unit</th><th>Value</th></tr></thead><tbody></tbody></table></div><div class="dialog-buttons"><button>Close</button></div></form>`;
+  document.body.append(dialog);
+  const quantitySelect = dialog.querySelector<HTMLSelectElement>("#converter-quantity")!;
+  const input = dialog.querySelector<HTMLInputElement>("#converter-input")!;
+  const from = dialog.querySelector<HTMLSelectElement>("#converter-from")!;
+  const body = dialog.querySelector<HTMLTableSectionElement>("tbody")!;
+  const fillUnits = (restore: boolean): void => {
+    const units = unitsOf(quantity);
+    if (!restore || !units.some((unit) => unit.id === fromId)) fromId = units[0]!.id;
+    from.innerHTML = units.map((unit) => `<option value="${unit.id}" ${unit.id === fromId ? "selected" : ""}>${unit.symbol}</option>`).join("");
+  };
+  const convert = (): void => {
+    body.innerHTML = convertUnitValues(quantity, fromId, input.value).map((row) => `<tr><td>${row.symbol}</td><td>${escapeHtml(row.text)}</td></tr>`).join("");
+  };
+  quantitySelect.addEventListener("change", () => { quantity = quantitySelect.value as ConvertibleQuantity; fillUnits(false); convert(); });
+  from.addEventListener("change", () => { fromId = from.value; convert(); });
+  input.addEventListener("input", convert);
+  dialog.addEventListener("close", () => {
+    localStorage.setItem("csr-unit-converter-quantity", quantity);
+    localStorage.setItem("csr-unit-converter-unit", fromId);
+    dialog.remove();
+  }, { once: true });
+  fillUnits(true);
+  convert();
   dialog.showModal();
 }
 
@@ -1606,6 +1714,14 @@ function bindSplitters(root: ParentNode = app): void {
 function bindEvents(): void {
   bindSplitters();
   app.querySelector("#settings")?.addEventListener("click", openDatabaseSettings);
+  app.querySelector("#burn-rate-table")?.addEventListener("click", () => {
+    app.querySelector<HTMLDetailsElement>(".menu-dropdown")?.removeAttribute("open");
+    openBurnRateDialog();
+  });
+  app.querySelector("#unit-converter")?.addEventListener("click", () => {
+    app.querySelector<HTMLDetailsElement>(".menu-dropdown")?.removeAttribute("open");
+    openUnitConverterDialog();
+  });
   app.querySelectorAll<HTMLElement>("[data-tab]").forEach((element) => element.addEventListener("click", () => { activeTab = element.dataset.tab ?? "database"; render(); }));
   app.querySelectorAll<HTMLElement>("[data-input]").forEach((element) => element.addEventListener("click", () => { activeInput = element.dataset.input ?? "cartridge"; render(); }));
   app.querySelectorAll<HTMLElement>("[data-drawing]").forEach((element) => element.addEventListener("click", () => {

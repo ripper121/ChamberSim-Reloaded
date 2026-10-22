@@ -161,3 +161,9 @@ Last updated: 2026-10-22
 **Decision:** Parse the exact JSON shape emitted by `tools/GRTRef/grtref.py` locally, retain one optional reference run per open load, and render it through the same units, axes and SVG coordinate system as the active simulation. A browser file chooser replaces the desktop path dialog; reference files are neither uploaded nor persisted after the load closes.
 
 **Rationale:** Native `LoadView` owns an optional `ReferenceRun`, preserves it across recalculations, warns but accepts the runner's `stale` flag, and clears it independently of load data and undo history. Per-load transient state preserves those semantics and avoids incorrectly serializing a diagnostic overlay into CSR/GRT files. Including reference points in the shared chart range reproduces `CurveChart::rebuild`, while the pure parser retains the native QJson defaults for missing and incorrectly typed members.
+
+## D-026 — Build utility dialogs on the shared database and unit cores
+
+**Decision:** Generate the burn-rate table from the same merged Project/Personal/Original propellant records used by the database browser, and make the converter consume the central native unit table rather than duplicating factors. Persist only the native dialog choices (factor, all lots, quantity and source unit) in browser storage.
+
+**Rationale:** `BurnRateDialog` is a view over the live combined database and derives missing factors with the same model helper used when records are loaded; a static chart would become stale after Personal or Original changes. `UnitConverterDialog` is a precision view over `units.cpp`, including Fahrenheit's offset and seven-significant-digit output. Sharing these cores keeps both tools offline, deterministic, and synchronized with edits and future unit additions while mapping `QSettings` to local storage without adding load-file state.
