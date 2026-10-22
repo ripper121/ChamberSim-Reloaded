@@ -43,6 +43,50 @@ const imperial: Partial<Record<Quantity, string>> = {
   volume: "grh2o", density: "lbft3", temperature: "fahr", energy: "ftlbf", impulse: "lbfs", force: "lbf"
 };
 
+let numberLocale = "en-US";
+
+export function setNumberLocale(locale: string): void {
+  numberLocale = new Intl.NumberFormat(locale).resolvedOptions().locale;
+}
+
+export function activeNumberLocale(): string { return numberLocale; }
+
+export function formatLocaleNumber(value: number, options: Intl.NumberFormatOptions = {}): string {
+  return new Intl.NumberFormat(numberLocale, options).format(value);
+}
+
+function cLocaleNumber(text: string): number | undefined {
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/u.test(text)) return undefined;
+  const value = Number(text);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+export function parseLocaleNumber(text: string): number | undefined {
+  let localized = text.trim();
+  if (!localized) return undefined;
+  const parts = new Intl.NumberFormat(numberLocale).formatToParts(12345.6);
+  const decimal = parts.find((part) => part.type === "decimal")?.value ?? ".";
+  const group = parts.find((part) => part.type === "group")?.value;
+  if (group && /\s/u.test(group)) localized = localized.replace(/[ \u00a0\u202f]/gu, group);
+  const exponent = localized.match(/[eE][+-]?\d+$/u)?.[0] ?? "";
+  let mantissa = exponent ? localized.slice(0, -exponent.length) : localized;
+  const sign = /^[+-]/u.test(mantissa) ? mantissa[0]! : "";
+  if (sign) mantissa = mantissa.slice(1);
+  const decimalParts = mantissa.split(decimal);
+  if (decimalParts.length <= 2) {
+    const integer = decimalParts[0] ?? "", fraction = decimalParts[1];
+    const grouped = group && integer.includes(group) ? integer.split(group) : [integer];
+    const validGrouping = grouped.length === 1
+      ? /^\d*$/u.test(integer)
+      : /^\d{1,3}$/u.test(grouped[0] ?? "") && grouped.slice(1).every((item) => /^\d{3}$/u.test(item));
+    if (validGrouping && (fraction === undefined || /^\d*$/u.test(fraction)) && (grouped.join("") || fraction)) {
+      const value = Number(`${sign}${grouped.join("")}${fraction === undefined ? "" : `.${fraction}`}${exponent}`);
+      if (Number.isFinite(value)) return value;
+    }
+  }
+  return cLocaleNumber(text.trim());
+}
+
 export function quantityOfFileUnit(fileUnit: string): Quantity {
   return fileQuantities[fileUnit] ?? "none";
 }
@@ -73,20 +117,12 @@ export function fromDisplay(shown: number, displayUnit: Unit): number {
 }
 
 export function formatUnit(base: number, displayUnit: Unit, decimals = displayUnit.decimals): string {
-  return new Intl.NumberFormat("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-    .format(toDisplay(base, displayUnit));
+  return formatLocaleNumber(toDisplay(base, displayUnit), { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
 export function parseToBase(text: string, displayUnit: Unit): number | undefined {
-  const parts = new Intl.NumberFormat("en-US").formatToParts(12345.6);
-  const decimal = parts.find((part) => part.type === "decimal")?.value ?? ".";
-  const group = parts.find((part) => part.type === "group")?.value;
-  let normalized = text.trim();
-  if (!normalized) return undefined;
-  if (group) normalized = normalized.replaceAll(group, "");
-  if (decimal !== ".") normalized = normalized.replace(decimal, ".");
-  const value = Number(normalized);
-  return Number.isFinite(value) ? fromDisplay(value, displayUnit) : undefined;
+  const value = parseLocaleNumber(text);
+  return value === undefined ? undefined : fromDisplay(value, displayUnit);
 }
 
 export class UnitPreferences {

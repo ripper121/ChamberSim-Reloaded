@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { findUnit, formatUnit, fromDisplay, parseToBase, quantityOfFileUnit, systemUnit, toDisplay, UnitPreferences } from "./units";
+import { afterEach, describe, expect, it } from "vitest";
+import { findUnit, formatUnit, fromDisplay, parseLocaleNumber, parseToBase, quantityOfFileUnit, setNumberLocale, systemUnit, toDisplay, UnitPreferences } from "./units";
+
+afterEach(() => setNumberLocale("en-US"));
 
 describe("native unit conversion tables", () => {
   it("maps file units and all three system presets", () => {
@@ -23,6 +25,17 @@ describe("native unit conversion tables", () => {
     expect(formatUnit(25.4, inch)).toBe(new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 3, maximumFractionDigits: 3
     }).format(1));
+  });
+
+  it("uses the active locale first and accepts C-locale decimals as a fallback", () => {
+    setNumberLocale("de-DE");
+    const inch = findUnit("length", "in")!;
+    expect(formatUnit(25.4, inch)).toBe("1,000");
+    expect(parseToBase("1,5", inch)).toBeCloseTo(38.1, 12);
+    expect(parseToBase("1.5", inch)).toBeCloseTo(38.1, 12);
+    expect(parseLocaleNumber("1.500")).toBe(1500);
+    expect(parseLocaleNumber("1.234,5e-1")).toBeCloseTo(123.45, 12);
+    expect(parseLocaleNumber("not a number")).toBeUndefined();
   });
 
   it("persists systems and removes an override that equals the preset", () => {

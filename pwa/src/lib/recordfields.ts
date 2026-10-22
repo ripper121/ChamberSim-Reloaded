@@ -1,6 +1,6 @@
 import { databaseColumns, type DatabaseColumn, type ProjectRecord, type ProjectTable } from "./dbschema";
 import type { Quantity, Unit } from "./units";
-import { fromDisplay, toDisplay } from "./units";
+import { formatLocaleNumber, fromDisplay, parseLocaleNumber, toDisplay } from "./units";
 
 export type RecordFieldKind = "text" | "number" | "date" | "longtext" | "base" | "choice";
 
@@ -107,14 +107,14 @@ export function shownRecordNumber(stored: number, field: RecordField, unit?: Uni
   const value = unit ? toDisplay(stored * field.toBase, unit) : stored;
   for (let decimals = unit?.decimals ?? 0; decimals < 8; ++decimals) {
     const scale = 10 ** decimals;
-    if (Math.abs(Math.round(value * scale) / scale - value) <= 1e-9 * Math.max(1, Math.abs(value))) return value.toFixed(decimals);
+    if (Math.abs(Math.round(value * scale) / scale - value) <= 1e-9 * Math.max(1, Math.abs(value))) return formatLocaleNumber(value, { minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping: false });
   }
-  return value.toPrecision(10).replace(/(?:\.0+|(?:(\.\d*?)0+))$/, "$1");
+  return formatLocaleNumber(value, { maximumSignificantDigits: 10, useGrouping: false });
 }
 
 export function parseRecordNumber(text: string, field: RecordField, unit?: Unit): number | undefined {
-  const value = Number(text.trim());
-  if (!Number.isFinite(value)) return undefined;
+  const value = parseLocaleNumber(text);
+  if (value === undefined) return undefined;
   return unit ? fromDisplay(value, unit) / field.toBase : value;
 }
 

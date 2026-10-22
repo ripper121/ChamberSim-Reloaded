@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { copyRecordValues, parseRecordNumber, recordFields, shownRecordNumber } from "./recordfields";
 import { projectRecords } from "./projectdb";
-import { findUnit } from "./units";
+import { findUnit, setNumberLocale } from "./units";
+
+afterEach(() => setNumberLocale("en-US"));
 
 describe("record field compatibility", () => {
   it("groups every visible schema field and preserves native requirements/read-only fields", () => {
@@ -16,6 +18,15 @@ describe("record field compatibility", () => {
     const grams = findUnit("bulletMass", "g")!;
     expect(shownRecordNumber(52, field, grams)).toBe("3.36954332");
     expect(parseRecordNumber("3.370", field, grams)).toBeCloseTo(52.007, 2);
+  });
+
+  it("round-trips localized personal-database values", () => {
+    setNumberLocale("de-DE");
+    const field = recordFields("projectile").find((candidate) => candidate.column === "gmass")!;
+    const grams = findUnit("bulletMass", "g")!;
+    expect(shownRecordNumber(52, field, grams)).toBe("3,36954332");
+    expect(parseRecordNumber("3,370", field, grams)).toBeCloseTo(52.007, 2);
+    expect(parseRecordNumber("3.37", field, grams)).toBeCloseTo(52.007, 2);
   });
 
   it("turns a read-only project row into a distinguishable new personal copy", () => {

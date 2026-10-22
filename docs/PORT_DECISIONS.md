@@ -191,3 +191,9 @@ Last updated: 2026-10-22
 **Decision:** Import each repository `translations/ChamberSimReloaded_*.ts` file as a lazy raw build input and parse its finished messages in the browser, preserving context keys, positional placeholders, locale plural forms and unfinished fallback. Remove Qt mnemonic markers only at the web rendering boundary. Workbox precaches every emitted language chunk so a stored language can start offline.
 
 **Rationale:** The Qt Linguist files are the maintained translation source and already contain 655 finished messages per non-English language. Consuming them directly avoids a second hand-maintained catalog and ensures translation updates flow into the PWA build. Context-qualified lookup prevents collisions, while lazy runtime loading keeps the active initial request limited to one language even though all four small chunks remain installable offline.
+
+## D-031 — Centralize locale-aware numeric UI boundaries
+
+**Decision:** Set one numeric locale from the language resolved at application startup and use it for shared unit, load-property, personal-record, New Load and converter display/input. Parse the active locale strictly first, including valid grouping, then try strict C-locale dot-decimal input only if localized parsing fails. Use decimal text inputs with `inputmode="decimal"` where HTML number controls would reject localized commas.
+
+**Rationale:** `numeric.h` explicitly accepts the active `QLocale` before `QLocale::c()`, while `units.cpp` formats through the active locale. A central browser boundary preserves that ordering and prevents different dialogs from interpreting the same text differently. Strict grouping is important: under German, `1.500` is valid localized grouping and means 1500, while unambiguous `1.5` can use the C fallback. HTML number inputs are defined around dot syntax and cannot reproduce the desktop locale contract reliably.

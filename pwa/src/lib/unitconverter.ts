@@ -1,4 +1,4 @@
-import { parseToBase, toDisplay, unitsOf, type Quantity } from "./units";
+import { formatLocaleNumber, parseToBase, toDisplay, unitsOf, type Quantity } from "./units";
 
 export type ConvertibleQuantity = Exclude<Quantity, "none">;
 
@@ -21,7 +21,7 @@ export const converterQuantities: ReadonlyArray<{ quantity: ConvertibleQuantity;
 export interface ConvertedUnitValue { id: string; symbol: string; value?: number; text: string }
 
 export function formatConverterValue(value: number): string {
-  return new Intl.NumberFormat("en-US", { maximumSignificantDigits: 7 }).format(value);
+  return formatLocaleNumber(value, { maximumSignificantDigits: 7 });
 }
 
 export function convertUnitValues(quantity: ConvertibleQuantity, fromId: string, input: string): ConvertedUnitValue[] {

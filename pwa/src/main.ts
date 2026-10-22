@@ -19,7 +19,7 @@ import { defaultReportTemplate, renderReport, reportImage, reportUnitForSystem, 
 import { copyRecordValues, parseRecordNumber, recordFields, shownRecordNumber, type RecordField } from "./lib/recordfields";
 import { simInputFromLoad, type SimInput } from "./lib/siminput";
 import { calibrationFor, simulate, simulateLadder, vivacityCurve, type CalibrationProfile, type LadderResult, type SimPoint, type SimResult } from "./lib/solver";
-import { formatUnit, parseToBase, quantityOfFileUnit, toDisplay, UnitPreferences, unitsOf, type Quantity, type UnitSystem } from "./lib/units";
+import { formatLocaleNumber, formatUnit, parseToBase, quantityOfFileUnit, setNumberLocale, toDisplay, UnitPreferences, unitsOf, type Quantity, type UnitSystem } from "./lib/units";
 import { applyPowderFit, defaultPowderFitParams, fitPowderAll, powderFitQuality, powderFitSamples, type PowderFitParam, type PowderFitResult } from "./lib/powderfit";
 import { parseReferenceRun, referenceNumber, type ReferenceRun } from "./lib/reference";
 import { burnRateRows, filterBurnRateRows, sortBurnRateRows, type BurnRateColumn, type BurnRateFactor } from "./lib/burnrate";
@@ -35,6 +35,7 @@ const themePreference = new ThemePreference(localStorage, document.documentEleme
 const languagePreference = new LanguagePreference(localStorage, navigator.languages);
 document.documentElement.lang = languagePreference.active.replace("_", "-");
 const i18n = await loadI18n(languagePreference.active);
+setNumberLocale(i18n.locale);
 
 const loads: LoadFile[] = [];
 let activeTab = "database";
@@ -111,7 +112,7 @@ function splitter(name: string, orientation: "vertical" | "horizontal", label: s
 }
 
 function formatNumber(value: number, digits = 3): string {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: digits }).format(value);
+  return formatLocaleNumber(value, { maximumFractionDigits: digits });
 }
 
 function shown(value: number, quantity: Exclude<Quantity, "none">, decimals?: number): string {
@@ -1153,11 +1154,11 @@ function openNewLoadDialog(): void {
   };
   const displayNumber = (base: number, quantity: "bulletMass" | "length" | "temperature"): string => {
     const unit = unitPreferences.unitFor(quantity);
-    return toDisplay(base, unit).toFixed(unit.decimals);
+    return formatUnit(base, unit);
   };
   const parameter = (name: keyof typeof params, label: string, quantity: "bulletMass" | "length" | "temperature", min: number, max: number): string => {
     const unit = unitPreferences.unitFor(quantity);
-    return `<label><span>${label}</span><span class="parameter-control"><input type="number" data-load-param="${name}" aria-label="${label}" value="${displayNumber(params[name], quantity)}" min="${toDisplay(min, unit)}" max="${toDisplay(max, unit)}" step="any"><span>${escapeHtml(unit.symbol)}</span></span></label>`;
+    return `<label><span>${label}</span><span class="parameter-control"><input type="text" inputmode="decimal" data-load-param="${name}" aria-label="${label}" value="${displayNumber(params[name], quantity)}"><span>${escapeHtml(unit.symbol)}</span></span></label>`;
   };
   const renderDialog = (): void => {
     let shownRecords: ProjectRecord[] = [], shownColumns: readonly DatabaseColumn[] = [];
