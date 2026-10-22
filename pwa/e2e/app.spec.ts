@@ -1028,6 +1028,27 @@ test("serves a valid manifest and reloads the app shell offline", async ({ page,
   await context.setOffline(false);
 });
 
+test("shows app update state at the right of the menu and checks on click", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.evaluate(() => navigator.serviceWorker.ready);
+
+  const sync = page.getByRole("button", { name: "App is up to date" });
+  await expect(sync).toBeVisible();
+  expect(await sync.evaluate((button) => button.parentElement?.lastElementChild === button)).toBe(true);
+  await expect(sync.locator(".sync-dot")).toHaveCSS("background-color", "rgb(66, 200, 90)");
+
+  await sync.click();
+  await expect(page.locator("footer")).toHaveText("The app is up to date.");
+  await expect(page.getByRole("button", { name: "App is up to date" })).toBeEnabled();
+
+  const outdatedColor = await sync.locator(".sync-dot").evaluate((dot) => {
+    dot.parentElement?.classList.replace("latest", "outdated");
+    return getComputedStyle(dot).backgroundColor;
+  });
+  expect(outdatedColor).toBe("rgb(237, 75, 75)");
+});
+
 test("the golden load fixture used by browser QA is present", () => {
   expect(readFileSync(referenceLoad, "utf8")).toContain("<ChamberSimReloaded");
 });

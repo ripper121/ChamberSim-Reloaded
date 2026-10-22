@@ -10,6 +10,11 @@ select { background: #202020; border: 1px solid #555; border-radius: 2px; paddin
 .app-shell { height: 100%; display: grid; grid-template-rows: 30px 34px minmax(0, 1fr) 24px; background: #282828; }
 .menubar { display: flex; align-items: center; background: #303030; border-bottom: 1px solid #191919; overflow: visible; }
 .menubar button { border: 0; background: transparent; padding: .38rem .7rem; }
+.menubar .app-sync { align-self: stretch; display: flex; align-items: center; gap: 6px; margin-left: auto; white-space: nowrap; }
+.sync-dot { width: 10px; height: 10px; border-radius: 50%; background: #42c85a; box-shadow: 0 0 0 1px #071b0b, 0 0 5px #42c85a88; }
+.app-sync.outdated .sync-dot { background: #ed4b4b; box-shadow: 0 0 0 1px #2b0808, 0 0 6px #ed4b4baa; }
+.app-sync.checking .sync-dot, .app-sync.updating .sync-dot { animation: sync-pulse .8s ease-in-out infinite alternate; }
+@keyframes sync-pulse { to { opacity: .35; } }
 .menu-dropdown { position: relative; align-self: stretch; }
 .menu-dropdown summary { height: 100%; display: flex; align-items: center; padding: .38rem .7rem; cursor: default; list-style: none; }
 .menu-dropdown summary::-webkit-details-marker { display: none; }

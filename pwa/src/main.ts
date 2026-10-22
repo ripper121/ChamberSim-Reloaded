@@ -34,6 +34,8 @@ let activeTab = "database";
 let activeInput = "cartridge";
 let activeResult = "results";
 let activeProfile: CalibrationProfile = "physical";
+let appSyncState: "latest" | "checking" | "outdated" | "updating" = "latest";
+let appServiceWorker: ServiceWorkerRegistration | undefined;
 let status = "Loading project database…";
 const simulationCache = new WeakMap<LoadFile, Map<CalibrationProfile, LadderResult[]>>();
 const ladderFocus = new WeakMap<LoadFile, number>();
@@ -644,6 +646,8 @@ function render(): void {
   const currentHistory = current ? historyFor(current) : undefined;
   const tabs = [`<button data-tab="database" class="${activeTab === "database" ? "active" : ""}">Database</button>`, ...loads.map((load, index) => `<button data-tab="load-${index}" class="${activeTab === `load-${index}` ? "active" : ""}">${escapeHtml(load.fileName.replace(/\.(csrload|grtload)$/i, ""))}${historyFor(load).modified ? "*" : ""}<span class="close" data-close="${index}" aria-label="Close load">×</span></button>`)].join("");
   app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu"><button>File</button><button id="save-csr" ${current ? "" : "disabled"}>Save CSR</button><button id="export-grt" ${current ? "" : "disabled"}>Export GRT</button><button id="overlay-reference" ${current ? "" : "disabled"} title="Overlay an original-program reference result (Ctrl+R)">Overlay reference…</button><button id="clear-reference" ${current && referenceRuns.has(current) ? "" : "disabled"}>Clear reference</button><button>Edit</button><button id="undo" ${currentHistory?.canUndo ? "" : "disabled"}>Undo</button><button id="redo" ${currentHistory?.canRedo ? "" : "disabled"}>Redo</button><button>View</button><details class="menu-dropdown"><summary>Tools</summary><div class="menu-popup"><button id="burn-rate-table" ${projectDatabase ? "" : "disabled"}>Burn rate table…</button><button id="unit-converter">Unit converter…</button></div></details><label class="menu-select">Units <select id="unit-system" aria-label="Unit system"><option value="metric" ${unitPreferences.system === "metric" ? "selected" : ""}>Metric</option><option value="imperial" ${unitPreferences.system === "imperial" ? "selected" : ""}>Imperial</option><option value="original" ${unitPreferences.system === "original" ? "selected" : ""}>Original</option></select></label><button id="reset-field-units">Reset field units</button><button>Help</button></nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="reference-picker" type="file" accept=".json,application/json" hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden /><input id="chronograph-picker" type="file" accept=".fit,.FIT,.csv,.CSV" hidden />`;
+  const syncLabel = appSyncState === "outdated" ? "Update available" : appSyncState === "checking" ? "Checking for updates" : appSyncState === "updating" ? "Applying update" : "App is up to date";
+  app.querySelector(".menubar")?.insertAdjacentHTML("beforeend", `<button id="app-sync" class="app-sync ${appSyncState}" aria-label="${syncLabel}" title="${syncLabel}. Click to check for and load the latest app version." ${appSyncState === "checking" || appSyncState === "updating" ? "disabled" : ""}><span class="sync-dot" aria-hidden="true"></span><span>Sync</span></button>`);
   const fileButton = app.querySelector<HTMLButtonElement>(".menubar > button:first-child");
   if (fileButton) { fileButton.id = "settings"; fileButton.title = "Settings, including the optional Original GRT database"; }
   bindEvents();
@@ -1713,6 +1717,7 @@ function bindSplitters(root: ParentNode = app): void {
 
 function bindEvents(): void {
   bindSplitters();
+  app.querySelector("#app-sync")?.addEventListener("click", () => { void syncLatestApp(); });
   app.querySelector("#settings")?.addEventListener("click", openDatabaseSettings);
   app.querySelector("#burn-rate-table")?.addEventListener("click", () => {
     app.querySelector<HTMLDetailsElement>(".menu-dropdown")?.removeAttribute("open");
@@ -1967,8 +1972,55 @@ function showDisclaimer(): void {
   dialog.showModal();
 }
 
-registerSW({
-  onNeedRefresh() { status = "An update is ready; reload to use it."; render(); }
+function appUpdateIsWaiting(): boolean {
+  return appSyncState === "outdated" || Boolean(appServiceWorker?.waiting);
+}
+
+async function syncLatestApp(): Promise<void> {
+  if (appSyncState === "outdated") {
+    appSyncState = "updating";
+    status = "Applying the latest app version…";
+    render();
+    try {
+      await updateServiceWorker(true);
+    } catch (problem) {
+      appSyncState = "outdated";
+      status = `Cannot apply the app update: ${problem instanceof Error ? problem.message : String(problem)}`;
+      render();
+    }
+    return;
+  }
+
+  appSyncState = "checking";
+  status = "Checking for the latest app version…";
+  render();
+  try {
+    await appServiceWorker?.update();
+    if (appUpdateIsWaiting()) {
+      appSyncState = "outdated";
+      status = "A newer app version is ready. Click Sync again to load it.";
+    } else {
+      appSyncState = "latest";
+      status = appServiceWorker ? "The app is up to date." : "The development app is up to date.";
+    }
+  } catch (problem) {
+    appSyncState = "latest";
+    status = `Cannot check for an app update: ${problem instanceof Error ? problem.message : String(problem)}`;
+  }
+  render();
+}
+
+const updateServiceWorker = registerSW({
+  onRegisteredSW(_serviceWorkerUrl, registration) {
+    appServiceWorker = registration;
+    if (registration?.waiting) appSyncState = "outdated";
+    render();
+  },
+  onNeedRefresh() {
+    appSyncState = "outdated";
+    status = "A newer app version is ready. Click Sync to load it.";
+    render();
+  }
 });
 
 document.addEventListener("keydown", (event) => {

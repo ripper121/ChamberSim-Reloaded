@@ -167,3 +167,9 @@ Last updated: 2026-10-22
 **Decision:** Generate the burn-rate table from the same merged Project/Personal/Original propellant records used by the database browser, and make the converter consume the central native unit table rather than duplicating factors. Persist only the native dialog choices (factor, all lots, quantity and source unit) in browser storage.
 
 **Rationale:** `BurnRateDialog` is a view over the live combined database and derives missing factors with the same model helper used when records are loaded; a static chart would become stale after Personal or Original changes. `UnitConverterDialog` is a precision view over `units.cpp`, including Fahrenheit's offset and seven-significant-digit output. Sharing these cores keeps both tools offline, deterministic, and synchronized with edits and future unit additions while mapping `QSettings` to local storage without adding load-file state.
+
+## D-027 — Make PWA updates explicit in the application shell
+
+**Decision:** Expose the prompt-style Workbox update lifecycle as a right-aligned Sync control. Green represents the currently loaded application version, red represents a waiting service worker, a green click calls `ServiceWorkerRegistration.update()`, and a red click activates the waiting worker and reloads through `virtual:pwa-register`.
+
+**Rationale:** A cache-first installable application can otherwise leave users unsure whether they are running the deployed version. Reusing the generated service worker's waiting/activation lifecycle avoids bypassing Workbox or clearing offline caches, while explicit click-to-activate behavior prevents an update from interrupting unsaved load edits without a user gesture.
