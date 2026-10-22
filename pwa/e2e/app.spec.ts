@@ -387,6 +387,63 @@ test("opens the release CSR load and exposes its native panels", async ({ page }
   expect(errors).toEqual([]);
 });
 
+test("resizes and remembers native-style workspace splitters", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+
+  const main = page.getByRole("separator", { name: "Resize input and output workspaces" });
+  const input = page.locator(".inputs");
+  const originalWidth = (await input.boundingBox())!.width;
+  await main.focus();
+  await main.press("ArrowRight");
+  await main.press("ArrowRight");
+  await expect.poll(async () => (await input.boundingBox())!.width).toBeCloseTo(originalWidth + 20, 0);
+  expect(await main.getAttribute("aria-valuenow")).toBe(String(Math.round(originalWidth + 20)));
+
+  const box = await main.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + 90, box!.y + box!.height / 2, { steps: 4 });
+  await page.mouse.up();
+  const draggedWidth = (await input.boundingBox())!.width;
+  expect(draggedWidth).toBeGreaterThan(originalWidth + 70);
+  expect(Number(await page.evaluate(() => localStorage.getItem("csr-layout-main")))).toBeCloseTo(draggedWidth, 0);
+
+  const properties = page.locator(".property-scroll");
+  const originalPropertyHeight = (await properties.boundingBox())!.height;
+  const left = page.getByRole("separator", { name: "Resize input fields and technical drawing" });
+  await left.focus(); await left.press("ArrowUp");
+  await expect.poll(async () => (await properties.boundingBox())!.height).toBeCloseTo(originalPropertyHeight - 10, 0);
+
+  const resultTop = page.locator(".result-top");
+  const originalResultHeight = (await resultTop.boundingBox())!.height;
+  const results = page.getByRole("separator", { name: "Resize result summary and chart" });
+  await results.focus(); await results.press("ArrowDown");
+  await expect.poll(async () => (await resultTop.boundingBox())!.height).toBeCloseTo(originalResultHeight + 10, 0);
+
+  await page.getByRole("button", { name: "Measurements", exact: true }).click();
+  await expect.poll(async () => (await input.boundingBox())!.width).toBeCloseTo(draggedWidth, 0);
+  const measurementTop = page.locator(".measurement-top");
+  const originalMeasurementHeight = (await measurementTop.boundingBox())!.height;
+  const measurement = page.getByRole("separator", { name: "Resize measurement charges and shot details" });
+  await measurement.focus(); await measurement.press("ArrowDown");
+  await expect.poll(async () => (await measurementTop.boundingBox())!.height).toBeCloseTo(originalMeasurementHeight + 10, 0);
+
+  const shots = page.locator(".measurement-shots");
+  const originalShotWidth = (await shots.boundingBox())!.width;
+  const measurementBottom = page.getByRole("separator", { name: "Resize shot table and measurement chart" });
+  await measurementBottom.focus(); await measurementBottom.press("ArrowRight");
+  await expect.poll(async () => (await shots.boundingBox())!.width).toBeCloseTo(originalShotWidth + 10, 0);
+
+  await page.reload();
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await expect.poll(async () => (await input.boundingBox())!.width).toBeCloseTo(draggedWidth, 0);
+  await main.dblclick();
+  expect(await page.evaluate(() => localStorage.getItem("csr-layout-main"))).toBeNull();
+});
+
 test("edits measurement series and compares measured shots with simulation", async ({ context, page }) => {
   const errors: string[] = [];
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
@@ -653,6 +710,12 @@ test("renders, customizes, scales, previews and prints the active-load report", 
 
   await page.getByRole("button", { name: "Edit template" }).click();
   const editor = page.getByRole("dialog", { name: "Edit report template" });
+  const templatePane = editor.getByLabel("Report template");
+  const originalEditorWidth = (await templatePane.boundingBox())!.width;
+  const editorSplitter = editor.getByRole("separator", { name: "Resize template editor and preview" });
+  await editorSplitter.focus(); await editorSplitter.press("ArrowLeft");
+  await expect.poll(async () => (await templatePane.boundingBox())!.width).toBeCloseTo(originalEditorWidth - 10, 0);
+  expect(await page.evaluate(() => localStorage.getItem("csr-layout-report-editor"))).not.toBeNull();
   await editor.getByLabel("Report template").fill("====== Compact ======\n~~work.CaliberName~~ · ~~result.MaxPressure~~");
   await expect(editor.locator(".report-editor-preview")).toContainText("Compact");
   await editor.getByRole("button", { name: "OK" }).click();

@@ -86,6 +86,15 @@ const escapeHtml = (value: string): string => value.replace(/[&<>'"]/g, (charact
   "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
 })[character] ?? character);
 
+function splitStyle(name: string): string {
+  const value = Number(localStorage.getItem(`csr-layout-${name}`));
+  return Number.isFinite(value) && value >= 40 && value <= 5000 ? ` style="--split-${name}:${Math.round(value)}px"` : "";
+}
+
+function splitter(name: string, orientation: "vertical" | "horizontal", label: string, before: number, after: number): string {
+  return `<div class="splitter ${orientation}" data-splitter="${name}" data-min-before="${before}" data-min-after="${after}" role="separator" aria-label="${escapeHtml(label)}" aria-orientation="${orientation}" aria-valuemin="${before}" tabindex="0" title="Drag to resize; use arrow keys; double-click to reset"><span></span></div>`;
+}
+
 function formatNumber(value: number, digits = 3): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: digits }).format(value);
 }
@@ -208,11 +217,12 @@ function measurementView(load: LoadFile): string {
   const addLadder = suggested.length > 1 ? `<button id="measurement-add-ladder">Add ladder charges</button>` : "";
   const shots = selectedCharge?.shots.map((shot, index) => `<tr data-measurement-shot="${index}" tabindex="0" class="${shotSelection.has(index) ? "focused" : ""}" aria-selected="${shotSelection.has(index)}"><th>${index + 1}</th><td><input data-measurement-shot-velocity="${index}" aria-label="Shot ${index + 1} velocity" inputmode="decimal" value="${shot.velocityMs > 0 ? formatUnit(shot.velocityMs, velocityUnit, 1) : ""}"></td><td><input data-measurement-shot-pressure="${index}" aria-label="Shot ${index + 1} pressure" inputmode="decimal" value="${shot.pressureBar > 0 ? formatUnit(shot.pressureBar, pressureUnit, 0) : ""}"></td></tr>`).join("") ?? "";
   const shotCaption = selectedCharge ? `Shots of ${escapeHtml(selectedCharge.name)} (${formatUnit(selectedCharge.chargeKg * 1e3, chargeUnit)} ${chargeUnit.symbol})` : "Shots — select a charge";
-  return `<div class="measurement-view"><div class="measurement-toolbar"><label>Series: <select id="measurement-series" ${load.measurements.length > 1 ? "" : "disabled"}>${seriesOptions}</select></label><button id="measurement-new-series">New series</button><button id="measurement-remove-series" ${load.measurements.length > 1 || series.charges.length ? "" : "disabled"}>Remove series</button><label class="measurement-title">Title: <input id="measurement-title" value="${escapeHtml(series.title)}" aria-label="Measurement series title"></label></div>
+  return `<div class="measurement-view"${splitStyle("measurement")}><div class="measurement-top"><div class="measurement-toolbar"><label>Series: <select id="measurement-series" ${load.measurements.length > 1 ? "" : "disabled"}>${seriesOptions}</select></label><button id="measurement-new-series">New series</button><button id="measurement-remove-series" ${load.measurements.length > 1 || series.charges.length ? "" : "disabled"}>Remove series</button><label class="measurement-title">Title: <input id="measurement-title" value="${escapeHtml(series.title)}" aria-label="Measurement series title"></label></div>
     <div class="button-row"><button id="measurement-add-charge" class="primary">Add charge</button>${addLadder}<button id="measurement-remove-charge" ${selectedCharge ? "" : "disabled"}>Remove charge</button><button id="measurement-import-chronograph">Import chronograph file…</button><button disabled title="Powder fitting is not ported yet">Fit to measurements…</button></div>
     ${series.charges.length ? "" : `<p class="measurement-hint"><i>Record chronograph results here: add a charge, then its shots (velocity and, if measured, the peak pressure). The statistics are compared with the simulation of this load.</i></p>`}
-    <div class="table-scroll measurement-charge-scroll"><table class="measurement-table"><thead><tr><th>Name</th><th>Charge [${chargeUnit.symbol}]</th><th>Shots</th><th title="Mean muzzle velocity of the shots">Velocity [${velocityUnit.symbol}]</th><th title="Standard deviation of the velocity">SD</th><th title="Extreme spread of the velocity (fastest - slowest)">ES</th><th>Simulated</th><th>Δ</th><th>Pressure [${pressureUnit.symbol}]</th><th>Simulated</th><th>Δ</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <div class="measurement-lower"><section class="measurement-shots"><h3>${shotCaption}</h3><input id="measurement-note" aria-label="Measurement charge note" placeholder="Note (rifle, chronograph, conditions, …)" value="${escapeHtml(selectedCharge?.note ?? "")}" ${selectedCharge ? "" : "disabled"}><div class="button-row"><button id="measurement-add-shot" ${selectedCharge ? "" : "disabled"}>Add shot</button><button id="measurement-remove-shot" ${selectedCharge?.shots.length ? "" : "disabled"}>Remove shot</button><button id="measurement-paste-shots" ${selectedCharge ? "" : "disabled"}>Paste shots</button></div><div class="table-scroll"><table class="measurement-shot-table"><thead><tr><th></th><th>Velocity [${velocityUnit.symbol}]</th><th>Pressure [${pressureUnit.symbol}]</th></tr></thead><tbody>${shots}</tbody></table></div></section>${measurementChartSvg(series, predictions, { charge: chargeUnit, velocity: velocityUnit, pressure: pressureUnit })}</div></div>`;
+    <div class="table-scroll measurement-charge-scroll"><table class="measurement-table"><thead><tr><th>Name</th><th>Charge [${chargeUnit.symbol}]</th><th>Shots</th><th title="Mean muzzle velocity of the shots">Velocity [${velocityUnit.symbol}]</th><th title="Standard deviation of the velocity">SD</th><th title="Extreme spread of the velocity (fastest - slowest)">ES</th><th>Simulated</th><th>Δ</th><th>Pressure [${pressureUnit.symbol}]</th><th>Simulated</th><th>Δ</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+    ${splitter("measurement", "horizontal", "Resize measurement charges and shot details", 120, 180)}
+    <div class="measurement-lower"${splitStyle("measurement-bottom")}><section class="measurement-shots"><h3>${shotCaption}</h3><input id="measurement-note" aria-label="Measurement charge note" placeholder="Note (rifle, chronograph, conditions, …)" value="${escapeHtml(selectedCharge?.note ?? "")}" ${selectedCharge ? "" : "disabled"}><div class="button-row"><button id="measurement-add-shot" ${selectedCharge ? "" : "disabled"}>Add shot</button><button id="measurement-remove-shot" ${selectedCharge?.shots.length ? "" : "disabled"}>Remove shot</button><button id="measurement-paste-shots" ${selectedCharge ? "" : "disabled"}>Paste shots</button></div><div class="table-scroll"><table class="measurement-shot-table"><thead><tr><th></th><th>Velocity [${velocityUnit.symbol}]</th><th>Pressure [${pressureUnit.symbol}]</th></tr></thead><tbody>${shots}</tbody></table></div></section>${splitter("measurement-bottom", "vertical", "Resize shot table and measurement chart", 220, 280)}${measurementChartSvg(series, predictions, { charge: chargeUnit, velocity: velocityUnit, pressure: pressureUnit })}</div></div>`;
 }
 
 const chartBox = { left: 58, right: 696, top: 28, bottom: 270 } as const;
@@ -335,11 +345,11 @@ function resultView(load: LoadFile): string {
   const overpressure = input.maxPressureBar > 0 && result.maxPressureBar > input.maxPressureBar ? `<div class="warning-banner"><strong>Overpressure!</strong> The maximum pressure ${shown(result.maxPressureBar, "pressure")} is ${formatNumber(100 * (result.maxPressureBar / input.maxPressureBar - 1), 1)} % above the permitted ${shown(input.maxPressureBar, "pressure")}. Do not load this charge.</div>` : "";
   const burnNotice = activeProfile === "physical" && !input.shotshell && !input.physicalBurn ? `<div class="notice-banner"><strong>No physical burn values</strong> for this propellant (or its burn values were changed): the load's burn rate is scaled; results are less accurate than for powders with Physical Model data.</div>` : "";
   const gasVelocity = input.chargeG > 0 ? result.gasImpulseNs / (focused.chargeG * 1e-3) : 0;
-  return `<div class="result-toolbar">${profile}<span>${escapeHtml(activeProfile[0]!.toUpperCase() + activeProfile.slice(1))} model · ${result.points.length} points</span><span>${sourceFormat}</span></div>
+  return `<div class="result-view"${splitStyle("results")}><div class="result-toolbar">${profile}<span>${escapeHtml(activeProfile[0]!.toUpperCase() + activeProfile.slice(1))} model · ${result.points.length} points</span><span>${sourceFormat}</span></div>
     <div class="result-top"><section><h2>${escapeHtml(load.title)}</h2>${overpressure}${burnNotice}<div class="result-summary"><dl><dt>Maximum pressure</dt><dd>${shown(result.maxPressureBar, "pressure")}</dd><dt>Muzzle pressure</dt><dd>${shown(result.muzzlePressureBar, "pressure")}</dd><dt>Projectile energy</dt><dd>${shown(result.muzzleEnergyJ, "energy")}</dd><dt>Muzzle velocity</dt><dd>${shown(result.muzzleVelocityMs, "velocity")}</dd><dt>Barrel time (BT)</dt><dd>${formatNumber(result.muzzleTimeMs, 4)} ms</dd></dl><dl><dt>Burnout pressure</dt><dd>${result.burnoutInBarrel ? shown(result.burnoutPressureBar, "pressure") : "not burnt out"}</dd><dt>Gas outflow velocity</dt><dd>${shown(gasVelocity, "velocity")}</dd><dt>Projectile speed</dt><dd>${result.muzzleRpm > 0 ? `${formatNumber(result.muzzleRpm / 1000, 1)} k/min` : "—"}</dd><dt>Recoil energy</dt><dd>${result.recoilEnergyJ > 0 ? shown(result.recoilEnergyJ, "energy") : "— (gun weight 0)"}</dd><dt>IPSC / MIP factor</dt><dd>${formatNumber(result.ipscFactor, 0)}, ${formatNumber(result.mipFactor, 0)}</dd></dl><dl><dt>Load ratio</dt><dd>${formatNumber(result.loadRatio * 100, 1)} %</dd><dt>Burnt propellant</dt><dd>${formatNumber(result.burntFraction * 100, 1)} %</dd><dt>Effective efficiency</dt><dd>${formatNumber(result.efficiency * 100, 1)} %</dd><dt>Heat / friction loss</dt><dd>${result.heatLossJ > 0 ? shown(result.heatLossJ, "energy") : "—"}, ${shown(result.muzzleFrictionEnergyJ, "energy")}</dd></dl></div>${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>Charge</th><th>Max. pressure</th><th>Velocity</th><th>Energy</th><th>Load ratio</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input)}</div>
-    <div class="chart-controls">${tabs}<label>Horizontal axis <select id="chart-axis"><option value="time" ${chartAxis === "time" ? "selected" : ""}>Time axis</option><option value="position" ${chartAxis === "position" ? "selected" : ""}>Position axis</option></select></label></div>
+    ${splitter("results", "horizontal", "Resize result summary and chart", 150, 250)}<div class="result-chart-pane"><div class="chart-controls">${tabs}<label>Horizontal axis <select id="chart-axis"><option value="time" ${chartAxis === "time" ? "selected" : ""}>Time axis</option><option value="position" ${chartAxis === "position" ? "selected" : ""}>Position axis</option></select></label></div>
     ${chartView(result, ladder.filter((_, index) => index !== focus).map((entry) => entry.result), input)}
-    <div class="chart-legend"><span class="pressure-key">Pressure</span><span class="permitted-key">Pmax permitted</span><span class="energy-key">Energy</span><span class="velocity-key">Velocity</span></div>`;
+    <div class="chart-legend"><span class="pressure-key">Pressure</span><span class="permitted-key">Pmax permitted</span><span class="energy-key">Energy</span><span class="velocity-key">Velocity</span></div></div></div>`;
 }
 
 function clampInteger(value: number, low: number, high: number): number {
@@ -490,7 +500,7 @@ function loadWorkspace(load: LoadFile): string {
     : resultView(load);
   const component: ProjectTable = activeInput === "cartridge" ? "caliber" : activeInput as ProjectTable;
   const selectLabel = component === "caliber" ? "Select Caliber" : component === "projectile" ? "Select Projectile" : "Select Propellant";
-  return `<main class="workspace"><aside class="inputs"><div class="subtabs"><button data-input="cartridge" class="${activeInput === "cartridge" ? "active" : ""}">Cartridge &amp; gun</button><button data-input="projectile" class="${activeInput === "projectile" ? "active" : ""}">Projectile</button><button data-input="propellant" class="${activeInput === "propellant" ? "active" : ""}">Propellant</button></div><div class="component-title"><span>${escapeHtml(load.title)}</span><button data-select-component="${component}" ${projectDatabase && ownDatabaseReady ? "" : "disabled"} title="Replace this component by another record of the database">${selectLabel}…</button></div><div class="property-scroll">${table(inputSections)}</div>${drawingView(load)}</aside><section class="output"><div class="subtabs"><button data-result="results" class="${activeResult === "results" ? "active" : ""}">Results</button><button data-result="measurements" class="${activeResult === "measurements" ? "active" : ""}">Measurements</button><button data-result="report" class="${activeResult === "report" ? "active" : ""}">Report</button></div>${resultContent}</section></main>`;
+  return `<main class="workspace"${splitStyle("main")}><aside class="inputs"${splitStyle("left")}><div class="subtabs"><button data-input="cartridge" class="${activeInput === "cartridge" ? "active" : ""}">Cartridge &amp; gun</button><button data-input="projectile" class="${activeInput === "projectile" ? "active" : ""}">Projectile</button><button data-input="propellant" class="${activeInput === "propellant" ? "active" : ""}">Propellant</button></div><div class="component-title"><span>${escapeHtml(load.title)}</span><button data-select-component="${component}" ${projectDatabase && ownDatabaseReady ? "" : "disabled"} title="Replace this component by another record of the database">${selectLabel}…</button></div><div class="property-scroll">${table(inputSections)}</div>${splitter("left", "horizontal", "Resize input fields and technical drawing", 120, 120)}${drawingView(load)}</aside>${splitter("main", "vertical", "Resize input and output workspaces", 310, 320)}<section class="output"><div class="subtabs"><button data-result="results" class="${activeResult === "results" ? "active" : ""}">Results</button><button data-result="measurements" class="${activeResult === "measurements" ? "active" : ""}">Measurements</button><button data-result="report" class="${activeResult === "report" ? "active" : ""}">Report</button></div>${resultContent}</section></main>`;
 }
 
 function combinedDatabaseRecords(table: ProjectTable): ProjectRecord[] {
@@ -1407,7 +1417,7 @@ function openReportTemplateEditor(load: LoadFile): void {
     const keys = groups.get(group) ?? []; keys.push(key); groups.set(group, keys);
   }
   const options = [...groups].map(([group, keys]) => `<optgroup label="${escapeHtml(group)}">${keys.map((key) => `<option value="${escapeHtml(key)}">${escapeHtml(key.slice(key.indexOf(".") + 1))}</option>`).join("")}</optgroup>`).join("");
-  dialog.innerHTML = `<form><div class="report-editor-bar"><label>Insert value <select data-report-insert><option value="">Choose…</option>${options}</select></label><button type="button" data-report-reset>Reset to default</button><span>Placeholders: <code>~~source.property~~</code> or <code>~~source.property("#.00")~~</code></span></div><div class="report-editor-split"><textarea aria-label="Report template" spellcheck="false"></textarea><div class="report-editor-preview"></div></div><div class="dialog-buttons"><button type="button" data-report-cancel>Cancel</button><button class="primary" type="submit">OK</button></div></form>`;
+  dialog.innerHTML = `<form><div class="report-editor-bar"><label>Insert value <select data-report-insert><option value="">Choose…</option>${options}</select></label><button type="button" data-report-reset>Reset to default</button><span>Placeholders: <code>~~source.property~~</code> or <code>~~source.property("#.00")~~</code></span></div><div class="report-editor-split"${splitStyle("report-editor")}><textarea aria-label="Report template" spellcheck="false"></textarea>${splitter("report-editor", "vertical", "Resize template editor and preview", 260, 300)}<div class="report-editor-preview"></div></div><div class="dialog-buttons"><button type="button" data-report-cancel>Cancel</button><button class="primary" type="submit">OK</button></div></form>`;
   document.body.append(dialog);
   const editor = dialog.querySelector<HTMLTextAreaElement>("textarea")!;
   const preview = dialog.querySelector<HTMLElement>(".report-editor-preview")!;
@@ -1429,10 +1439,60 @@ function openReportTemplateEditor(load: LoadFile): void {
     if (!value.trim() || value === defaultReportTemplate) localStorage.removeItem(reportTemplateKey); else localStorage.setItem(reportTemplateKey, value);
     close(); status = "Report template updated"; render();
   });
-  update(); dialog.showModal(); editor.focus();
+  update(); dialog.showModal(); bindSplitters(dialog); editor.focus();
+}
+
+function bindSplitters(root: ParentNode = app): void {
+  root.querySelectorAll<HTMLElement>("[data-splitter]").forEach((handle) => {
+    const container = handle.parentElement, before = handle.previousElementSibling as HTMLElement | null, after = handle.nextElementSibling as HTMLElement | null;
+    const name = handle.dataset.splitter, vertical = handle.classList.contains("vertical");
+    if (!container || !before || !after || !name) return;
+    const property = `--split-${name}`, minimumBefore = Number(handle.dataset.minBefore), minimumAfter = Number(handle.dataset.minAfter);
+    const bounds = (): { start: number; maximum: number } => {
+      const beforeRect = before.getBoundingClientRect(), afterRect = after.getBoundingClientRect(), handleRect = handle.getBoundingClientRect();
+      const start = vertical ? beforeRect.left : beforeRect.top;
+      const end = vertical ? afterRect.right : afterRect.bottom;
+      const handleSize = vertical ? handleRect.width : handleRect.height;
+      return { start, maximum: Math.max(minimumBefore, end - start - handleSize - minimumAfter) };
+    };
+    const sizeNow = (): number => vertical ? before.getBoundingClientRect().width : before.getBoundingClientRect().height;
+    const apply = (requested: number, persist = true): void => {
+      const { maximum } = bounds();
+      const value = Math.round(Math.max(minimumBefore, Math.min(maximum, requested)));
+      container.style.setProperty(property, `${value}px`);
+      handle.setAttribute("aria-valuemax", String(Math.round(maximum)));
+      handle.setAttribute("aria-valuenow", String(value));
+      if (persist) localStorage.setItem(`csr-layout-${name}`, String(value));
+    };
+    if (handle.offsetParent !== null) apply(sizeNow(), false);
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault(); handle.setPointerCapture(event.pointerId); handle.classList.add("dragging");
+      document.body.classList.add("resizing", vertical ? "resize-columns" : "resize-rows");
+      const { start } = bounds();
+      const move = (moveEvent: PointerEvent): void => apply((vertical ? moveEvent.clientX : moveEvent.clientY) - start);
+      const finish = (): void => { handle.classList.remove("dragging"); document.body.classList.remove("resizing", "resize-columns", "resize-rows"); handle.removeEventListener("pointermove", move); };
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", finish, { once: true });
+      handle.addEventListener("pointercancel", finish, { once: true });
+    });
+    handle.addEventListener("keydown", (event) => {
+      const decrease = vertical ? event.key === "ArrowLeft" : event.key === "ArrowUp";
+      const increase = vertical ? event.key === "ArrowRight" : event.key === "ArrowDown";
+      if (!decrease && !increase && event.key !== "Home" && event.key !== "End") return;
+      event.preventDefault();
+      const { maximum } = bounds();
+      apply(event.key === "Home" ? minimumBefore : event.key === "End" ? maximum : sizeNow() + (increase ? 10 : -10));
+    });
+    handle.addEventListener("dblclick", () => {
+      localStorage.removeItem(`csr-layout-${name}`); container.style.removeProperty(property);
+      requestAnimationFrame(() => { handle.setAttribute("aria-valuenow", String(Math.round(sizeNow()))); });
+    });
+  });
 }
 
 function bindEvents(): void {
+  bindSplitters();
   app.querySelector("#settings")?.addEventListener("click", openDatabaseSettings);
   app.querySelectorAll<HTMLElement>("[data-tab]").forEach((element) => element.addEventListener("click", () => { activeTab = element.dataset.tab ?? "database"; render(); }));
   app.querySelectorAll<HTMLElement>("[data-input]").forEach((element) => element.addEventListener("click", () => { activeInput = element.dataset.input ?? "cartridge"; render(); }));

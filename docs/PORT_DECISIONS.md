@@ -143,3 +143,9 @@ Last updated: 2026-10-22
 **Decision:** Render the same safe report HTML and source-derived SVG images on screen and in an A4 document with 15 mm print margins. Map desktop Print to the browser print dialog, Print preview to a separate same-origin report window, and Export PDF to the print dialog with explicit “Save as PDF” guidance.
 
 **Rationale:** Browser security does not provide a portable API that writes a generated PDF to an arbitrary path, while every target browser provides print preview and a PDF destination. Sharing one document preserves report content, scale, page breaks and images without adding a second PDF renderer whose layout could diverge from the visible report. The extra destination selection is the unavoidable browser interaction.
+
+## D-023 — Persist accessible CSS-grid splitters
+
+**Decision:** Reproduce the native `QSplitter` boundaries with seven-pixel CSS-grid handles. Store each leading pane size in local storage, expose every handle as a focusable ARIA separator, support pointer and keyboard resizing, and use double-click as a browser-friendly reset to the native-derived default ratio.
+
+**Rationale:** The desktop UI persists splitter state through `layoutstate.h`; fixed CSS borders prevented users from allocating space to the data they were actively working with. A single splitter controller keeps pointer, keyboard, bounds and persistence semantics consistent across the main load, input drawing, results, measurements and report editor without coupling domain state to layout preferences. Narrow layouts still stack both panes and hide inapplicable desktop handles.
