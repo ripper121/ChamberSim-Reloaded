@@ -281,10 +281,10 @@ test("creates a simulatable load through the native two-step database workflow",
     expect(native.muzzleVelocity_ms.toFixed(1)).toBe("786.8");
   }
   await page.getByRole("button", { name: "Projectile", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "Product Name", exact: true })).toHaveValue("Scorion Hpbt-Match 2313343");
+  await expect(page.getByRole("textbox", { name: "Projectile Product Name", exact: true })).toHaveValue("Scorion Hpbt-Match 2313343");
 
   await page.getByRole("button", { name: "Propellant", exact: true }).click();
-  const originalCharge = await page.getByRole("textbox", { name: "Powder Charge", exact: true }).inputValue();
+  const originalCharge = await page.getByRole("textbox", { name: "Propellant Mass", exact: true }).inputValue();
   await page.getByRole("button", { name: "Select Propellant…", exact: true }).click();
   const selectDialog = page.getByRole("dialog", { name: "Select Propellant" });
   const componentFilter = selectDialog.getByLabel("Filter propellant records");
@@ -296,11 +296,11 @@ test("creates a simulatable load through the native two-step database workflow",
   await replacement.click();
   await expect(selectDialog.getByLabel(/Also set the charge/)).not.toBeChecked();
   await selectDialog.getByRole("button", { name: "OK", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "Product Name", exact: true })).toHaveValue("D073.4");
-  await expect(page.getByRole("textbox", { name: "Powder Charge", exact: true })).toHaveValue(originalCharge);
+  await expect(page.getByRole("textbox", { name: "Propellant Product Name", exact: true })).toHaveValue("D073.4");
+  await expect(page.getByRole("textbox", { name: "Propellant Mass", exact: true })).toHaveValue(originalCharge);
   await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "Product Name", exact: true })).toHaveValue("D073.5");
+  await expect(page.getByRole("textbox", { name: "Propellant Product Name", exact: true })).toHaveValue("D073.5");
 });
 
 test("stores, reloads, displays, enlarges, and removes personal powder photos", async ({ page }) => {
@@ -804,7 +804,7 @@ test("edits numeric inputs, recalculates, validates, and supports undo and redo"
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await page.getByRole("button", { name: "Propellant", exact: true }).click();
 
-  const charge = page.getByRole("textbox", { name: "Powder Charge", exact: true });
+  const charge = page.getByRole("textbox", { name: "Propellant Mass", exact: true });
   await charge.fill("1.5");
   await charge.press("Tab");
   await expect(page.getByText("2,928 bar", { exact: true })).toBeVisible();
@@ -821,7 +821,7 @@ test("edits numeric inputs, recalculates, validates, and supports undo and redo"
   await charge.fill("not-a-number");
   await charge.press("Tab");
   await expect(charge).toHaveValue("1.500");
-  await expect(page.getByText(/Invalid value for Powder Charge/)).toBeVisible();
+  await expect(page.getByText(/Invalid value for Propellant Mass/)).toBeVisible();
 });
 
 test("keeps overall length and seating depth synchronized", async ({ page }) => {
@@ -842,7 +842,7 @@ test("downloads an edited CSR and a compatible original GRT export", async ({ pa
   await page.getByLabel("Unit system").selectOption("metric");
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await page.getByRole("button", { name: "Propellant", exact: true }).click();
-  const charge = page.getByRole("textbox", { name: "Powder Charge", exact: true });
+  const charge = page.getByRole("textbox", { name: "Propellant Mass", exact: true });
   await charge.fill("1.5");
   await charge.press("Tab");
 
@@ -1138,17 +1138,40 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(page.getByRole("button", { name: "Datenbank", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Kaliber", exact: true })).toBeVisible();
   await expect(page.getByText("484 Einträge", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Datei", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "Einstellungen" });
+  await expect(settings.getByRole("group", { name: "Datenbank" })).toBeVisible();
+  await expect(settings.getByText("Originaldatenbank:", { exact: true })).toBeVisible();
+  await expect(settings.getByRole("button", { name: "Durchsuchen", exact: true })).toBeVisible();
+  await expect(settings).toContainText("Die entschlüsselte Datenbank von Gordon's Reloading Tool.");
+  await settings.locator("[data-settings-close]").click();
+  await page.locator("#new-load").click();
+  const newLoad = page.getByRole("dialog", { name: "Neue Ladung" });
+  await expect(newLoad.getByRole("tab", { name: "1. Kaliber", exact: true })).toBeVisible();
+  await newLoad.getByRole("tab", { name: "2. Geschoss", exact: true }).click();
+  await expect(newLoad.getByLabel("Nur Geschosse anzeigen, die zum Kaliber passen")).toBeVisible();
+  await newLoad.locator("[data-new-load-cancel]").click();
+  await page.locator("#new-record").click();
+  const recordDialog = page.getByRole("dialog", { name: "Neu: Kaliber" });
+  await expect(recordDialog).toContainText("Mit * markierte Felder sind Pflicht.");
+  await expect(recordDialog.getByRole("textbox", { name: "Kaliberbezeichnung", exact: true })).toBeVisible();
+  await expect(recordDialog.locator("label").first()).toHaveAttribute("title", /Datenbankspalte:/);
+  await recordDialog.locator("[data-record-cancel]").click();
   await page.locator("#unit-system").selectOption("metric");
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await expect(page.getByRole("button", { name: "Patrone & Waffe", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Geschoss", exact: true })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Shotshell", exact: true })).toContainText("nein");
-  await expect(page.getByRole("combobox", { name: "Shotshell", exact: true })).toContainText("ja");
+  await expect(page.getByRole("combobox", { name: "Schrotpatrone", exact: true })).toContainText("nein");
+  await expect(page.getByRole("combobox", { name: "Schrotpatrone", exact: true })).toContainText("ja");
   await page.getByRole("button", { name: "Pulver", exact: true }).click();
   await expect(page.getByRole("columnheader", { name: "Eigenschaft", exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Wert", exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Einheit", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Pulver wählen…", exact: true })).toHaveAttribute("title", "Diese Komponente durch einen anderen Datensatz der Datenbank ersetzen");
+  await page.getByRole("button", { name: "Pulver wählen…", exact: true }).click();
+  const componentDialog = page.getByRole("dialog", { name: "Pulver wählen" });
+  await expect(componentDialog).toContainText("Auch die Ladung auf die Vorgabe setzen (70 % des Hülsenvolumens)");
+  await componentDialog.locator("[data-component-cancel]").click();
   await expect(page.getByRole("button", { name: "Ergebnisse", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Messungen", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Bericht", exact: true })).toBeVisible();
@@ -1188,7 +1211,7 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(toolDialog.getByRole("option", { name: "Temperatur", exact: true })).toBeAttached();
   await toolDialog.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("button", { name: "Ergebnisse", exact: true }).click();
-  const charge = page.getByRole("textbox", { name: "Powder Charge", exact: true });
+  const charge = page.getByRole("textbox", { name: "Pulvermasse", exact: true });
   await expect(charge).toHaveValue("1,639");
   await charge.fill("1,5");
   await charge.press("Tab");
@@ -1198,6 +1221,21 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await charge.fill("1.25");
   await charge.press("Tab");
   await expect(charge).toHaveValue("1,250");
+  await page.locator("#file-picker").setInputFiles(measurementLoad);
+  await page.getByRole("button", { name: "Messungen", exact: true }).click();
+  await page.locator("#measurement-fit-powder").click();
+  const fitDialog = page.getByRole("dialog", { name: "An Messungen anpassen" });
+  await expect(fitDialog.getByText("Anzupassende Werte:", { exact: true })).toBeVisible();
+  await expect(fitDialog.getByLabel("Abbrandgeschwindigkeit (Ba)")).toBeChecked();
+  await expect(fitDialog.getByRole("button", { name: "Auf diese Ladung anwenden", exact: true })).toBeEnabled();
+  await fitDialog.locator("[data-fit-close]").click();
+  const magneto = "Series,15, Shots:,3\r\nSeries,Shot,Speed\r\n15,1,2721,ft/s\r\n15,2,2722,ft/s\r\n15,3,2745,ft/s\r\n";
+  await page.locator("#chronograph-picker").setInputFiles({ name: "magneto.csv", mimeType: "text/csv", buffer: Buffer.from(magneto) });
+  const chronographDialog = page.getByRole("dialog", { name: "Chronograph-Datei importieren" });
+  await expect(chronographDialog).toContainText("MagnetoSpeed-Datei mit 1 Serie.");
+  await expect(chronographDialog.getByRole("columnheader", { name: "Geschwindigkeit [m/s]", exact: true })).toBeVisible();
+  await expect(chronographDialog.getByRole("button", { name: "Importieren", exact: true })).toBeVisible();
+  await chronographDialog.locator("[data-chronograph-cancel]").click();
   await page.locator(".view-menu summary").click();
   await expect(page.getByRole("menuitemradio", { name: "Deutsch (Deutschland)", exact: true })).toHaveAttribute("aria-checked", "true");
 });

@@ -81,23 +81,6 @@ const dialogFilterDelayMs = 500;
 const reportTemplateKey = "csr-report-template";
 const reportScaleKey = "csr-report-scale";
 
-const fieldLabels: Record<string, string> = {
-  CaliberName: "Caliber Name", oal: "Cartridge Overall Length", caselen: "Case Length", casevol: "Case Volume",
-  Dz: "Groove Caliber", Aeff: "Effective Area", pMaxZul: "Maximum Permitted Pressure", method: "Cartridge Test Method",
-  sebert: "Sebert Factor", ps: "Initial Gas Pressure", shotshell: "Shotshell", GunName: "Gun Name",
-  xe: "Barrel Length", twistlen: "Twist Length", mgun: "Gun Weight", gjump: "Bullet Jump Distance",
-  ProjectileName: "Projectile Name", mname: "Manufacturer", pname: "Product Name", lotid: "Lot-id",
-  Dbul: "Projectile Diameter", mp: "Projectile Weight", gdepth: "Bullet Seating Depth", glen: "Projectile Overall Length",
-  gpressure: "Initial Gas Pressure", gtailh: "Projectile Tail Length", gTailDiaA: "Projectile Tail Diameter A",
-  gTailDiaB: "Projectile Tail Diameter B", gTailType: "Projectile Base Type", g1bc: "G1 Ballistic Coefficient",
-  g7bc: "G7 Ballistic Coefficient", gUBCS: "UBCS-Code", gfriction: "Bullet friction", Ba: "Vivacity Coefficient",
-  Qex: "Specific Explosive Heat", k: "Ratio of Specific Heats", a0: "Progressivity a0", a1: "Progressivity a1",
-  z1: "Burn-up Limit z1", z2: "Burn-up Limit z2", eta: "Covolume", pc: "Material Density", pcd: "Bulk Density",
-  pt: "Normal Temperature", tcc: "Cold Temperature Coefficient", tch: "Hot Temperature Coefficient",
-  mc: "Powder Charge", laddercnt: "Ladder Steps", laddermc: "Ladder Step",
-  shothull: "Shotshell Hull", shotwad: "Shotshell Wad", shotprimer: "Shotshell Primer"
-};
-
 const escapeHtml = (value: string): string => value.replace(/[&<>'"]/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
 })[character] ?? character);
@@ -174,12 +157,24 @@ function unitEditor(section: LoadSection, entry: Entry, label: string): string {
   return `<select data-field-unit data-field="${field}" data-quantity="${quantity}" aria-label="${escapeHtml(label)} unit">${unitsOf(quantity).map((candidate) => `<option value="${candidate.id}" ${candidate.id === selected.id ? "selected" : ""}>${candidate.symbol}</option>`).join("")}</select>`;
 }
 
+function entryPresentation(entry: Entry): { label: string; hint: string } {
+  const source = entry.description || entry.name;
+  const translated = i18n.text("csr::fields", source);
+  const english = translated === source;
+  let label = translated, hint = entry.name;
+  if (english && /^true if /iu.test(label)) label = label.slice(8);
+  const bracket = label.indexOf(" (");
+  if (bracket > 0 && label.endsWith(")")) { hint = `${entry.name}\n${label.slice(bracket + 2, -1)}`; label = label.slice(0, bracket); }
+  if (english) label = label.replace(/(^|[\s(/-])(\p{L})/gu, (_match, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`);
+  return { label, hint };
+}
+
 function table(sections: ReadonlyArray<{ section: LoadSection; entries: readonly Entry[] }>): string {
   return `<table class="property-table"><thead><tr><th>${escapeHtml(i18n.text("PropertyPanel", "Property"))}</th><th>${escapeHtml(i18n.text("PropertyPanel", "Value"))}</th><th>${escapeHtml(i18n.text("PropertyPanel", "Unit"))}</th></tr></thead><tbody>${sections.flatMap(({ section, entries }) => entries
     .filter((entry) => !entry.name.endsWith("Unlock") && entry.name !== "mode" && entry.name !== "physRef" && !entry.name.startsWith("image"))
     .map((entry) => {
-      const label = fieldLabels[entry.name] ?? (entry.description || entry.name);
-      return `<tr title="${escapeHtml(entry.description)}"><td><label>${escapeHtml(label)}</label></td><td>${editor(section, entry, label)}</td><td>${unitEditor(section, entry, label)}</td></tr>`;
+      const { label, hint } = entryPresentation(entry);
+      return `<tr title="${escapeHtml(hint)}"><td><label>${escapeHtml(label)}</label></td><td>${editor(section, entry, label)}</td><td>${unitEditor(section, entry, label)}</td></tr>`;
     })).join("")}</tbody></table>`;
 }
 
@@ -843,9 +838,10 @@ async function databaseImage(uuid: string): Promise<StoredImage | undefined> {
 
 function openDatabaseSettings(): void {
   const dialog = document.createElement("dialog");
+  const tr = (source: string, ...args: readonly (string | number)[]): string => i18n.text("SettingsDialog", source, ...args);
   dialog.className = "database-settings-dialog";
-  dialog.setAttribute("aria-label", "Settings");
-  dialog.innerHTML = `<form><h2>Settings</h2><fieldset><legend>Database</legend><div class="database-setting-row"><span>Original database:</span><output data-original-name></output><button type="button" data-original-browse>Browse</button></div><p data-original-summary></p><p class="setting-note">Choose a plain (decrypted) SQLite copy of Gordon's Reloading Tool database. It is imported read-only into this browser; the selected file is never changed or uploaded.</p><input type="file" accept=".db,.sqlite,application/vnd.sqlite3" data-original-file hidden><p class="record-error" role="alert"></p></fieldset><div class="dialog-buttons"><button type="button" data-original-remove>Remove imported copy</button><button type="button" data-settings-close>Close</button></div></form>`;
+  dialog.setAttribute("aria-label", tr("Settings"));
+  dialog.innerHTML = `<form><h2>${escapeHtml(tr("Settings"))}</h2><fieldset><legend>${escapeHtml(tr("Database"))}</legend><div class="database-setting-row"><span>${escapeHtml(tr("Original database:"))}</span><output data-original-name></output><button type="button" data-original-browse>${escapeHtml(tr("Browse"))}</button></div><p data-original-summary></p><p class="setting-note">${escapeHtml(tr("The decrypted database of Gordon's Reloading Tool. It is only read; new records go into the program's own database, and both appear as one database."))}</p><input type="file" accept=".db,.sqlite,application/vnd.sqlite3" data-original-file hidden><p class="record-error" role="alert"></p></fieldset><div class="dialog-buttons"><button type="button" data-original-remove>Remove imported copy</button><button type="button" data-settings-close>Close</button></div></form>`;
   document.body.append(dialog);
   const name = dialog.querySelector<HTMLOutputElement>("[data-original-name]")!;
   const summary = dialog.querySelector<HTMLElement>("[data-original-summary]")!;
@@ -934,8 +930,8 @@ function openBurnRateDialog(): void {
     const rows = sortBurnRateRows(filterBurnRateRows(source, search.value), sort.column, sort.direction);
     const maximum = (column: "ba" | BurnRateFactor): number => Math.max(0, ...source.map((row) => row[column]));
     const maxima = { ba: maximum("ba"), br: maximum("br"), bp: maximum("bp"), brp: maximum("brp") };
-    const value = (number: number, column: keyof typeof maxima): string => `<span class="burn-rate-value" style="--share:${maxima[column] > 0 ? Math.max(0, Math.min(1, number / maxima[column])) : 0}">${number.toFixed(4)}</span>`;
-    body.innerHTML = rows.map((row) => `<tr><td>${escapeHtml(row.maker)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.lot)}</td><td>${value(row.ba, "ba")}</td><td>${value(row.br, "br")}</td><td>${value(row.bp, "bp")}</td><td>${value(row.brp, "brp")}</td><td>${row.quality > 0 ? `<span class="burn-rate-value quality" style="--share:${Math.min(row.quality, 1)}">${row.quality.toFixed(2)}</span>` : "-"}</td></tr>`).join("");
+    const value = (number: number, column: keyof typeof maxima): string => `<span class="burn-rate-value" style="--share:${maxima[column] > 0 ? Math.max(0, Math.min(1, number / maxima[column])) : 0}">${formatLocaleNumber(number, { minimumFractionDigits: 4, maximumFractionDigits: 4, useGrouping: false })}</span>`;
+    body.innerHTML = rows.map((row) => `<tr><td>${escapeHtml(row.maker)}</td><td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.lot)}</td><td>${value(row.ba, "ba")}</td><td>${value(row.br, "br")}</td><td>${value(row.bp, "bp")}</td><td>${value(row.brp, "brp")}</td><td>${row.quality > 0 ? `<span class="burn-rate-value quality" style="--share:${Math.min(row.quality, 1)}">${formatLocaleNumber(row.quality, { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })}</span>` : "-"}</td></tr>`).join("");
     count.textContent = i18n.plural("BurnRateDialog", "%n propellants", rows.length);
     dialog.querySelectorAll<HTMLButtonElement>("[data-burn-factor]").forEach((button) => {
       const active = button.dataset.burnFactor === factor && sort.column === factor;
@@ -1007,20 +1003,24 @@ function openUnitConverterDialog(): void {
 function recordInput(field: RecordField, value: string | number | boolean | undefined): string {
   const unit = field.quantity ? unitPreferences.unitFor(field.quantity) : undefined;
   const shown = field.kind === "number" ? shownRecordNumber(Number(value ?? 0), field, unit) : String(value ?? "");
-  const attributes = `data-record-field="${field.column}" aria-label="${escapeHtml(field.label)}" ${field.readOnly ? "readonly" : ""}`;
+  const fieldLabel = i18n.text("csr::dbfields", field.label);
+  const attributes = `data-record-field="${field.column}" aria-label="${escapeHtml(fieldLabel)}" ${field.readOnly ? "readonly" : ""}`;
   if (field.kind === "longtext") return `<textarea ${attributes}>${escapeHtml(shown)}</textarea>`;
   if (field.kind === "date") return `<input type="date" ${attributes} value="${escapeHtml(shown)}" />`;
   if (field.choices) {
     const current = field.kind === "choice" && field.column === "gValid" ? String(Boolean(value)) : String(value ?? "");
     const choices = [...field.choices];
     if (current && !choices.some((choice) => choice.value.toLowerCase() === current.toLowerCase())) choices.push({ value: current, label: current });
-    return `<select ${attributes} ${field.readOnly ? "disabled" : ""}>${choices.map((choice) => `<option value="${escapeHtml(choice.value)}" ${choice.value.toLowerCase() === current.toLowerCase() ? "selected" : ""}>${escapeHtml(choice.label)}</option>`).join("")}</select>`;
+    const translatedChoice = (label: string): string => ["flat base", "hollow base", "boat tail", "– not specified –", "– not set –"].includes(label)
+      ? i18n.text("RecordDialog", label) : label;
+    return `<select ${attributes} ${field.readOnly ? "disabled" : ""}>${choices.map((choice) => `<option value="${escapeHtml(choice.value)}" ${choice.value.toLowerCase() === current.toLowerCase() ? "selected" : ""}>${escapeHtml(translatedChoice(choice.label))}</option>`).join("")}</select>`;
   }
   return `<input ${field.kind === "number" ? 'inputmode="decimal"' : ""} ${attributes} value="${escapeHtml(shown)}" />`;
 }
 
 async function openRecordDialog(mode: RecordEditMode): Promise<void> {
   if (!projectDatabase || !ownDatabaseReady) return;
+  const tr = (source: string, ...args: readonly (string | number)[]): string => i18n.text("RecordDialog", source, ...args);
   const table = activeDatabaseTable;
   const selected = selectedDatabaseRecord();
   if (mode !== "new" && !selected) return;
@@ -1031,26 +1031,32 @@ async function openRecordDialog(mode: RecordEditMode): Promise<void> {
   const fields = recordFields(table);
   const groups = Array.from(new Set(fields.map((field) => field.group)));
   const kind = table === "caliber" ? "caliber" : table === "projectile" ? "projectile" : "propellant";
-  const title = mode === "new" ? `New ${kind}` : `${mode === "copy" ? "Copy" : "Edit"} ${kind} – ${recordTitle(table, selected!)}`;
+  const translatedKind = tr(kind);
+  const title = mode === "new" ? tr("New %1", translatedKind)
+    : mode === "copy" ? tr("Copy %1 – %2", translatedKind, recordTitle(table, selected!))
+      : tr("Edit %1 – %2", translatedKind, recordTitle(table, selected!));
   const photoSlots: Array<{ column: "imageUuid" | "imageDetailUuid"; uuid: string; image?: StoredImage; pending?: StoredImage }> = table === "propellant"
     ? [{ column: "imageUuid", uuid: String(initial.imageUuid ?? "") }, { column: "imageDetailUuid", uuid: String(initial.imageDetailUuid ?? "") }]
     : [];
   await Promise.all(photoSlots.map(async (slot) => { slot.image = await databaseImage(slot.uuid); }));
-  const photoEditor = photoSlots.length ? `<fieldset class="photo-editor"><legend>Photos</legend>${photoSlots.map((slot, index) => {
-    const label = index === 0 ? "Overview photo:" : "Detail photo:";
-    const info = slot.image ? `${slot.image.name}${slot.image.scaleUnit === "px/mm" && slot.image.scale > 0 ? ` (${slot.image.scale.toFixed(1)} px/mm)` : ""}` : slot.uuid ? "The photo is not available in the database." : "No photo";
-    return `<section class="photo-slot" data-photo-slot="${index}"><strong>${label}</strong><div class="photo-preview">${slot.image ? `<img src="${escapeHtml(slot.image.dataUrl)}" alt="${escapeHtml(label.replace(":", ""))}">` : ""}</div><span data-photo-info>${escapeHtml(info)}</span><div class="photo-actions"><button type="button" data-photo-choose="${index}">Choose file</button><button type="button" data-photo-remove="${index}">Remove</button><label>Scale [px/mm]: <input inputmode="decimal" data-photo-scale="${index}" aria-label="${escapeHtml(label.replace(":", ""))} scale in pixels per millimeter"></label><input type="file" data-photo-file="${index}" accept=".jpg,.jpeg,.png,.bmp,image/jpeg,image/png,image/bmp" hidden></div></section>`;
+  const photoEditor = photoSlots.length ? `<fieldset class="photo-editor"><legend>${escapeHtml(tr("Photos"))}</legend>${photoSlots.map((slot, index) => {
+    const label = tr(index === 0 ? "Overview photo:" : "Detail photo:");
+    const info = slot.image ? (slot.image.scaleUnit === "px/mm" && slot.image.scale > 0
+      ? tr("%1 (%2 px/mm)", slot.image.name, formatLocaleNumber(slot.image.scale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })) : slot.image.name)
+      : slot.uuid ? tr("The photo is not available in the database.") : tr("No photo");
+    return `<section class="photo-slot" data-photo-slot="${index}"><strong>${escapeHtml(label)}</strong><div class="photo-preview">${slot.image ? `<img src="${escapeHtml(slot.image.dataUrl)}" alt="${escapeHtml(label.replace(":", ""))}">` : ""}</div><span data-photo-info>${escapeHtml(info)}</span><div class="photo-actions"><button type="button" data-photo-choose="${index}">${escapeHtml(tr("Choose file"))}</button><button type="button" data-photo-remove="${index}">${escapeHtml(tr("Remove"))}</button><label title="${escapeHtml(tr("Pixels per millimeter of the new photo (for the scale bar); empty: unknown"))}">${escapeHtml(tr("Scale [px/mm]:"))} <input inputmode="decimal" data-photo-scale="${index}" aria-label="${escapeHtml(label.replace(":", ""))} scale in pixels per millimeter"></label><input type="file" data-photo-file="${index}" accept=".jpg,.jpeg,.png,.bmp,image/jpeg,image/png,image/bmp" hidden></div></section>`;
   }).join("")}</fieldset>` : "";
   const dialog = document.createElement("dialog");
   dialog.className = "record-dialog";
   dialog.setAttribute("aria-label", title);
   dialog.innerHTML = `<form><h2>${escapeHtml(title)}</h2><div class="record-dialog-scroll">${photoEditor}${groups.map((group) => {
     const groupFields = fields.filter((field) => field.group === group);
-    return `<fieldset class="${groupFields.length > 10 ? "wide" : ""}"><legend>${escapeHtml(group)}</legend>${groupFields.map((field) => {
+    return `<fieldset class="${groupFields.length > 10 ? "wide" : ""}"><legend>${escapeHtml(i18n.text("csr::dbfields", group))}</legend>${groupFields.map((field) => {
       const unit = field.quantity ? unitPreferences.unitFor(field.quantity).symbol : field.unitText;
-      return `<label title="Database column: ${field.column}"><span>${escapeHtml(field.label)}${unit ? ` [${escapeHtml(unit)}]` : ""}${field.required ? " *" : ""}:</span>${recordInput(field, initial[field.column])}</label>`;
+      const fieldLabel = i18n.text("csr::dbfields", field.label);
+      return `<label title="${escapeHtml(tr("Database column: %1", field.column))}"><span>${escapeHtml(fieldLabel)}${unit ? ` [${escapeHtml(unit)}]` : ""}${field.required ? " *" : ""}:</span>${recordInput(field, initial[field.column])}</label>`;
     }).join("")}</fieldset>`;
-  }).join("")}</div><p class="record-hint">Fields marked * are required. Numbers are shown in your units.</p><p class="record-error" role="alert"></p><div class="dialog-buttons"><button type="button" data-record-save>Save</button><button type="button" data-record-cancel>Cancel</button></div></form>`;
+  }).join("")}</div><p class="record-hint">${tr("<small>Fields marked * are required. Numbers are shown in your units (File ▸ Settings).</small>")}</p><p class="record-error" role="alert"></p><div class="dialog-buttons"><button type="button" data-record-save>Save</button><button type="button" data-record-cancel>Cancel</button></div></form>`;
   document.body.append(dialog);
   const close = (): void => { dialog.close(); dialog.remove(); };
   const updatePhoto = (index: number): void => {
@@ -1059,8 +1065,9 @@ async function openRecordDialog(mode: RecordEditMode): Promise<void> {
     const preview = root.querySelector<HTMLElement>(".photo-preview")!;
     preview.innerHTML = slot.image ? `<img src="${escapeHtml(slot.image.dataUrl)}" alt="${index === 0 ? "Overview photo" : "Detail photo"}">` : "";
     root.querySelector<HTMLElement>("[data-photo-info]")!.textContent = slot.image
-      ? `${slot.image.name}${slot.image.scaleUnit === "px/mm" && slot.image.scale > 0 ? ` (${slot.image.scale.toFixed(1)} px/mm)` : ""}`
-      : slot.uuid ? "The photo is not available in the database." : "No photo";
+      ? (slot.image.scaleUnit === "px/mm" && slot.image.scale > 0
+        ? tr("%1 (%2 px/mm)", slot.image.name, formatLocaleNumber(slot.image.scale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })) : slot.image.name)
+      : slot.uuid ? tr("The photo is not available in the database.") : tr("No photo");
   };
   dialog.querySelector("[data-record-cancel]")?.addEventListener("click", close);
   dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
@@ -1091,14 +1098,14 @@ async function openRecordDialog(mode: RecordEditMode): Promise<void> {
       if (field.kind === "number") {
         const unit = field.quantity ? unitPreferences.unitFor(field.quantity) : undefined;
         const number = parseRecordNumber(control.value, field, unit);
-        if (number === undefined) { invalid ||= field.label; control.classList.add("invalid-field"); }
+        if (number === undefined) { invalid ||= i18n.text("csr::dbfields", field.label); control.classList.add("invalid-field"); }
         else values[field.column] = number;
       } else if (field.column === "gValid") values[field.column] = control.value === "true";
       else values[field.column] = control.value;
-      if (field.required && !control.value.trim()) { invalid ||= field.label; control.classList.add("invalid-field"); }
+      if (field.required && !control.value.trim()) { invalid ||= i18n.text("csr::dbfields", field.label); control.classList.add("invalid-field"); }
     }
     const error = dialog.querySelector<HTMLElement>(".record-error")!;
-    if (invalid) { error.textContent = `Please check the field “${invalid}”.`; dialog.querySelector<HTMLElement>(".invalid-field")?.focus(); return; }
+    if (invalid) { error.textContent = tr('Please check the field "%1".', invalid); dialog.querySelector<HTMLElement>(".invalid-field")?.focus(); return; }
     values.mdate = mode === "edit" ? new Date().toISOString().slice(0, 10) : "";
     for (const slot of photoSlots) values[slot.column] = slot.uuid;
     try {
@@ -1152,25 +1159,28 @@ function exportSelectedRecord(): void {
 
 function openNewLoadDialog(): void {
   if (!projectDatabase || !ownDatabaseReady) return;
+  const tr = (source: string, ...args: readonly (string | number)[]): string => i18n.text("NewLoadDialog", source, ...args);
   type Selection = Record<ProjectTable, ProjectRecord | undefined>;
   const selected: Selection = { caliber: undefined, projectile: undefined, propellant: undefined };
   const queries: Record<ProjectTable, string> = { caliber: "", projectile: "", propellant: "" };
   const sorts: Record<ProjectTable, { column: string; direction: "asc" | "desc" }> = { caliber: { column: "id", direction: "asc" }, projectile: { column: "id", direction: "asc" }, propellant: { column: "id", direction: "asc" } };
   const scrolls: Record<ProjectTable, number> = { caliber: 0, projectile: 0, propellant: 0 };
-  const labels: Record<ProjectTable, string> = { caliber: "Caliber", projectile: "Projectile", propellant: "Propellant" };
+  const labels: Record<ProjectTable, string> = { caliber: tr("Caliber:").replace(/:$/, ""), projectile: tr("Projectile:").replace(/:$/, ""), propellant: tr("Propellant:").replace(/:$/, "") };
+  const tabLabels: Record<ProjectTable, string> = { caliber: tr("1. Caliber"), projectile: tr("2. Projectile"), propellant: tr("3. Propellant") };
   let active: ProjectTable = "caliber", step = 0, matchDiameter = true, defaultsFor = "", filterTimer: ReturnType<typeof setTimeout> | undefined;
   let params = { chargeG: 0, barrelLengthMm: 0, seatingDepthMm: 0, twistLengthMm: 240, powderTemperatureC: 21 };
   const dialog = document.createElement("dialog");
   dialog.className = "new-load-dialog";
-  dialog.setAttribute("aria-label", "New load");
+  dialog.setAttribute("aria-label", tr("New load"));
   document.body.append(dialog);
   const close = (): void => { if (filterTimer) clearTimeout(filterTimer); dialog.close(); dialog.remove(); };
   const description = (table: ProjectTable, record?: ProjectRecord): string => {
-    if (!record) return "not selected";
+    if (!record) return "";
     if (table === "caliber") return `${String(record.cipname ?? "")}${record.altname ? ` ${String(record.altname)}` : ""}`.trim();
     return recordTitle(table, record);
   };
-  const summary = (): string => `<dl class="new-load-summary">${(["caliber", "projectile", "propellant"] as const).map((table) => `<dt>${labels[table]}:</dt><dd>${escapeHtml(description(table, selected[table]))}</dd>`).join("")}</dl>`;
+  const summaryLabels: Record<ProjectTable, string> = { caliber: tr("Caliber:"), projectile: tr("Projectile:"), propellant: tr("Propellant:") };
+  const summary = (): string => `<dl class="new-load-summary">${(["caliber", "projectile", "propellant"] as const).map((table) => `<dt>${escapeHtml(summaryLabels[table])}</dt><dd>${selected[table] ? escapeHtml(description(table, selected[table])) : tr("<i>not selected</i>")}</dd>`).join("")}</dl>`;
   const resetDefaults = (): void => {
     if (!selected.caliber || !selected.projectile || !selected.propellant) return;
     params = {
@@ -1201,11 +1211,13 @@ function openNewLoadDialog(): void {
       const recordTable = recordTableHtml(active, records, sorts[active], scrolls[active], selected[active]?.id);
       shownRecords = recordTable.records; shownColumns = recordTable.columns;
       const quality = active === "propellant" && selected.propellant ? `<p class="powder-quality">Fit quality: ${formatNumber(Number(selected.propellant.Qlty ?? 0) * 100, 0)} %</p>` : "";
-      dialog.innerHTML = `<form method="dialog"><h2>New load</h2><div class="new-load-tabs" role="tablist">${(["caliber", "projectile", "propellant"] as const).map((table, index) => `<button type="button" role="tab" data-new-load-tab="${table}" class="${active === table ? "active" : ""}" aria-selected="${active === table}">${index + 1}. ${labels[table]}</button>`).join("")}</div>${active === "projectile" ? `<label class="match-diameter"><input type="checkbox" data-match-diameter ${matchDiameter ? "checked" : ""}> Show only bullets that fit the caliber</label>` : ""}<input data-new-load-filter aria-label="Filter ${labels[active].toLowerCase()} records" placeholder="Filter (all columns)…" value="${escapeHtml(queries[active])}">${recordTable.html}${quality}${summary()}<p class="record-error" role="alert"></p><div class="dialog-buttons"><button type="button" data-new-load-cancel>Cancel</button><button type="button" data-new-load-next ${selected.caliber && selected.projectile && selected.propellant ? "" : "disabled"}>Next &gt;</button></div></form>`;
+      dialog.innerHTML = `<form method="dialog"><h2>${escapeHtml(tr("New load"))}</h2><div class="new-load-tabs" role="tablist">${(["caliber", "projectile", "propellant"] as const).map((table) => `<button type="button" role="tab" data-new-load-tab="${table}" class="${active === table ? "active" : ""}" aria-selected="${active === table}">${escapeHtml(tabLabels[table])}</button>`).join("")}</div>${active === "projectile" ? `<label class="match-diameter"><input type="checkbox" data-match-diameter ${matchDiameter ? "checked" : ""}> ${escapeHtml(tr("Show only bullets that fit the caliber"))}</label>` : ""}<input data-new-load-filter aria-label="Filter ${escapeHtml(labels[active].toLowerCase())} records" placeholder="${escapeHtml(i18n.text("MainWindow", "Filter (all columns)…"))}" value="${escapeHtml(queries[active])}">${recordTable.html}${quality}${summary()}<p class="record-error" role="alert"></p><div class="dialog-buttons"><button type="button" data-new-load-cancel>Cancel</button><button type="button" data-new-load-next ${selected.caliber && selected.projectile && selected.propellant ? "" : "disabled"}>${escapeHtml(tr("Next >"))}</button></div></form>`;
     } else {
       const massUnit = unitPreferences.unitFor("bulletMass");
-      const otherMass = massUnit.id === "grain" ? `= ${params.chargeG.toFixed(3)} g` : `= ${(params.chargeG / 0.06479891).toFixed(1)} grains`;
-      dialog.innerHTML = `<form method="dialog"><h2>New load</h2><div class="new-load-data"><section>${summary()}</section><fieldset><legend>Load data</legend>${parameter("chargeG", "Propellant charge", "bulletMass", 0, 100)}<p class="other-mass">${otherMass}</p>${parameter("barrelLengthMm", "Barrel length", "length", 0, 2000)}${parameter("seatingDepthMm", "Bullet seating depth", "length", 0, 100)}${parameter("twistLengthMm", "Twist length", "length", 0, 2000)}${parameter("powderTemperatureC", "Propellant temperature", "temperature", -40, 80)}<button type="button" data-reset-load-defaults>Reset to defaults</button></fieldset></div><p class="record-error" role="alert"></p><div class="dialog-buttons"><button type="button" data-new-load-cancel>Cancel</button><button type="button" data-new-load-back>&lt; Back</button><button type="button" data-create-load>Create load</button></div></form>`;
+      const otherMass = massUnit.id === "grain"
+        ? tr("= %1 g", formatLocaleNumber(params.chargeG, { minimumFractionDigits: 3, maximumFractionDigits: 3 }))
+        : tr("= %1 grains", formatLocaleNumber(params.chargeG / 0.06479891, { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+      dialog.innerHTML = `<form method="dialog"><h2>${escapeHtml(tr("New load"))}</h2><div class="new-load-data"><section>${summary()}</section><fieldset><legend>${escapeHtml(tr("Load data"))}</legend>${parameter("chargeG", tr("Propellant charge"), "bulletMass", 0, 100)}<p class="other-mass">${escapeHtml(otherMass)}</p>${parameter("barrelLengthMm", tr("Barrel length"), "length", 0, 2000)}${parameter("seatingDepthMm", tr("Bullet seating depth"), "length", 0, 100)}${parameter("twistLengthMm", tr("Twist length"), "length", 0, 2000)}${parameter("powderTemperatureC", tr("Propellant temperature"), "temperature", -40, 80)}<button type="button" data-reset-load-defaults>${escapeHtml(tr("Reset to defaults"))}</button></fieldset></div><p class="record-error" role="alert"></p><div class="dialog-buttons"><button type="button" data-new-load-cancel>Cancel</button><button type="button" data-new-load-back>${escapeHtml(tr("< Back"))}</button><button type="button" data-create-load>${escapeHtml(tr("Create load"))}</button></div></form>`;
     }
     dialog.querySelector("[data-new-load-cancel]")?.addEventListener("click", close);
     dialog.querySelectorAll<HTMLElement>("[data-new-load-tab]").forEach((tab) => tab.addEventListener("click", () => { active = tab.dataset.newLoadTab as ProjectTable; renderDialog(); }));
@@ -1300,11 +1312,12 @@ function openNewLoadDialog(): void {
 function openSelectComponentDialog(table: ProjectTable): void {
   const load = activeLoad();
   if (!load || !projectDatabase || !ownDatabaseReady) return;
-  const title = table === "caliber" ? "Select Caliber" : table === "projectile" ? "Select Projectile" : "Select Propellant";
+  const tr = (source: string): string => i18n.text("LoadView", source);
+  const title = tr(table === "caliber" ? "Select Caliber" : table === "projectile" ? "Select Projectile" : "Select Propellant");
   const resetText = table === "caliber"
-    ? "Also set barrel length, seating depth and charge to the defaults of the new caliber"
-    : table === "projectile" ? "Also set the seating depth to the default (maximum cartridge length)"
-      : "Also set the charge to the default (70 % of the case capacity)";
+    ? tr("Also set barrel length, seating depth and charge to the defaults of the new caliber")
+    : table === "projectile" ? tr("Also set the seating depth to the default (maximum cartridge length)")
+      : tr("Also set the charge to the default (70 % of the case capacity)");
   let selected: ProjectRecord | undefined, query = "", restrict = table === "projectile", reset = table === "caliber", scrollTop = 0;
   let filterTimer: ReturnType<typeof setTimeout> | undefined;
   let sort: { column: string; direction: "asc" | "desc" } = { column: "id", direction: "asc" };
@@ -1325,7 +1338,7 @@ function openSelectComponentDialog(table: ProjectTable): void {
     records = projectDatabase!.filteredRecords(table, query, records);
     const recordTable = recordTableHtml(table, records, sort, scrollTop, selected?.id);
     const quality = table === "propellant" && selected ? `<p class="powder-quality">Fit quality: ${formatNumber(Number(selected.Qlty ?? 0) * 100, 0)} %</p>` : "";
-    dialog.innerHTML = `<form method="dialog"><h2>${title}</h2>${table === "projectile" ? `<label class="match-diameter"><input type="checkbox" data-component-restrict ${restrict ? "checked" : ""}> Show only bullets that fit the caliber</label>` : ""}<input data-component-filter aria-label="Filter ${table} records" placeholder="Filter (all columns)…" value="${escapeHtml(query)}">${recordTable.html}${quality}<label class="reset-dependent"><input type="checkbox" data-component-reset ${reset ? "checked" : ""}> ${resetText}</label><div class="dialog-buttons"><button type="button" data-component-cancel>Cancel</button><button type="button" data-component-apply ${selected ? "" : "disabled"}>OK</button></div></form>`;
+    dialog.innerHTML = `<form method="dialog"><h2>${escapeHtml(title)}</h2>${table === "projectile" ? `<label class="match-diameter"><input type="checkbox" data-component-restrict ${restrict ? "checked" : ""}> ${escapeHtml(tr("Show only bullets that fit the caliber"))}</label>` : ""}<input data-component-filter aria-label="Filter ${table} records" placeholder="${escapeHtml(i18n.text("MainWindow", "Filter (all columns)…"))}" value="${escapeHtml(query)}">${recordTable.html}${quality}<label class="reset-dependent"><input type="checkbox" data-component-reset ${reset ? "checked" : ""}> ${escapeHtml(resetText)}</label><div class="dialog-buttons"><button type="button" data-component-cancel>Cancel</button><button type="button" data-component-apply ${selected ? "" : "disabled"}>OK</button></div></form>`;
     dialog.querySelector("[data-component-cancel]")?.addEventListener("click", close);
     const filter = dialog.querySelector<HTMLInputElement>("[data-component-filter]");
     const scheduleFilter = (): void => {
@@ -1428,6 +1441,7 @@ async function importBulletFile(file: File): Promise<void> {
 }
 
 function openChronographImportDialog(load: LoadFile, parsed: ChronographFile, sourceName: string): void {
+  const tr = (source: string, ...args: readonly (string | number)[]): string => i18n.text("ChronographImportDialog", source, ...args);
   const seriesIndex = clampInteger(measurementSeriesSelections.get(load) ?? 0, 0, Math.max(load.measurements.length - 1, 0));
   const chargeUnit = unitPreferences.unitFor("bulletMass");
   const velocityUnit = unitPreferences.unitFor("velocity");
@@ -1440,7 +1454,8 @@ function openChronographImportDialog(load: LoadFile, parsed: ChronographFile, so
   const dialog = document.createElement("dialog");
   dialog.className = "chronograph-dialog";
   dialog.setAttribute("aria-labelledby", "chronograph-dialog-title");
-  dialog.innerHTML = `<form method="dialog"><h2 id="chronograph-dialog-title">Import chronograph file</h2><p>${chronographFormatName(parsed.format)} file with ${parsed.series.length} series. Every ticked series becomes a charge with its shots.</p><div class="chronograph-table-scroll"><table><thead><tr><th>Import</th><th>Series</th><th>Shots</th><th>Velocity [${escapeHtml(velocityUnit.symbol)}]</th><th>SD</th><th title="The powder charge of this series (the file does not contain it)">Charge [${escapeHtml(chargeUnit.symbol)}]</th></tr></thead><tbody>${rows}</tbody></table></div><div class="dialog-buttons"><button type="button" data-chronograph-cancel>Cancel</button><button type="button" data-chronograph-import>Import</button></div></form>`;
+  const description = i18n.plural("ChronographImportDialog", "%1 file with %n series. Every ticked series becomes a charge with its shots.", parsed.series.length, chronographFormatName(parsed.format));
+  dialog.innerHTML = `<form method="dialog"><h2 id="chronograph-dialog-title">${escapeHtml(tr("Import chronograph file"))}</h2><p>${escapeHtml(description)}</p><div class="chronograph-table-scroll"><table><thead><tr><th>${escapeHtml(tr("Import"))}</th><th>${escapeHtml(tr("Series"))}</th><th>${escapeHtml(tr("Shots"))}</th><th>${escapeHtml(tr("Velocity [%1]", velocityUnit.symbol))}</th><th>${escapeHtml(tr("SD"))}</th><th title="${escapeHtml(tr("The powder charge of this series (the file does not contain it)"))}">${escapeHtml(tr("Charge [%1]", chargeUnit.symbol))}</th></tr></thead><tbody>${rows}</tbody></table></div><div class="dialog-buttons"><button type="button" data-chronograph-cancel>Cancel</button><button type="button" data-chronograph-import>${escapeHtml(tr("Import"))}</button></div></form>`;
   const close = (): void => { dialog.close(); };
   dialog.querySelector("[data-chronograph-cancel]")?.addEventListener("click", close);
   dialog.querySelector("[data-chronograph-import]")?.addEventListener("click", () => {
@@ -1500,6 +1515,7 @@ function powderFitDescription(result: PowderFitResult, source: string, chargeCou
 }
 
 function openPowderFitDialog(load: LoadFile): void {
+  const tr = (source: string, ...args: readonly (string | number)[]): string => i18n.text("PowderFitDialog", source, ...args);
   const extracted = powderFitSamples(load, load.fileName), samples = extracted.samples;
   if (samples.length === 0) { window.alert("Enter the measured velocity of the shots first."); return; }
   const selected = new Set<PowderFitParam>(defaultPowderFitParams(samples));
@@ -1512,21 +1528,24 @@ function openPowderFitDialog(load: LoadFile): void {
   const percentCell = (result: PowderFitResult | undefined, index: number, field: "velocityBefore" | "velocityAfter" | "pressureAfter", reference: number): string =>
     result ? powderFitPercent(result.samples[index]?.[field] ?? 0, reference) : "";
   const summary = (): string => {
-    if (results.length === 0) return "Choose the values to fit and click <b>Fit</b>.";
+    if (results.length === 0) return tr("Choose the values to fit and click <b>Fit</b>.");
+    const fixed = (value: number, digits: number): string => formatLocaleNumber(value, { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false });
     const blocks = results.map((result) => {
-      const values = result.params.map((param, index) => `${param}: ${result.before[index]!.toFixed(4)} → <b>${result.after[index]!.toFixed(4)}</b>`).join(", &nbsp; ");
-      const pressure = result.pressureRmsBefore > 0 ? `, pressure error: ${(100 * result.pressureRmsBefore).toFixed(1)} % → ${(100 * result.pressureRmsAfter).toFixed(1)} %` : "";
-      const unchanged = result.improved ? "" : "<br>The values were not changed: the current ones fit best.";
-      return `<b>${result.model === "original" ? "GRT values" : "Physical Model"}</b> &nbsp; ${values}<br>Velocity error (rms): ${(100 * result.velocityRmsBefore).toFixed(2)} % → <b>${(100 * result.velocityRmsAfter).toFixed(2)} %</b>${pressure}${unchanged}`;
+      const values = result.params.map((param, index) => `${param}: ${fixed(result.before[index]!, 4)} → <b>${fixed(result.after[index]!, 4)}</b>`).join(", &nbsp; ");
+      const pressure = result.pressureRmsBefore > 0 ? `, ${tr("pressure error: %1 % → %2 %", fixed(100 * result.pressureRmsBefore, 1), fixed(100 * result.pressureRmsAfter, 1))}` : "";
+      const unchanged = result.improved ? "" : `<br>${tr("The values were not changed: the current ones fit best.")}`;
+      return `<b>${escapeHtml(tr(result.model === "original" ? "GRT values" : "Physical Model"))}</b> &nbsp; ${values}<br>${tr("Velocity error (rms): %1 % → <b>%2 %</b>", fixed(100 * result.velocityRmsBefore, 2), fixed(100 * result.velocityRmsAfter, 2))}${pressure}${unchanged}`;
     });
-    if (samples.length < results[0]!.params.length) blocks.push("<span class=\"fit-warning\">Fewer measured charges than values: the result is not well determined.</span>");
+    if (samples.length < results[0]!.params.length) blocks.push(`<span class="fit-warning">${tr("Fewer measured charges than values: the result is not well determined.")}</span>`);
     return blocks.join("<br>");
   };
   const renderDialog = (): void => {
     const original = resultOf("original"), physical = resultOf("physical"), anyPressure = samples.some((sample) => sample.pressureShots > 0);
     const rows = samples.map((sample, index) => `<tr><td>${escapeHtml(sample.source)}</td><td>${formatUnit(sample.chargeG, unitPreferences.unitFor("bulletMass"))}</td><td>${sample.shots}</td><td>${formatUnit(sample.velocityMs, unitPreferences.unitFor("velocity"), 1)}</td><td>${percentCell(original, index, "velocityBefore", sample.velocityMs)}</td><td>${percentCell(original, index, "velocityAfter", sample.velocityMs)}</td>${anyPressure ? `<td>${percentCell(original, index, "pressureAfter", sample.pressureBar)}</td>` : ""}<td>${percentCell(physical, index, "velocityBefore", sample.velocityMs)}</td><td>${percentCell(physical, index, "velocityAfter", sample.velocityMs)}</td>${anyPressure ? `<td>${percentCell(physical, index, "pressureAfter", sample.pressureBar)}</td>` : ""}</tr>`).join("");
-    const boxes: Array<[PowderFitParam, string]> = [["Ba", "Burn rate (Ba)"], ["a0", "Form factor a0"], ["z1", "Transition z1"], ["z2", "Transition z2"]];
-    dialog.innerHTML = `<form method="dialog"><h2 id="powder-fit-title">Fit to measurements</h2><p>Changes the propellant's model values until the simulation agrees with the measured charges, for both models: the GRT values (Ba, a0, z1, z2; used by GRT Original and GRT Tuned, fitted with GRT Original) and the Physical Model's own burn values. Check the case volume (fired case, water), the bullet length and the cartridge length first: wrong values there give a wrong model.</p><div class="fit-parameters"><strong>Values to fit:</strong>${boxes.map(([param, label]) => `<label><input type="checkbox" data-fit-param="${param}" ${selected.has(param) ? "checked" : ""}>${label}</label>`).join("")}<button type="button" data-fit-run ${selected.size ? "" : "disabled"}>Fit</button></div>${extracted.warnings.length ? `<div class="fit-warning">${extracted.warnings.map(escapeHtml).join("<br>")}</div>` : ""}<div class="powder-fit-scroll"><table><thead><tr><th>Load</th><th>Charge [${unitPreferences.unitFor("bulletMass").symbol}]</th><th>Shots</th><th>Measured [${unitPreferences.unitFor("velocity").symbol}]</th><th>GRT<br>Δ before</th><th>GRT<br>Δ after</th>${anyPressure ? "<th>GRT<br>pressure Δ</th>" : ""}<th>Physical Model<br>Δ before</th><th>Physical Model<br>Δ after</th>${anyPressure ? "<th>Physical Model<br>pressure Δ</th>" : ""}</tr></thead><tbody>${rows}</tbody></table></div><div class="powder-fit-summary">${summary()}</div><div class="dialog-buttons"><button type="button" data-fit-save ${original?.improved && ownDatabaseReady ? "" : "disabled"}>Save as own propellant</button><span class="fit-button-spacer"></span><button type="button" data-fit-close>Close</button><button type="button" data-fit-apply ${improved() ? "" : "disabled"}>Apply to this load</button></div></form>`;
+    const boxes: Array<[PowderFitParam, string]> = [["Ba", tr("Burn rate (Ba)")], ["a0", tr("Form factor a0")], ["z1", tr("Transition z1")], ["z2", tr("Transition z2")]];
+    const heading = (source: string): string => escapeHtml(tr(source)).replaceAll("\n", "<br>");
+    const fitDescription = "Changes the propellant's model values until the simulation agrees with the measured charges, for both models: the GRT values (Ba, a0, z1, z2; used by GRT Original and GRT Tuned, fitted with GRT Original) and the Physical Model's own burn values. Check the case volume (fired case, water), the bullet length and the cartridge length first: wrong values there give a wrong model.";
+    dialog.innerHTML = `<form method="dialog"><h2 id="powder-fit-title">${escapeHtml(tr("Fit to measurements"))}</h2><p>${escapeHtml(tr(fitDescription))}</p><div class="fit-parameters"><strong>${escapeHtml(tr("Values to fit:"))}</strong>${boxes.map(([param, boxLabel]) => `<label><input type="checkbox" data-fit-param="${param}" ${selected.has(param) ? "checked" : ""}>${escapeHtml(boxLabel)}</label>`).join("")}<button type="button" data-fit-run ${selected.size ? "" : "disabled"}>${escapeHtml(tr("Fit"))}</button></div>${extracted.warnings.length ? `<div class="fit-warning">${extracted.warnings.map(escapeHtml).join("<br>")}</div>` : ""}<div class="powder-fit-scroll"><table><thead><tr><th>${heading("Load")}</th><th>${heading("Charge [%1]").replace("%1", escapeHtml(unitPreferences.unitFor("bulletMass").symbol))}</th><th>${heading("Shots")}</th><th>${heading("Measured [%1]").replace("%1", escapeHtml(unitPreferences.unitFor("velocity").symbol))}</th><th>${heading("GRT\nΔ before")}</th><th>${heading("GRT\nΔ after")}</th>${anyPressure ? `<th>${heading("GRT\npressure Δ")}</th>` : ""}<th>${heading("Physical Model\nΔ before")}</th><th>${heading("Physical Model\nΔ after")}</th>${anyPressure ? `<th>${heading("Physical Model\npressure Δ")}</th>` : ""}</tr></thead><tbody>${rows}</tbody></table></div><div class="powder-fit-summary">${summary()}</div><div class="dialog-buttons"><button type="button" data-fit-save title="${escapeHtml(tr("Add the propellant with the fitted values to your own records in the database"))}" ${original?.improved && ownDatabaseReady ? "" : "disabled"}>${escapeHtml(tr("Save as own propellant"))}</button><span class="fit-button-spacer"></span><button type="button" data-fit-close>Close</button><button type="button" data-fit-apply title="${escapeHtml(tr("Put the fitted values into this load's propellant"))}" ${improved() ? "" : "disabled"}>${escapeHtml(tr("Apply to this load"))}</button></div></form>`;
     dialog.querySelectorAll<HTMLInputElement>("[data-fit-param]").forEach((box) => box.addEventListener("change", () => {
       const param = box.dataset.fitParam as PowderFitParam; if (box.checked) selected.add(param); else selected.delete(param);
       const run = dialog.querySelector<HTMLButtonElement>("[data-fit-run]"); if (run) run.disabled = selected.size === 0;
@@ -1549,7 +1568,7 @@ function openPowderFitDialog(load: LoadFile): void {
       record.origin = "own measurements"; record.cdate = new Date().toISOString().slice(0, 10);
       record.descr = powderFitDescription(original, load.fileName, samples.length, samples.reduce((sum, sample) => sum + sample.shots, 0));
       await ownDatabase.insert("propellant", record); await refreshOwnDatabase();
-      const save = dialog.querySelector<HTMLButtonElement>("[data-fit-save]"); if (save) { save.textContent = "Saved"; save.disabled = true; }
+      const save = dialog.querySelector<HTMLButtonElement>("[data-fit-save]"); if (save) { save.textContent = tr("Saved"); save.disabled = true; }
       status = `Saved ${record.pname} as a personal propellant`;
     });
   };
@@ -2004,12 +2023,14 @@ function bindEvents(): void {
       text = base === undefined ? "invalid" : String(base);
     }
     if (!historyFor(load).edit(load, section, name, text)) {
-      status = `Invalid value for ${fieldLabels[name] ?? name}; the previous value was restored`;
+      const label = entryPresentation(load[section].find((entry) => entry.name === name) ?? { name, value: "", unit: "", type: "", description: name }).label;
+      status = `Invalid value for ${label}; the previous value was restored`;
       render();
       return;
     }
     invalidateLoad(load);
-    status = `Edited ${fieldLabels[name] ?? name}`;
+    const label = entryPresentation(load[section].find((entry) => entry.name === name) ?? { name, value: "", unit: "", type: "", description: name }).label;
+    status = `Edited ${label}`;
     render();
   }));
   app.querySelector<HTMLSelectElement>("#solver-profile")?.addEventListener("change", (event) => {
