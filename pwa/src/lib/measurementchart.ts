@@ -8,6 +8,15 @@ export interface MeasurementChartUnits {
   pressure: Unit;
 }
 
+export interface MeasurementChartLabels {
+  accessibleName: string;
+  charge: string;
+  velocity: string;
+  peakPressure: string;
+  simulatedVelocity: string;
+  simulatedPressure: string;
+}
+
 interface Range { low: number; high: number }
 
 const plot = { left: 64, right: 654, top: 22, bottom: 248 } as const;
@@ -48,7 +57,11 @@ export function predictionAt(predictions: readonly MeasurementPrediction[], char
   };
 }
 
-export function measurementChartSvg(series: MeasurementSeries, predictions: readonly MeasurementPrediction[], units: MeasurementChartUnits): string {
+export function measurementChartSvg(series: MeasurementSeries, predictions: readonly MeasurementPrediction[], units: MeasurementChartUnits, labels: MeasurementChartLabels = {
+  accessibleName: "Measured and simulated velocity and peak pressure by charge",
+  charge: "Charge", velocity: "Velocity", peakPressure: "Peak pressure",
+  simulatedVelocity: "Velocity (sim.)", simulatedPressure: "Pressure (sim.)"
+}): string {
   const cx = (value: number): number => toDisplay(value, units.charge);
   const cv = (value: number): number => toDisplay(value, units.velocity);
   const cp = (value: number): number => toDisplay(value, units.pressure);
@@ -89,5 +102,5 @@ export function measurementChartSvg(series: MeasurementSeries, predictions: read
     }
   }
   const hasPressure = series.charges.some((charge) => pressureStatistics(charge.shots).count > 0);
-  return `<div class="measurement-chart-wrap"><svg class="measurement-chart" viewBox="0 0 720 310" role="img" aria-label="Measured and simulated velocity and peak pressure by charge" data-x-low="${xRange.low}" data-x-high="${xRange.high}" data-plot-left="${plot.left}" data-plot-right="${plot.right}">${grids}<line class="axis" x1="${plot.left}" y1="${plot.bottom}" x2="${plot.right}" y2="${plot.bottom}"/><line class="axis" x1="${plot.left}" y1="${plot.top}" x2="${plot.left}" y2="${plot.bottom}"/><line class="axis" x1="${plot.right}" y1="${plot.top}" x2="${plot.right}" y2="${plot.bottom}"/><path class="measurement-sim-velocity" d="${path(simVelocity, yv)}"/><path class="measurement-sim-pressure" d="${path(simPressure, yp)}"/>${measured}<line class="measurement-cursor" x1="0" y1="${plot.top}" x2="0" y2="${plot.bottom}"/><text class="axis-title" x="359" y="285" text-anchor="middle">Charge [${units.charge.symbol}]</text><text class="axis-title" transform="translate(14 135) rotate(-90)" text-anchor="middle">Velocity [${units.velocity.symbol}]</text><text class="axis-title" transform="translate(708 135) rotate(90)" text-anchor="middle">Peak pressure [${units.pressure.symbol}]</text><g class="measurement-legend"><line class="measurement-sim-velocity" x1="120" y1="299" x2="142" y2="299"/><text x="147" y="303">Velocity (sim.)</text><rect class="measurement-mean" x="254" y="295" width="8" height="8"/><text x="267" y="303">Velocity</text><line class="measurement-sim-pressure" x1="350" y1="299" x2="372" y2="299"/><text x="377" y="303">Pressure (sim.)</text>${hasPressure ? `<circle class="measurement-shot-pressure" cx="506" cy="299" r="3.4"/><text x="515" y="303">Pressure</text>` : ""}</g></svg><div class="measurement-chart-tooltip"></div></div>`;
+  return `<div class="measurement-chart-wrap"><svg class="measurement-chart" viewBox="0 0 720 310" role="img" aria-label="${labels.accessibleName}" data-x-low="${xRange.low}" data-x-high="${xRange.high}" data-plot-left="${plot.left}" data-plot-right="${plot.right}">${grids}<line class="axis" x1="${plot.left}" y1="${plot.bottom}" x2="${plot.right}" y2="${plot.bottom}"/><line class="axis" x1="${plot.left}" y1="${plot.top}" x2="${plot.left}" y2="${plot.bottom}"/><line class="axis" x1="${plot.right}" y1="${plot.top}" x2="${plot.right}" y2="${plot.bottom}"/><path class="measurement-sim-velocity" d="${path(simVelocity, yv)}"/><path class="measurement-sim-pressure" d="${path(simPressure, yp)}"/>${measured}<line class="measurement-cursor" x1="0" y1="${plot.top}" x2="0" y2="${plot.bottom}"/><text class="axis-title" x="359" y="285" text-anchor="middle">${labels.charge} [${units.charge.symbol}]</text><text class="axis-title" transform="translate(14 135) rotate(-90)" text-anchor="middle">${labels.velocity} [${units.velocity.symbol}]</text><text class="axis-title" transform="translate(708 135) rotate(90)" text-anchor="middle">${labels.peakPressure} [${units.pressure.symbol}]</text><g class="measurement-legend"><line class="measurement-sim-velocity" x1="120" y1="299" x2="142" y2="299"/><text x="147" y="303">${labels.simulatedVelocity}</text><rect class="measurement-mean" x="254" y="295" width="8" height="8"/><text x="267" y="303">${labels.velocity}</text><line class="measurement-sim-pressure" x1="350" y1="299" x2="372" y2="299"/><text x="377" y="303">${labels.simulatedPressure}</text>${hasPressure ? `<circle class="measurement-shot-pressure" cx="506" cy="299" r="3.4"/><text x="515" y="303">${labels.peakPressure}</text>` : ""}</g></svg><div class="measurement-chart-tooltip"></div></div>`;
 }
