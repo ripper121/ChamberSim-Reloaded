@@ -977,6 +977,36 @@ test("opens the original GRT format and identifies its source", async ({ page })
   await expect(page.locator('[data-drawing-dim="c_L3"]')).toContainText("57.30 mm");
 });
 
+test("persists solver settings and applies the original-file override", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.locator("#settings").click();
+  let settings = page.getByRole("dialog", { name: "Settings" });
+  await expect(settings.getByRole("group", { name: "Units" })).toBeVisible();
+  await expect(settings.getByRole("group", { name: "Solver" })).toBeVisible();
+  await settings.locator("#settings-solver-profile").selectOption("published");
+  await settings.locator("[data-original-grt-model]").check();
+  await settings.getByRole("button", { name: "OK", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("csr-solver-profile"))).toBe("published");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("csr-solver-original-for-grt-files"))).toBe("true");
+
+  await page.reload();
+  await page.locator("#settings").click();
+  settings = page.getByRole("dialog", { name: "Settings" });
+  await expect(settings.locator("#settings-solver-profile")).toHaveValue("published");
+  await expect(settings.locator("[data-original-grt-model]")).toBeChecked();
+  await settings.locator("[data-settings-close]").click();
+  await page.locator("#file-picker").setInputFiles(originalLoad);
+  await expect(page.locator("#solver-profile")).toHaveValue("published");
+  await expect(page.getByText(/Model: GRT Original \(original GRT file, see Settings > Solver\)/)).toBeVisible();
+
+  await page.locator("#settings").click();
+  settings = page.getByRole("dialog", { name: "Settings" });
+  await settings.locator("[data-original-grt-model]").uncheck();
+  await settings.getByRole("button", { name: "OK", exact: true }).click();
+  await expect(page.getByText("Model: GRT Tuned", { exact: true })).toBeVisible();
+});
+
 test("keeps both load panes reachable at a narrow viewport", async ({ page }) => {
   await page.setViewportSize({ width: 600, height: 900 });
   await page.goto("/");
@@ -1140,6 +1170,11 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(page.getByText("484 Einträge", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Datei", exact: true }).click();
   const settings = page.getByRole("dialog", { name: "Einstellungen" });
+  await expect(settings.getByRole("group", { name: "Einheiten" })).toBeVisible();
+  await expect(settings.getByLabel("Einheitensystem:")).toContainText("Metrisch");
+  await expect(settings.getByRole("group", { name: "Löser" })).toBeVisible();
+  await expect(settings.getByLabel("Modell:")).toContainText("Physikalisches Modell");
+  await expect(settings.getByText("GRT-Dateien:", { exact: true })).toBeVisible();
   await expect(settings.getByRole("group", { name: "Datenbank" })).toBeVisible();
   await expect(settings.getByText("Originaldatenbank:", { exact: true })).toBeVisible();
   await expect(settings.getByRole("button", { name: "Durchsuchen", exact: true })).toBeVisible();

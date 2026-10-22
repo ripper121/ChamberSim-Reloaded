@@ -197,3 +197,9 @@ Last updated: 2026-10-22
 **Decision:** Set one numeric locale from the language resolved at application startup and use it for shared unit, load-property, personal-record, New Load and converter display/input. Parse the active locale strictly first, including valid grouping, then try strict C-locale dot-decimal input only if localized parsing fails. Use decimal text inputs with `inputmode="decimal"` where HTML number controls would reject localized commas.
 
 **Rationale:** `numeric.h` explicitly accepts the active `QLocale` before `QLocale::c()`, while `units.cpp` formats through the active locale. A central browser boundary preserves that ordering and prevents different dialogs from interpreting the same text differently. Strict grouping is important: under German, `1.500` is valid localized grouping and means 1500, while unambiguous `1.5` can use the C fallback. HTML number inputs are defined around dot syntax and cannot reproduce the desktop locale contract reliably.
+
+## D-032 — Keep the chosen solver model separate from each load's effective model
+
+**Decision:** Persist the globally chosen Physical, Published or Original calibration in local storage, but resolve an effective profile for each calculation. When the optional native-compatible override is enabled, only loads whose source format is an original `.grtload` use GRT Original; CSR loads continue using the chosen model. Use the effective profile consistently for results, measurements, reports and vivacity data while leaving the selector on the chosen model and showing the native explanatory suffix.
+
+**Rationale:** `SolverPreferences::profileFor(bool grtFile)` does not mutate the user's calibration preference when an original file is opened. Conflating the two states would make another open CSR load use the wrong calibration or make the UI claim the saved choice had changed. One shared resolver preserves multi-load behavior and keeps every simulation consumer aligned.

@@ -27,6 +27,7 @@ import { convertUnitValues, converterQuantities, type ConvertibleQuantity } from
 import { ThemePreference, type ThemeMode } from "./lib/theme";
 import { LanguagePreference, type LanguageChoice } from "./lib/language";
 import { loadI18n } from "./lib/i18n";
+import { SolverPreferences } from "./lib/settings";
 
 const appNode = document.querySelector<HTMLDivElement>("#app");
 if (!appNode) throw new Error("Application root is missing");
@@ -41,7 +42,8 @@ const loads: LoadFile[] = [];
 let activeTab = "database";
 let activeInput = "cartridge";
 let activeResult = "results";
-let activeProfile: CalibrationProfile = "physical";
+const solverPreferences = new SolverPreferences(localStorage);
+let activeProfile: CalibrationProfile = solverPreferences.profile;
 let appSyncState: "latest" | "checking" | "outdated" | "updating" = "latest";
 let appServiceWorker: ServiceWorkerRegistration | undefined;
 let status = "Loading project database…";
@@ -189,6 +191,10 @@ function activeLoad(): LoadFile | undefined {
   return activeTab.startsWith("load-") ? loads[index] : undefined;
 }
 
+function profileFor(load: LoadFile): CalibrationProfile {
+  return solverPreferences.profileFor(load.source);
+}
+
 function measurementSuggestedCharges(load: LoadFile): number[] {
   const ladder = simulationFor(load);
   const focus = clampInteger(ladderFocus.get(load) ?? 0, 0, Math.max(ladder.length - 1, 0));
@@ -197,14 +203,15 @@ function measurementSuggestedCharges(load: LoadFile): number[] {
 }
 
 function measurementResult(load: LoadFile, chargeG: number): SimResult {
+  const profile = profileFor(load);
   let profiles = measurementSimulationCache.get(load);
   if (!profiles) { profiles = new Map(); measurementSimulationCache.set(load, profiles); }
-  let charges = profiles.get(activeProfile);
-  if (!charges) { charges = new Map(); profiles.set(activeProfile, charges); }
+  let charges = profiles.get(profile);
+  if (!charges) { charges = new Map(); profiles.set(profile, charges); }
   const key = Math.round(chargeG * 1e6);
   let result = charges.get(key);
   if (!result) {
-    result = simulate({ ...simInputFromLoad(load), chargeG }, calibrationFor(activeProfile));
+    result = simulate({ ...simInputFromLoad(load), chargeG }, calibrationFor(profile));
     charges.set(key, result);
   }
   return result;
@@ -335,8 +342,8 @@ function chartView(result: SimResult, otherResults: readonly SimResult[], input:
   return `<div class="chart-wrap"><svg class="result-chart" viewBox="0 0 770 320" role="img" aria-label="Pressure, energy and velocity over bullet travel" data-x-min="${xMin}" data-x-max="${xMax}" data-p-max="${pressureMax}" data-e-max="${energyMax}" data-v-max="${velocityMax}">${bands}${ticks("x")}${ticks("pressure")}${ticks("energy")}${ticks("velocity")}${otherPaths}${referencePaths}<path class="pressure-curve" d="${chartPath(result.points, (point) => pressure(point.pressureBar), xMin, xMax, pressureMax)}"/><path class="energy-curve" d="${chartPath(result.points, (point) => energy(point.energyJ), xMin, xMax, energyMax)}"/><path class="velocity-curve" d="${chartPath(result.points, (point) => velocity(point.velocityMs), xMin, xMax, velocityMax)}"/>${markers}<line class="chart-cursor" x1="0" y1="${chartBox.top}" x2="0" y2="${chartBox.bottom}"/><circle class="cursor-dot pressure-dot" r="4"/><circle class="cursor-dot energy-dot" r="4"/><circle class="cursor-dot velocity-dot" r="4"/><text class="axis-title" x="377" y="310" text-anchor="middle">${escapeHtml(axisTitle)}</text><text class="axis-title pressure" x="13" y="150" text-anchor="middle" transform="rotate(-90 13 150)">${pressureUnit.symbol}</text><text class="axis-title energy" x="722" y="150" text-anchor="middle" transform="rotate(90 722 150)">${energyUnit.symbol}</text><text class="axis-title velocity" x="764" y="150" text-anchor="middle" transform="rotate(90 764 150)">${velocityUnit.symbol}</text></svg><div class="chart-tooltip" role="status"></div></div>`;
 }
 
-function vivacityView(input: SimInput): string {
-  const values = vivacityCurve(input, calibrationFor(activeProfile));
+function vivacityView(input: SimInput, profile: CalibrationProfile): string {
+  const values = vivacityCurve(input, calibrationFor(profile));
   if (values.length === 0) return "";
   const maximum = Math.max(...values) * 1.1;
   const left = 36, right = 250, top = 26, bottom = 150;
@@ -346,15 +353,16 @@ function vivacityView(input: SimInput): string {
 }
 
 function simulationFor(load: LoadFile): LadderResult[] {
+  const profile = profileFor(load);
   let profiles = simulationCache.get(load);
   if (!profiles) {
     profiles = new Map();
     simulationCache.set(load, profiles);
   }
-  let result = profiles.get(activeProfile);
+  let result = profiles.get(profile);
   if (!result) {
-    result = simulateLadder(simInputFromLoad(load), calibrationFor(activeProfile));
-    profiles.set(activeProfile, result);
+    result = simulateLadder(simInputFromLoad(load), calibrationFor(profile));
+    profiles.set(profile, result);
   }
   return result;
 }
@@ -384,6 +392,7 @@ function referenceComparison(result: SimResult, reference: ReferenceRun): string
 
 function resultView(load: LoadFile): string {
   const ladder = simulationFor(load);
+  const effectiveProfile = profileFor(load);
   const input = simInputFromLoad(load);
   if (!ladderFocus.has(load)) {
     const saved = Number(load.config.find((entry) => entry.name === "CurveFocusIdx")?.value ?? 0);
@@ -401,13 +410,15 @@ function resultView(load: LoadFile): string {
   };
   const modelLabel = loadText("Model: %1", "").trim().replace(/:$/u, "");
   const profile = `<label class="profile-choice">${escapeHtml(modelLabel)} <select id="solver-profile"><option value="physical" ${activeProfile === "physical" ? "selected" : ""}>${escapeHtml(profileNames.physical)}</option><option value="original" ${activeProfile === "original" ? "selected" : ""}>${escapeHtml(profileNames.original)}</option><option value="published" ${activeProfile === "published" ? "selected" : ""}>${escapeHtml(profileNames.published)}</option></select></label>`;
+  const overrideNote = effectiveProfile !== activeProfile ? loadText(" (original GRT file, see Settings > Solver)") : "";
+  const modelStatus = escapeHtml(loadText("Model: %1", profileNames[effectiveProfile]) + overrideNote);
   if (!focused || focused.result.status !== "ok") {
     const resultStatus = focused?.result.status === "charge_too_high"
       ? loadText("<b>Charge too high:</b> the propellant charge does not fit into the case behind the bullet.")
       : focused?.result.status === "bullet_stuck"
         ? loadText("<b>Bullet stuck:</b> the gas cannot push the bullet out of the barrel (too little or too slow powder for this bullet and barrel).")
         : loadText("<b>Invalid input:</b> the simulation cannot run with these values.");
-    return `<div class="result-toolbar">${profile}<span>${sourceFormat}</span></div><div class="empty-panel">${resultStatus}</div>`;
+    return `<div class="result-toolbar">${profile}<span>${modelStatus}</span><span>${sourceFormat}</span></div><div class="empty-panel">${resultStatus}</div>`;
   }
   const result = focused.result;
   const reference = referenceRuns.get(load);
@@ -415,10 +426,10 @@ function resultView(load: LoadFile): string {
   const ladderHelp = loadText("Load development ladder: click a charge to select its curve");
   const tabs = ladder.length > 1 ? `<div class="ladder-tabs" role="tablist" aria-label="${escapeHtml(ladderHelp)}" title="${escapeHtml(ladderHelp)}">${ladder.map((entry, index) => `<button role="tab" aria-selected="${index === focus}" data-ladder="${index}" class="${index === focus ? "active" : ""}">${shown(entry.chargeG, "bulletMass")}</button>`).join("")}</div>` : "";
   const overpressure = input.maxPressureBar > 0 && result.maxPressureBar > input.maxPressureBar ? `<div class="warning-banner">${loadText("<b>Overpressure!</b> The maximum pressure %1 is %2 % above the permitted %3. Do not load this charge.", shown(result.maxPressureBar, "pressure"), formatNumber(100 * (result.maxPressureBar / input.maxPressureBar - 1), 1), shown(input.maxPressureBar, "pressure"))}</div>` : "";
-  const burnNotice = activeProfile === "physical" && !input.shotshell && !input.physicalBurn ? `<div class="notice-banner">${loadText("<b>No physical burn values</b> for this propellant (or its burn values were changed): the load's burn rate is scaled, the results are less accurate than for the powders of the Physical Model.")}</div>` : "";
+  const burnNotice = effectiveProfile === "physical" && !input.shotshell && !input.physicalBurn ? `<div class="notice-banner">${loadText("<b>No physical burn values</b> for this propellant (or its burn values were changed): the load's burn rate is scaled, the results are less accurate than for the powders of the Physical Model.")}</div>` : "";
   const gasVelocity = input.chargeG > 0 ? result.gasImpulseNs / (focused.chargeG * 1e-3) : 0;
-  return `<div class="result-view"${splitStyle("results")}><div class="result-toolbar">${profile}<span>${escapeHtml(loadText("Model: %1", profileNames[activeProfile]))}</span><span>${sourceFormat}</span></div>
-    <div class="result-top"><section>${resultHeading(load, input, focused.chargeG)}${overpressure}${burnNotice}<div class="result-summary"><dl><dt>${loadLabel("Maximum pressure")}</dt><dd>${shown(result.maxPressureBar, "pressure")}</dd><dt>${loadLabel("Muzzle pressure")}</dt><dd>${shown(result.muzzlePressureBar, "pressure")}</dd><dt>${loadLabel("Projectile energy")}</dt><dd>${shown(result.muzzleEnergyJ, "energy")}</dd><dt>${loadLabel("Muzzle velocity")}</dt><dd>${shown(result.muzzleVelocityMs, "velocity")}</dd><dt>${loadLabel("Barrel time (BT)")}</dt><dd>${escapeHtml(loadText("%1 ms", formatNumber(result.muzzleTimeMs, 4)))}</dd></dl><dl><dt>${loadLabel("Burnout pressure")}</dt><dd>${result.burnoutInBarrel ? shown(result.burnoutPressureBar, "pressure") : loadLabel("not burnt out")}</dd><dt>${loadLabel("Gas outflow velocity")}</dt><dd>${shown(gasVelocity, "velocity")}</dd><dt>${loadLabel("Projectile speed")}</dt><dd>${result.muzzleRpm > 0 ? escapeHtml(loadText("%1 k/min", formatNumber(result.muzzleRpm / 1000, 1))) : "—"}</dd><dt>${loadLabel("Recoil energy")}</dt><dd>${result.recoilEnergyJ > 0 ? shown(result.recoilEnergyJ, "energy") : loadLabel("– (gun weight 0)")}</dd><dt>${loadLabel("IPSC / MIP factor")}</dt><dd>${formatNumber(result.ipscFactor, 0)}, ${formatNumber(result.mipFactor, 0)}</dd></dl><dl><dt>${loadLabel("Load ratio")}</dt><dd>${formatNumber(result.loadRatio * 100, 1)} %</dd><dt>${loadLabel("Burnt propellant")}</dt><dd>${formatNumber(result.burntFraction * 100, 1)} %</dd><dt>${loadLabel("Effective efficiency")}</dt><dd>${formatNumber(result.efficiency * 100, 1)} %</dd><dt>${loadLabel("Heat / friction loss")}</dt><dd>${result.heatLossJ > 0 ? shown(result.heatLossJ, "energy") : "—"}, ${shown(result.muzzleFrictionEnergyJ, "energy")}</dd></dl></div>${reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>${loadLabel("Charge")}</th><th>${loadLabel("Max. pressure")}</th><th>${loadLabel("Velocity")}</th><th>${loadLabel("Energy")}</th><th>${loadLabel("Load ratio")}</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input)}</div>
+  return `<div class="result-view"${splitStyle("results")}><div class="result-toolbar">${profile}<span>${modelStatus}</span><span>${sourceFormat}</span></div>
+    <div class="result-top"><section>${resultHeading(load, input, focused.chargeG)}${overpressure}${burnNotice}<div class="result-summary"><dl><dt>${loadLabel("Maximum pressure")}</dt><dd>${shown(result.maxPressureBar, "pressure")}</dd><dt>${loadLabel("Muzzle pressure")}</dt><dd>${shown(result.muzzlePressureBar, "pressure")}</dd><dt>${loadLabel("Projectile energy")}</dt><dd>${shown(result.muzzleEnergyJ, "energy")}</dd><dt>${loadLabel("Muzzle velocity")}</dt><dd>${shown(result.muzzleVelocityMs, "velocity")}</dd><dt>${loadLabel("Barrel time (BT)")}</dt><dd>${escapeHtml(loadText("%1 ms", formatNumber(result.muzzleTimeMs, 4)))}</dd></dl><dl><dt>${loadLabel("Burnout pressure")}</dt><dd>${result.burnoutInBarrel ? shown(result.burnoutPressureBar, "pressure") : loadLabel("not burnt out")}</dd><dt>${loadLabel("Gas outflow velocity")}</dt><dd>${shown(gasVelocity, "velocity")}</dd><dt>${loadLabel("Projectile speed")}</dt><dd>${result.muzzleRpm > 0 ? escapeHtml(loadText("%1 k/min", formatNumber(result.muzzleRpm / 1000, 1))) : "—"}</dd><dt>${loadLabel("Recoil energy")}</dt><dd>${result.recoilEnergyJ > 0 ? shown(result.recoilEnergyJ, "energy") : loadLabel("– (gun weight 0)")}</dd><dt>${loadLabel("IPSC / MIP factor")}</dt><dd>${formatNumber(result.ipscFactor, 0)}, ${formatNumber(result.mipFactor, 0)}</dd></dl><dl><dt>${loadLabel("Load ratio")}</dt><dd>${formatNumber(result.loadRatio * 100, 1)} %</dd><dt>${loadLabel("Burnt propellant")}</dt><dd>${formatNumber(result.burntFraction * 100, 1)} %</dd><dt>${loadLabel("Effective efficiency")}</dt><dd>${formatNumber(result.efficiency * 100, 1)} %</dd><dt>${loadLabel("Heat / friction loss")}</dt><dd>${result.heatLossJ > 0 ? shown(result.heatLossJ, "energy") : "—"}, ${shown(result.muzzleFrictionEnergyJ, "energy")}</dd></dl></div>${reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>${loadLabel("Charge")}</th><th>${loadLabel("Max. pressure")}</th><th>${loadLabel("Velocity")}</th><th>${loadLabel("Energy")}</th><th>${loadLabel("Load ratio")}</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input, effectiveProfile)}</div>
     ${splitter("results", "horizontal", "Resize result summary and chart", 150, 250)}<div class="result-chart-pane"><div class="chart-controls">${tabs}<label>Horizontal axis <select id="chart-axis"><option value="time" ${chartAxis === "time" ? "selected" : ""}>${loadLabel("Time axis")}</option><option value="position" ${chartAxis === "position" ? "selected" : ""}>${loadLabel("Position axis")}</option></select></label></div>
     ${chartView(result, ladder.filter((_, index) => index !== focus).map((entry) => entry.result), input, reference)}
     <div class="chart-legend"><span class="pressure-key">${escapeHtml(i18n.text("CurveChart", "Pressure"))}</span><span class="permitted-key">${escapeHtml(i18n.text("CurveChart", "Pmax permitted"))}</span><span class="energy-key">${escapeHtml(i18n.text("CurveChart", "Energy"))}</span><span class="velocity-key">${escapeHtml(i18n.text("CurveChart", "Velocity"))}</span>${reference?.points.length ? `<span class="reference-key">Original reference</span>` : ""}</div></div></div>`;
@@ -521,7 +532,8 @@ function reportDataFor(load: LoadFile): ReportData {
   const focused = ladder[focus];
   const baseInput = simInputFromLoad(load);
   const input = focused ? { ...baseInput, chargeG: focused.chargeG } : baseInput;
-  const result = focused?.result ?? simulate(input, calibrationFor(activeProfile));
+  const effectiveProfile = profileFor(load);
+  const result = focused?.result ?? simulate(input, calibrationFor(effectiveProfile));
   const otherResults = ladder.filter((_, index) => index !== focus).map((candidate) => candidate.result);
   const seriesIndex = clampInteger(measurementSeriesSelections.get(load) ?? 0, 0, Math.max(load.measurements.length - 1, 0));
   const measurement = load.measurements[seriesIndex];
@@ -536,7 +548,7 @@ function reportDataFor(load: LoadFile): ReportData {
   const images: Record<string, ReportValue> = {};
   if (result.status === "ok") {
     const curves = reportSvg(chartView(result, otherResults, input), "result-chart", 1100, 560);
-    const burn = reportSvg(vivacityView(input), "vivacity-chart", 1100, 600);
+    const burn = reportSvg(vivacityView(input, effectiveProfile), "vivacity-chart", 1100, 600);
     Object.assign(images, {
       "result.diagramm.png": stackedReportSvg(curves, burn), "result.diagramCurves.png": curves, "result.diagramPropellant.png": burn,
       "caliber.drawing.png": reportSvg(technicalDrawingView(load, "cartridge", unitPreferences), "technical-svg", 420, 760),
@@ -839,9 +851,15 @@ async function databaseImage(uuid: string): Promise<StoredImage | undefined> {
 function openDatabaseSettings(): void {
   const dialog = document.createElement("dialog");
   const tr = (source: string, ...args: readonly (string | number)[]): string => i18n.text("SettingsDialog", source, ...args);
+  const profileName = (profile: CalibrationProfile): string => i18n.text("SolverPreferences", profile === "physical" ? "Physical Model" : profile === "published" ? "GRT Tuned" : "GRT Original");
+  const unitName = (system: UnitSystem): string => i18n.text("csr::units", system === "metric" ? "Metric (mm, g, bar, m/s)" : system === "imperial" ? "Imperial (in, grain, psi, ft/s)" : "Original (mm, grain, bar, m/s)");
   dialog.className = "database-settings-dialog";
   dialog.setAttribute("aria-label", tr("Settings"));
-  dialog.innerHTML = `<form><h2>${escapeHtml(tr("Settings"))}</h2><fieldset><legend>${escapeHtml(tr("Database"))}</legend><div class="database-setting-row"><span>${escapeHtml(tr("Original database:"))}</span><output data-original-name></output><button type="button" data-original-browse>${escapeHtml(tr("Browse"))}</button></div><p data-original-summary></p><p class="setting-note">${escapeHtml(tr("The decrypted database of Gordon's Reloading Tool. It is only read; new records go into the program's own database, and both appear as one database."))}</p><input type="file" accept=".db,.sqlite,application/vnd.sqlite3" data-original-file hidden><p class="record-error" role="alert"></p></fieldset><div class="dialog-buttons"><button type="button" data-original-remove>Remove imported copy</button><button type="button" data-settings-close>Close</button></div></form>`;
+  dialog.innerHTML = `<form><h2>${escapeHtml(tr("Settings"))}</h2>
+    <fieldset><legend>${escapeHtml(tr("Units"))}</legend><div class="settings-form-row"><label for="settings-unit-system">${escapeHtml(tr("Unit system:"))}</label><select id="settings-unit-system"><option value="original">${escapeHtml(unitName("original"))}</option><option value="metric">${escapeHtml(unitName("metric"))}</option><option value="imperial">${escapeHtml(unitName("imperial"))}</option></select><button type="button" data-reset-units title="${escapeHtml(tr("Forget the units chosen for single fields; every field follows the unit system again"))}">${escapeHtml(tr("Reset per-field units"))}</button></div></fieldset>
+    <fieldset><legend>${escapeHtml(tr("Solver"))}</legend><div class="settings-form-row"><label for="settings-solver-profile">${escapeHtml(tr("Model:"))}</label><select id="settings-solver-profile"><option value="physical">${escapeHtml(profileName("physical"))}</option><option value="published">${escapeHtml(profileName("published"))}</option><option value="original">${escapeHtml(profileName("original"))}</option></select></div><p class="setting-note" data-solver-description></p><div class="settings-form-row"><span>${escapeHtml(tr("GRT files:"))}</span><label title="${escapeHtml(tr("A load whose file is a *.grtload of Gordon's Reloading Tool is simulated with GRT Original and the burn values in the file, whatever model is chosen above: the results are close to those of the original program. Loads saved as *.csrload use the chosen model."))}"><input type="checkbox" data-original-grt-model> ${escapeHtml(tr("Always use GRT Original for original GRT files (*.grtload)"))}</label></div></fieldset>
+    <fieldset><legend>${escapeHtml(tr("Database"))}</legend><div class="database-setting-row"><span>${escapeHtml(tr("Original database:"))}</span><output data-original-name></output><button type="button" data-original-browse>${escapeHtml(tr("Browse"))}</button></div><p data-original-summary></p><p class="setting-note">${escapeHtml(tr("The decrypted database of Gordon's Reloading Tool. It is only read; new records go into the program's own database, and both appear as one database."))}</p><input type="file" accept=".db,.sqlite,application/vnd.sqlite3" data-original-file hidden><p class="record-error" role="alert"></p></fieldset>
+    <div class="dialog-buttons"><button type="button" data-original-remove>Remove imported copy</button><button type="submit">OK</button><button type="button" data-settings-close>${escapeHtml(tr("Close"))}</button></div></form>`;
   document.body.append(dialog);
   const name = dialog.querySelector<HTMLOutputElement>("[data-original-name]")!;
   const summary = dialog.querySelector<HTMLElement>("[data-original-summary]")!;
@@ -849,6 +867,23 @@ function openDatabaseSettings(): void {
   const browse = dialog.querySelector<HTMLButtonElement>("[data-original-browse]")!;
   const remove = dialog.querySelector<HTMLButtonElement>("[data-original-remove]")!;
   const picker = dialog.querySelector<HTMLInputElement>("[data-original-file]")!;
+  const unitSystem = dialog.querySelector<HTMLSelectElement>("#settings-unit-system")!;
+  const solverProfile = dialog.querySelector<HTMLSelectElement>("#settings-solver-profile")!;
+  const originalGrtModel = dialog.querySelector<HTMLInputElement>("[data-original-grt-model]")!;
+  const solverDescription = dialog.querySelector<HTMLElement>("[data-solver-description]")!;
+  unitSystem.value = unitPreferences.system;
+  solverProfile.value = activeProfile;
+  originalGrtModel.checked = solverPreferences.originalForGrtFiles;
+  const updateSolverDescription = (): void => {
+    const source = solverProfile.value === "physical"
+      ? "Recommended. The program's own model of the burning powder and the bullet's travel, fitted to the powder makers' published loads and measured pressures: typically about 6 % off in peak pressure and 2.5 % in velocity (median against those tables). Most accurate for the 88 project powders that have their own burn values."
+      : solverProfile.value === "published"
+        ? "The equations of Gordon's Reloading Tool with constants fitted to the powder makers' published loads. Velocity is about as accurate as with the Physical Model, but peak pressure is usually too low (about 5 % at maximum loads), and it is less reliable for pistol and shotgun powders. Kept for comparison."
+        : "Reproduces the results of Gordon's Reloading Tool (within about 1 % in velocity and 3 % in peak pressure). Choose it to compare with GRT. Against real load data it is the least accurate model.";
+    solverDescription.textContent = i18n.text("SolverPreferences", source);
+  };
+  solverProfile.addEventListener("change", updateSolverDescription);
+  updateSolverDescription();
   const update = (): void => {
     name.textContent = originalDatabaseInfo?.fileName ?? "None chosen";
     summary.textContent = originalDatabaseInfo
@@ -859,6 +894,17 @@ function openDatabaseSettings(): void {
   const close = (): void => { dialog.close(); dialog.remove(); };
   dialog.querySelector("[data-settings-close]")?.addEventListener("click", close);
   dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.querySelector("[data-reset-units]")?.addEventListener("click", () => unitPreferences.resetFieldUnits());
+  dialog.querySelector("form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    unitPreferences.setSystem(unitSystem.value as UnitSystem);
+    activeProfile = solverProfile.value as CalibrationProfile;
+    solverPreferences.setProfile(activeProfile);
+    solverPreferences.setOriginalForGrtFiles(originalGrtModel.checked);
+    status = tr("Settings");
+    close();
+    render();
+  });
   browse.addEventListener("click", () => picker.click());
   picker.addEventListener("change", async () => {
     const file = picker.files?.[0];
@@ -2035,6 +2081,7 @@ function bindEvents(): void {
   }));
   app.querySelector<HTMLSelectElement>("#solver-profile")?.addEventListener("change", (event) => {
     activeProfile = (event.currentTarget as HTMLSelectElement).value as CalibrationProfile;
+    solverPreferences.setProfile(activeProfile);
     status = `Using ${activeProfile} simulation model`;
     render();
   });
