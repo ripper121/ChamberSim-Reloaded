@@ -20,6 +20,7 @@ import { copyRecordValues, parseRecordNumber, recordFields, shownRecordNumber, t
 import { simInputFromLoad, type SimInput } from "./lib/siminput";
 import { calibrationFor, simulate, simulateLadder, vivacityCurve, type CalibrationProfile, type LadderResult, type SimPoint, type SimResult } from "./lib/solver";
 import { formatUnit, parseToBase, quantityOfFileUnit, toDisplay, UnitPreferences, unitsOf, type Quantity, type UnitSystem } from "./lib/units";
+import { applyPowderFit, defaultPowderFitParams, fitPowderAll, powderFitQuality, powderFitSamples, type PowderFitParam, type PowderFitResult } from "./lib/powderfit";
 
 const appNode = document.querySelector<HTMLDivElement>("#app");
 if (!appNode) throw new Error("Application root is missing");
@@ -218,7 +219,7 @@ function measurementView(load: LoadFile): string {
   const shots = selectedCharge?.shots.map((shot, index) => `<tr data-measurement-shot="${index}" tabindex="0" class="${shotSelection.has(index) ? "focused" : ""}" aria-selected="${shotSelection.has(index)}"><th>${index + 1}</th><td><input data-measurement-shot-velocity="${index}" aria-label="Shot ${index + 1} velocity" inputmode="decimal" value="${shot.velocityMs > 0 ? formatUnit(shot.velocityMs, velocityUnit, 1) : ""}"></td><td><input data-measurement-shot-pressure="${index}" aria-label="Shot ${index + 1} pressure" inputmode="decimal" value="${shot.pressureBar > 0 ? formatUnit(shot.pressureBar, pressureUnit, 0) : ""}"></td></tr>`).join("") ?? "";
   const shotCaption = selectedCharge ? `Shots of ${escapeHtml(selectedCharge.name)} (${formatUnit(selectedCharge.chargeKg * 1e3, chargeUnit)} ${chargeUnit.symbol})` : "Shots — select a charge";
   return `<div class="measurement-view"${splitStyle("measurement")}><div class="measurement-top"><div class="measurement-toolbar"><label>Series: <select id="measurement-series" ${load.measurements.length > 1 ? "" : "disabled"}>${seriesOptions}</select></label><button id="measurement-new-series">New series</button><button id="measurement-remove-series" ${load.measurements.length > 1 || series.charges.length ? "" : "disabled"}>Remove series</button><label class="measurement-title">Title: <input id="measurement-title" value="${escapeHtml(series.title)}" aria-label="Measurement series title"></label></div>
-    <div class="button-row"><button id="measurement-add-charge" class="primary">Add charge</button>${addLadder}<button id="measurement-remove-charge" ${selectedCharge ? "" : "disabled"}>Remove charge</button><button id="measurement-import-chronograph">Import chronograph file…</button><button disabled title="Powder fitting is not ported yet">Fit to measurements…</button></div>
+    <div class="button-row"><button id="measurement-add-charge" class="primary">Add charge</button>${addLadder}<button id="measurement-remove-charge" ${selectedCharge ? "" : "disabled"}>Remove charge</button><button id="measurement-import-chronograph">Import chronograph file…</button><button id="measurement-fit-powder" ${load.measurements.some((candidate) => candidate.charges.some((charge) => velocityStatistics(charge.shots).count > 0)) ? "" : "disabled"}>Fit to measurements…</button></div>
     ${series.charges.length ? "" : `<p class="measurement-hint"><i>Record chronograph results here: add a charge, then its shots (velocity and, if measured, the peak pressure). The statistics are compared with the simulation of this load.</i></p>`}
     <div class="table-scroll measurement-charge-scroll"><table class="measurement-table"><thead><tr><th>Name</th><th>Charge [${chargeUnit.symbol}]</th><th>Shots</th><th title="Mean muzzle velocity of the shots">Velocity [${velocityUnit.symbol}]</th><th title="Standard deviation of the velocity">SD</th><th title="Extreme spread of the velocity (fastest - slowest)">ES</th><th>Simulated</th><th>Δ</th><th>Pressure [${pressureUnit.symbol}]</th><th>Simulated</th><th>Δ</th></tr></thead><tbody>${rows}</tbody></table></div></div>
     ${splitter("measurement", "horizontal", "Resize measurement charges and shot details", 120, 180)}
@@ -1205,6 +1206,72 @@ function mutateMeasurements(load: LoadFile, change: (load: LoadFile) => void, me
   queueMicrotask(render);
 }
 
+function powderFitPercent(value: number, reference: number): string {
+  return value > 0 && reference > 0 ? `${formatNumber(100 * (value / reference - 1), 1)} %` : "—";
+}
+
+function powderFitDescription(result: PowderFitResult, source: string, chargeCount: number, shots: number): string {
+  return `Fitted with ChamberSim Reloaded (${result.params.join(", ")}) to ${chargeCount} charges / ${shots} shots in 1 load(s): ${source}. Velocity error ${(100 * result.velocityRmsAfter).toFixed(2)} %.`;
+}
+
+function openPowderFitDialog(load: LoadFile): void {
+  const extracted = powderFitSamples(load, load.fileName), samples = extracted.samples;
+  if (samples.length === 0) { window.alert("Enter the measured velocity of the shots first."); return; }
+  const selected = new Set<PowderFitParam>(defaultPowderFitParams(samples));
+  let results: PowderFitResult[] = [];
+  const dialog = document.createElement("dialog");
+  dialog.className = "powder-fit-dialog";
+  dialog.setAttribute("aria-labelledby", "powder-fit-title");
+  const resultOf = (model: "original" | "physical"): PowderFitResult | undefined => results.find((result) => result.model === model);
+  const improved = (): boolean => results.some((result) => result.improved);
+  const percentCell = (result: PowderFitResult | undefined, index: number, field: "velocityBefore" | "velocityAfter" | "pressureAfter", reference: number): string =>
+    result ? powderFitPercent(result.samples[index]?.[field] ?? 0, reference) : "";
+  const summary = (): string => {
+    if (results.length === 0) return "Choose the values to fit and click <b>Fit</b>.";
+    const blocks = results.map((result) => {
+      const values = result.params.map((param, index) => `${param}: ${result.before[index]!.toFixed(4)} → <b>${result.after[index]!.toFixed(4)}</b>`).join(", &nbsp; ");
+      const pressure = result.pressureRmsBefore > 0 ? `, pressure error: ${(100 * result.pressureRmsBefore).toFixed(1)} % → ${(100 * result.pressureRmsAfter).toFixed(1)} %` : "";
+      const unchanged = result.improved ? "" : "<br>The values were not changed: the current ones fit best.";
+      return `<b>${result.model === "original" ? "GRT values" : "Physical Model"}</b> &nbsp; ${values}<br>Velocity error (rms): ${(100 * result.velocityRmsBefore).toFixed(2)} % → <b>${(100 * result.velocityRmsAfter).toFixed(2)} %</b>${pressure}${unchanged}`;
+    });
+    if (samples.length < results[0]!.params.length) blocks.push("<span class=\"fit-warning\">Fewer measured charges than values: the result is not well determined.</span>");
+    return blocks.join("<br>");
+  };
+  const renderDialog = (): void => {
+    const original = resultOf("original"), physical = resultOf("physical"), anyPressure = samples.some((sample) => sample.pressureShots > 0);
+    const rows = samples.map((sample, index) => `<tr><td>${escapeHtml(sample.source)}</td><td>${formatUnit(sample.chargeG, unitPreferences.unitFor("bulletMass"))}</td><td>${sample.shots}</td><td>${formatUnit(sample.velocityMs, unitPreferences.unitFor("velocity"), 1)}</td><td>${percentCell(original, index, "velocityBefore", sample.velocityMs)}</td><td>${percentCell(original, index, "velocityAfter", sample.velocityMs)}</td>${anyPressure ? `<td>${percentCell(original, index, "pressureAfter", sample.pressureBar)}</td>` : ""}<td>${percentCell(physical, index, "velocityBefore", sample.velocityMs)}</td><td>${percentCell(physical, index, "velocityAfter", sample.velocityMs)}</td>${anyPressure ? `<td>${percentCell(physical, index, "pressureAfter", sample.pressureBar)}</td>` : ""}</tr>`).join("");
+    const boxes: Array<[PowderFitParam, string]> = [["Ba", "Burn rate (Ba)"], ["a0", "Form factor a0"], ["z1", "Transition z1"], ["z2", "Transition z2"]];
+    dialog.innerHTML = `<form method="dialog"><h2 id="powder-fit-title">Fit to measurements</h2><p>Changes the propellant's model values until the simulation agrees with the measured charges, for both models: the GRT values (Ba, a0, z1, z2; used by GRT Original and GRT Tuned, fitted with GRT Original) and the Physical Model's own burn values. Check the case volume (fired case, water), the bullet length and the cartridge length first: wrong values there give a wrong model.</p><div class="fit-parameters"><strong>Values to fit:</strong>${boxes.map(([param, label]) => `<label><input type="checkbox" data-fit-param="${param}" ${selected.has(param) ? "checked" : ""}>${label}</label>`).join("")}<button type="button" data-fit-run ${selected.size ? "" : "disabled"}>Fit</button></div>${extracted.warnings.length ? `<div class="fit-warning">${extracted.warnings.map(escapeHtml).join("<br>")}</div>` : ""}<div class="powder-fit-scroll"><table><thead><tr><th>Load</th><th>Charge [${unitPreferences.unitFor("bulletMass").symbol}]</th><th>Shots</th><th>Measured [${unitPreferences.unitFor("velocity").symbol}]</th><th>GRT<br>Δ before</th><th>GRT<br>Δ after</th>${anyPressure ? "<th>GRT<br>pressure Δ</th>" : ""}<th>Physical Model<br>Δ before</th><th>Physical Model<br>Δ after</th>${anyPressure ? "<th>Physical Model<br>pressure Δ</th>" : ""}</tr></thead><tbody>${rows}</tbody></table></div><div class="powder-fit-summary">${summary()}</div><div class="dialog-buttons"><button type="button" data-fit-save ${original?.improved && ownDatabaseReady ? "" : "disabled"}>Save as own propellant</button><span class="fit-button-spacer"></span><button type="button" data-fit-close>Close</button><button type="button" data-fit-apply ${improved() ? "" : "disabled"}>Apply to this load</button></div></form>`;
+    dialog.querySelectorAll<HTMLInputElement>("[data-fit-param]").forEach((box) => box.addEventListener("change", () => {
+      const param = box.dataset.fitParam as PowderFitParam; if (box.checked) selected.add(param); else selected.delete(param);
+      const run = dialog.querySelector<HTMLButtonElement>("[data-fit-run]"); if (run) run.disabled = selected.size === 0;
+    }));
+    dialog.querySelector("[data-fit-run]")?.addEventListener("click", () => { results = fitPowderAll(samples, { params: [...selected] }); renderDialog(); });
+    dialog.querySelector("[data-fit-close]")?.addEventListener("click", () => dialog.close());
+    dialog.querySelector("[data-fit-apply]")?.addEventListener("click", () => {
+      historyFor(load).mutate(load, (current) => applyPowderFit(current, results)); invalidateLoad(load);
+      status = "Fitted propellant model applied to this load"; dialog.close(); render();
+    });
+    dialog.querySelector("[data-fit-save]")?.addEventListener("click", async () => {
+      if (!original?.improved || !projectDatabase) return;
+      const copy = structuredClone(load); applyPowderFit(copy, [original]);
+      const entries = [...copy.propellant, ...copy.physical], record: Partial<ProjectRecord> = {};
+      for (const column of projectDatabase.databaseColumns.propellant) {
+        const entry = entries.find((candidate) => candidate.name === column.name);
+        if (entry) record[column.name] = column.numeric ? Number(entry.value) : entry.value;
+      }
+      record.pname = `${String(record.pname ?? "")} (fitted)`; record.pt = 21; record.Qlty = powderFitQuality(original);
+      record.origin = "own measurements"; record.cdate = new Date().toISOString().slice(0, 10);
+      record.descr = powderFitDescription(original, load.fileName, samples.length, samples.reduce((sum, sample) => sum + sample.shots, 0));
+      await ownDatabase.insert("propellant", record); await refreshOwnDatabase();
+      const save = dialog.querySelector<HTMLButtonElement>("[data-fit-save]"); if (save) { save.textContent = "Saved"; save.disabled = true; }
+      status = `Saved ${record.pname} as a personal propellant`;
+    });
+  };
+  results = fitPowderAll(samples, { params: [...selected] });
+  renderDialog(); document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once: true }); dialog.showModal();
+}
+
 function bindMeasurementEvents(): void {
   const load = activeLoad();
   if (!load || activeResult !== "measurements") return;
@@ -1216,6 +1283,8 @@ function bindMeasurementEvents(): void {
   const velocityUnit = unitPreferences.unitFor("velocity");
   const pressureUnit = unitPreferences.unitFor("pressure");
   const chronographPicker = app.querySelector<HTMLInputElement>("#chronograph-picker");
+
+  app.querySelector("#measurement-fit-powder")?.addEventListener("click", () => openPowderFitDialog(load));
 
   app.querySelector("#measurement-import-chronograph")?.addEventListener("click", () => chronographPicker?.click());
   chronographPicker?.addEventListener("change", () => {

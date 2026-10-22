@@ -523,6 +523,46 @@ test("edits measurement series and compares measured shots with simulation", asy
   expect(errors).toEqual([]);
 });
 
+test("fits powder models to measurements and applies or saves the result", async ({ page }) => {
+  test.setTimeout(60_000);
+  const errors: string[] = [];
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.getByLabel("Unit system").selectOption("metric");
+  await page.locator("#file-picker").setInputFiles(measurementLoad);
+  await page.getByRole("button", { name: "Measurements", exact: true }).click();
+  await page.getByRole("button", { name: "Fit to measurements…" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Fit to measurements" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText(/case volume is the database value \(4\.110 cm3\)/)).toBeVisible();
+  await expect(dialog.locator("tbody tr")).toHaveCount(2);
+  await expect(dialog.locator(".powder-fit-summary")).toContainText("Ba: 0.5814 → 50.0000");
+  await expect(dialog.locator(".powder-fit-summary")).toContainText("Velocity error (rms): 26.40 % → 8.78 %");
+  await expect(dialog.getByRole("button", { name: "Apply to this load" })).toBeEnabled();
+
+  await dialog.getByRole("button", { name: "Save as own propellant" }).click();
+  await expect(dialog.getByRole("button", { name: "Saved" })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Apply to this load" }).click();
+  await expect(page.getByText("Fitted propellant model applied to this load", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /measurements\*/i })).toBeVisible();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save CSR" }).click();
+  const fitted = readFileSync((await (await downloadPromise).path())!, "utf8");
+  expect(fitted).toMatch(/name="Ba" value="50"/);
+  expect(fitted).toMatch(/name="physBa" value="50"/);
+  expect(fitted).toMatch(/name="physRef" value="50%20/);
+
+  await page.getByRole("button", { name: "Database", exact: true }).click();
+  await page.getByRole("tab", { name: "Propellants" }).click();
+  await page.getByLabel("Filter all columns").fill("N150 fitted");
+  await expect(page.getByRole("cell", { name: "N150 (fitted)", exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("imports native chronograph formats into measurement charges", async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });

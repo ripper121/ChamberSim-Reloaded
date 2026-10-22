@@ -214,6 +214,22 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .chronograph-dialog td:first-child, .chronograph-dialog th:first-child { text-align: center; }
 .chronograph-dialog td input[data-chronograph-charge] { width: 7rem; padding: 3px 5px; color: #eee; text-align: right; background: #202020; border: 1px solid #555; font-variant-numeric: tabular-nums; }
 .chronograph-dialog [data-chronograph-import] { background: #278cca; border-color: #37a4e7; }
+.powder-fit-dialog { width: min(980px, calc(100% - 32px)); height: min(620px, calc(100% - 32px)); padding: 0; color: #eee; background: #303030; border: 1px solid #666; box-shadow: 0 15px 60px #000; }
+.powder-fit-dialog::backdrop { background: rgb(0 0 0 / .75); }
+.powder-fit-dialog form { height: 100%; display: grid; grid-template-rows: auto auto auto minmax(120px, 1fr) auto auto; gap: 8px; padding: 12px; }
+.powder-fit-dialog h2, .powder-fit-dialog p { margin: 0; }
+.powder-fit-dialog h2 { font-size: 1.2rem; }
+.fit-parameters { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 14px; }
+.fit-parameters label { display: inline-flex; align-items: center; gap: 4px; }
+.fit-parameters [data-fit-run] { margin-left: auto; background: #278cca; border-color: #37a4e7; }
+.fit-warning { color: #ff7b70; }
+.powder-fit-scroll { min-height: 0; overflow: auto; border: 1px solid #555; }
+.powder-fit-dialog table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.powder-fit-dialog th, .powder-fit-dialog td { padding: 4px 6px; border-bottom: 1px solid #4a4a4a; white-space: nowrap; }
+.powder-fit-dialog th:not(:first-child), .powder-fit-dialog td:not(:first-child) { text-align: right; }
+.powder-fit-summary { min-height: 2.6rem; }
+.fit-button-spacer { flex: 1; }
+.powder-fit-dialog [data-fit-apply] { background: #278cca; border-color: #37a4e7; }
 .output:has(.report-view) { grid-template-rows: 35px minmax(0, 1fr); }
 .report-view { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
 .report-toolbar { display: grid; grid-template-columns: auto auto minmax(8px, 1fr) auto auto auto; gap: 8px; align-items: center; padding: 5px 8px; overflow-x: auto; border-bottom: 1px solid #444; }
