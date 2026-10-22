@@ -121,6 +121,10 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .result-summary dl { display: grid; grid-template-columns: minmax(100px, 1fr) max-content; gap: 4px 6px; margin: 0; }
 .result-summary dt { color: #aeb5ba; white-space: nowrap; }
 .result-summary dd { margin: 0; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.reference-comparison { margin-top: 8px; overflow-x: auto; }
+.reference-comparison table { border-collapse: separate; border-spacing: 8px 2px; font-variant-numeric: tabular-nums; }
+.reference-comparison th { color: #aeb5ba; text-align: left; }
+.reference-comparison thead th:not(:first-child), .reference-comparison td { text-align: right; }
 .warning-banner, .notice-banner { margin: 5px 0; padding: 6px 8px; border-radius: 2px; }
 .warning-banner { color: #fff; background: #c42b1c; }
 .notice-banner { color: #2b1a00; background: #ffb347; }
@@ -142,6 +146,10 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .energy-curve { stroke: #3fc1b0; stroke-dasharray: 3 2; }
 .velocity-curve { stroke: #7a86e8; }
 .result-chart .ladder-curve { opacity: .34; stroke-width: 1.2; }
+.result-chart .reference-curve { stroke-width: 1.4; stroke-dasharray: 7 4; opacity: .67; }
+.pressure-reference { stroke: #e06a6a; }
+.energy-reference { stroke: #3fc1b0; }
+.velocity-reference { stroke: #7a86e8; }
 .pressure-band { opacity: .48; }
 .pressure-band.caution { fill: #4070b0; }
 .pressure-band.danger { fill: #a03030; }
@@ -173,6 +181,8 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .permitted-key { color: #c060b0; }
 .energy-key { color: #3fc1b0; }
 .velocity-key { color: #7a86e8; }
+.reference-key { color: #bbb; }
+.chart-legend .reference-key::before { height: 2px; background: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 10px); }
 .output > .button-row { padding: 6px 8px; }
 .measurement-charge-scroll { border-block: 1px solid #444; }
 .measurement-table { width: max-content; min-width: 100%; font-variant-numeric: tabular-nums; }

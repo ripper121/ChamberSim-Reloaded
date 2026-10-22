@@ -639,6 +639,62 @@ test("runs verified Physical and Original simulations in the results view", asyn
   await expect(page.getByText("Using original simulation model", { exact: true })).toBeVisible();
 });
 
+test("overlays, warns about, switches axes for, and clears original reference results", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await expect(page.getByRole("button", { name: "Overlay reference…" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Clear reference" })).toBeDisabled();
+
+  const reference = {
+    job: "browser-reference.grtload", stale: false,
+    summary: {
+      MaxPressure: "3000 bar", MuzzlePressure: "500 bar", MuzzleVelocity: "800 m/s",
+      MuzzleEnergy: "1000 J", MuzzleTime: "1.000 ms", RecoilImpulse: "2.00 Ns"
+    },
+    points: [
+      { x: 20, z: 0.1, p: 800, v: 100, e: 20, t: 0.1 },
+      { x: 120, z: 0.7, p: 3000, v: 600, e: 900, t: 0.55 },
+      { x: 570, z: 1, p: 500, v: 800, e: 1000, t: 1 }
+    ]
+  };
+  const referenceChooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Overlay reference…" }).click();
+  await (await referenceChooser).setFiles({
+    name: "browser-reference.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(reference))
+  });
+  await expect(page.getByText("Reference overlay: browser-reference.json (3 points)", { exact: true })).toBeVisible();
+  await expect(page.locator(".reference-curve")).toHaveCount(3);
+  await expect(page.locator(".chart-legend")).toContainText("Original reference");
+  await expect(page.locator(".reference-comparison tbody tr")).toHaveCount(6);
+  await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("3,000");
+  await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("20.5 %");
+  await expect(page.getByRole("button", { name: "Clear reference" })).toBeEnabled();
+
+  const timePath = await page.locator(".pressure-reference").getAttribute("d");
+  await page.getByLabel("Horizontal axis").selectOption("position");
+  const positionPath = await page.locator(".pressure-reference").getAttribute("d");
+  expect(positionPath).not.toBe(timePath);
+
+  page.once("dialog", (warning) => { expect(warning.message()).toContain("Cannot read reference broken.json"); void warning.accept(); });
+  await page.locator("#reference-picker").setInputFiles({ name: "broken.json", mimeType: "application/json", buffer: Buffer.from("not json") });
+  await expect(page.locator(".reference-curve")).toHaveCount(3); // a bad replacement keeps the active overlay
+
+  page.once("dialog", (warning) => { expect(warning.message()).toContain("marked stale"); void warning.accept(); });
+  await page.locator("#reference-picker").setInputFiles({
+    name: "stale.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ ...reference, stale: true }))
+  });
+  await expect(page.getByText("Reference overlay: stale.json (3 points, stale)", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Clear reference" }).click();
+  await expect(page.locator(".reference-curve")).toHaveCount(0);
+  await expect(page.locator(".reference-comparison")).toHaveCount(0);
+  await expect(page.getByText("Reference overlay cleared", { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("focuses a ladder charge from both native-style selectors", async ({ page }) => {
   const xml = readFileSync(referenceLoad, "utf8")
     .replace('name="laddercnt" value="1"', 'name="laddercnt" value="3"');

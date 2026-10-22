@@ -8,7 +8,7 @@ Port ChamberSim Reloaded to an installable PWA with verified behavioral, numeric
 
 ## Current state (working / failing / blocked)
 
-Working, not blocked. The original Qt application and both release CLIs run locally. The PWA source builds successfully. One hundred twenty-seven unit tests, the latest typecheck, production build, twenty-four live Edge end-to-end checks, and dependency audit pass. The generated service worker was verified by an offline browser reload, including the project database and lazy SQLite reader. Numerical profiles, result and measurement charts, cartridge/chamber/powder drawings, editable inputs and measurement series, chronograph imports, powder fitting, load reports/printing, persistent resizable workspaces, dependent-field rules, deterministic recalculation, dirty state, undo/redo, lossless CSR save, compatible GRT export, native unit preferences, shotshell pressure-group choices, all three database sources, persistent personal-record CRUD/JSON export/photos, manufacturer bullet-file import, New Load, and database-backed component replacement now work. Reference overlays and many secondary workflows remain incomplete.
+Working, not blocked. The original Qt application and both release CLIs run locally. The PWA source builds successfully. One hundred thirty unit tests, the latest typecheck, production build, twenty-five live Edge end-to-end checks, and dependency audit pass. The generated service worker was verified by an offline browser reload, including the project database and lazy SQLite reader. Numerical profiles, result and measurement charts, original-reference overlays, cartridge/chamber/powder drawings, editable inputs and measurement series, chronograph imports, powder fitting, load reports/printing, persistent resizable workspaces, dependent-field rules, deterministic recalculation, dirty state, undo/redo, lossless CSR save, compatible GRT export, native unit preferences, shotshell pressure-group choices, all three database sources, persistent personal-record CRUD/JSON export/photos, manufacturer bullet-file import, New Load, and database-backed component replacement now work. Many secondary workflows remain incomplete.
 
 ## Completed since previous checkpoint
 
@@ -100,6 +100,8 @@ Working, not blocked. The original Qt application and both release CLIs run loca
 - Ported `powderfit.cpp` to `pwa/src/lib/powderfit.ts`: measurement extraction/warnings, native data-dependent parameter defaults, both-model preparation, constraints, shot-weighted velocity/pressure residuals, numerical Jacobian, damped least-squares iterations, RMS results, fit quality and ordered load application.
 - Replaced the disabled measurement action with the native-style fit dialog. It runs both models, displays before/after deltas and summaries, supports parameter refits, applies improved results as one undoable load mutation and saves the Original result as a fitted personal propellant.
 - Captured direct release CLI references for `measurements.grtload`. The Original result matches; the current-source Physical result differs by under 0.5% because current data applies the 8 x 57 IS caliber factor (D-024). Added three unit tests and one live Edge apply/save/download workflow.
+- Ported `reference.cpp` and the complete overlay workflow: source-compatible GRT runner JSON parsing, per-load browser import/Ctrl+R, stale warnings, malformed replacement handling, native six-value summary comparison, dashed pressure/energy/velocity curves, combined plot ranges, time/position switching and explicit clearing.
+- Added three reference-parser tests and a live Edge workflow that exercises the actual file chooser, summary deltas, all three SVG overlays, axis remapping, stale and malformed warnings, retention after a bad replacement and clearing. All 25 Edge tests pass.
 
 ## In-progress work (files/functions and exact remaining steps)
 
@@ -111,12 +113,13 @@ Working, not blocked. The original Qt application and both release CLIs run loca
 - `pwa/src/lib/loadbuilder.ts` and the New Load/component dialogs reproduce the main selection/default/replacement semantics. The checklist remains `IN PROGRESS` pending broader direct GUI comparisons and replacement coverage for every component/reset combination.
 - `pwa/src/lib/chronograph.ts` and the measurement import dialog cover every native chronograph format and tracked fixture. Direct filesystem paths are intentionally translated to an explicit browser file picker.
 - `pwa/src/lib/report.ts`, `reportdata.ts` and the Report tab now cover the source-equivalent report language, data, diagrams, measurements, editor, scale and browser output workflow. Direct PDF file creation is intentionally mapped to the browser's Save as PDF destination chooser.
+- `pwa/src/lib/reference.ts` and the Results view now cover original-run JSON overlays. Like the desktop application, reference state is transient and belongs to one open load; browser selection replaces the native path dialog.
 
 ## Next actions (ordered, directly actionable)
 
-1. Port reference overlays and verify stale-run detection plus dashed curve rendering against `reference.cpp`.
-2. Continue screenshot-level shell and widget refinements without changing native workflows.
-3. Port the burn-rate table and unit converter.
+1. Continue screenshot-level shell and widget refinements without changing native workflows.
+2. Port the burn-rate table and unit converter.
+3. Port remaining settings, themes and translations in source-defined groups.
 
 ## How to run (working commands, directories, server URL/port if known)
 
@@ -144,11 +147,11 @@ Native references from the repository root:
 
 ## Tests and parity verification (commands, results, known failures)
 
-- `npm test`: PASS, 18 files and 127 tests, including powder-fit extraction, release comparisons, apply and quality; 45 report language/data cases; native chronograph synthetic cases and every tracked Garmin fixture; measurement editing helpers, prediction/chart geometry and lossless nested measurement XML; exact cartridge/chamber/cavity/powder geometry; Original SQLite schema/default/image/error behavior; native photo scale-bar choices; complete project-data counts/order; personal-record normalization/export; native bullet-file parsing; load building/component replacement; tolerant database filtering/sorting; XML round trips; load editing/history; units and solver goldens.
+- `npm test`: PASS, 19 files and 130 tests, including reference-run JSON mapping/default/error behavior; powder-fit extraction, release comparisons, apply and quality; 45 report language/data cases; native chronograph synthetic cases and every tracked Garmin fixture; measurement editing helpers, prediction/chart geometry and lossless nested measurement XML; exact cartridge/chamber/cavity/powder geometry; Original SQLite schema/default/image/error behavior; native photo scale-bar choices; complete project-data counts/order; personal-record normalization/export; native bullet-file parsing; load building/component replacement; tolerant database filtering/sorting; XML round trips; load editing/history; units and solver goldens.
 - `npm run typecheck`: PASS.
 - `npm audit`: PASS, zero vulnerabilities.
-- `npm run build`: PASS; 20 Workbox precache entries totaling 2,426.79 KiB uncompressed. The initial application JavaScript is 211.76 KiB (70.24 KiB gzip); the Original importer is a lazy 42.83 KiB (15.53 KiB gzip) JavaScript chunk plus 684.89 KiB (338.96 KiB gzip) WASM; the project/Physical-data database remains a lazy 149.19 KiB gzip chunk.
-- `npm run test:e2e`: PASS, 24 tests, including powder-fit dialog/apply/personal-record save/download; all persistent draggable/keyboard workspace splitters; the default report's values/diagrams/measurements, Metric/Imperial units, live template editing, persistent scale, A4 preview and print/PDF handoff; native chronograph dialog/import/error behavior; complete measurement editing; solver goldens; complete Project/Personal/Original database workflows; personal CRUD/export/photos; New Load; native-CLI verification; component replacement; unit persistence; shotshell groups; downloads and simulations.
+- `npm run build`: PASS; 20 Workbox precache entries totaling 2,430.72 KiB uncompressed. The initial application JavaScript is 215.14 KiB (71.20 KiB gzip); the Original importer is a lazy 42.83 KiB (15.53 KiB gzip) JavaScript chunk plus 684.89 KiB (338.96 KiB gzip) WASM; the project/Physical-data database remains a lazy 149.19 KiB gzip chunk.
+- `npm run test:e2e`: PASS, 25 tests, including original-reference chooser/deltas/curves/axis/stale/error/clear behavior; powder-fit dialog/apply/personal-record save/download; all persistent draggable/keyboard workspace splitters; the default report's values/diagrams/measurements, Metric/Imperial units, live template editing, persistent scale, A4 preview and print/PDF handoff; native chronograph dialog/import/error behavior; complete measurement editing; solver goldens; complete Project/Personal/Original database workflows; personal CRUD/export/photos; New Load; native-CLI verification; component replacement; unit persistence; shotshell groups; downloads and simulations.
 - `npm audit`: PASS, zero vulnerabilities after the save/export milestone.
 - Chrome DevTools browser connection: unavailable because Google Chrome is not installed. Playwright successfully launches installed Edge at `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`.
 - Native release regression command using the CMake-cache `ctest.exe`: exits 0 but reports `No tests were found`; the release preset/build does not contain configured test executables.
@@ -158,7 +161,7 @@ Native references from the repository root:
 
 ## Known issues and blockers
 
-- Reference overlays, most settings, translations and many secondary interactions are not yet ported. These are tracked as TODO or `IN PROGRESS` rather than hidden or simulated.
+- Most settings, translations and many secondary interactions are not yet ported. These are tracked as TODO or `IN PROGRESS` rather than hidden or simulated.
 - For the tracked measurement fixture, the packaged release CLI's Physical powder fit does not reflect the current source/data's 1.0139 caliber burn-rate factor. The PWA follows current source and differs by under 0.5%; Original fitting matches the release. See D-024.
 - Browsers expose PDF creation through the print destination chooser, so Export PDF cannot reproduce the desktop application's direct path-writing dialog. It opens the A4 report in the browser print dialog and tells the user to choose Save as PDF; report content and scale are shared with preview/print.
 - The proprietary Original GRT database is intentionally absent. Import was verified with the exact native SQLite table shape and the 578/5,659/683 counts used by native tests, but compatibility with a user's particular GRT release can only be exercised when that user supplies their own decrypted copy.

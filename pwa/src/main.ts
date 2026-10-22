@@ -21,6 +21,7 @@ import { simInputFromLoad, type SimInput } from "./lib/siminput";
 import { calibrationFor, simulate, simulateLadder, vivacityCurve, type CalibrationProfile, type LadderResult, type SimPoint, type SimResult } from "./lib/solver";
 import { formatUnit, parseToBase, quantityOfFileUnit, toDisplay, UnitPreferences, unitsOf, type Quantity, type UnitSystem } from "./lib/units";
 import { applyPowderFit, defaultPowderFitParams, fitPowderAll, powderFitQuality, powderFitSamples, type PowderFitParam, type PowderFitResult } from "./lib/powderfit";
+import { parseReferenceRun, referenceNumber, type ReferenceRun } from "./lib/reference";
 
 const appNode = document.querySelector<HTMLDivElement>("#app");
 if (!appNode) throw new Error("Application root is missing");
@@ -39,6 +40,7 @@ const measurementChargeSelections = new WeakMap<LoadFile, number>();
 const measurementShotSelections = new WeakMap<LoadFile, Set<number>>();
 const measurementSimulationCache = new WeakMap<LoadFile, Map<CalibrationProfile, Map<number, SimResult>>>();
 const histories = new WeakMap<LoadFile, LoadHistory>();
+const referenceRuns = new WeakMap<LoadFile, ReferenceRun>();
 const unitPreferences = new UnitPreferences(localStorage);
 let chartAxis: "time" | "position" = "time";
 let activeDatabaseTable: ProjectTable = "caliber";
@@ -250,7 +252,7 @@ function chartPath(points: readonly SimPoint[], value: (point: SimPoint) => numb
   }).join(" ");
 }
 
-function chartView(result: SimResult, otherResults: readonly SimResult[], input: SimInput): string {
+function chartView(result: SimResult, otherResults: readonly SimResult[], input: SimInput, reference?: ReferenceRun): string {
   const pressureUnit = unitPreferences.unitFor("pressure");
   const energyUnit = unitPreferences.unitFor("energy");
   const velocityUnit = unitPreferences.unitFor("velocity");
@@ -258,11 +260,12 @@ function chartView(result: SimResult, otherResults: readonly SimResult[], input:
   const energy = (value: number): number => toDisplay(value, energyUnit);
   const velocity = (value: number): number => toDisplay(value, velocityUnit);
   const all = [result, ...otherResults.filter((candidate) => candidate.status === "ok")];
-  const allPoints = all.flatMap((candidate) => candidate.points);
+  const referencePoints = reference?.points ?? [];
+  const allPoints = [...all.flatMap((candidate) => candidate.points), ...referencePoints];
   let xMin = chartAxis === "time" ? 0 : Math.floor(Math.min(...allPoints.map(chartX)) / 10) * 10;
   const xMax = Math.max(...allPoints.map(chartX), xMin + 0.01);
   if (!Number.isFinite(xMin)) xMin = 0;
-  const pressureMax = niceCeil(Math.max(pressure(result.maxPressureBar), ...otherResults.map((candidate) => pressure(candidate.maxPressureBar)),
+  const pressureMax = niceCeil(Math.max(...allPoints.map((point) => pressure(point.pressureBar)),
     input.maxPressureBar > 0 ? pressure(input.maxPressureBar) * 1.02 : 0) * 1.04);
   const energyMax = niceCeil(Math.max(...allPoints.map((point) => energy(point.energyJ))) * 1.04);
   const velocityMax = niceCeil(Math.max(...allPoints.map((point) => velocity(point.velocityMs))) * 1.04);
@@ -286,6 +289,7 @@ function chartView(result: SimResult, otherResults: readonly SimResult[], input:
   };
   const otherPaths = otherResults.filter((candidate) => candidate.status === "ok").map((candidate) =>
     `<path class="ladder-curve pressure-curve" d="${chartPath(candidate.points, (point) => pressure(point.pressureBar), xMin, xMax, pressureMax)}"/><path class="ladder-curve energy-curve" d="${chartPath(candidate.points, (point) => energy(point.energyJ), xMin, xMax, energyMax)}"/><path class="ladder-curve velocity-curve" d="${chartPath(candidate.points, (point) => velocity(point.velocityMs), xMin, xMax, velocityMax)}"/>`).join("");
+  const referencePaths = referencePoints.length ? `<path class="reference-curve pressure-reference" d="${chartPath(referencePoints, (point) => pressure(point.pressureBar), xMin, xMax, pressureMax)}"/><path class="reference-curve energy-reference" d="${chartPath(referencePoints, (point) => energy(point.energyJ), xMin, xMax, energyMax)}"/><path class="reference-curve velocity-reference" d="${chartPath(referencePoints, (point) => velocity(point.velocityMs), xMin, xMax, velocityMax)}"/>` : "";
   const markers = [
     { label: "z1", index: result.indexZ1, visible: result.indexZ1 > 0 },
     { label: "Pmax", index: result.indexPmax, visible: true },
@@ -299,7 +303,7 @@ function chartView(result: SimResult, otherResults: readonly SimResult[], input:
   }).join("");
   const permitted = pressure(input.maxPressureBar);
   const bands = input.maxPressureBar > 0 ? `<rect class="pressure-band caution" x="${chartBox.left}" y="${yPosition(permitted * .85, pressureMax)}" width="${chartBox.right - chartBox.left}" height="${yPosition(permitted * .75, pressureMax) - yPosition(permitted * .85, pressureMax)}"/><rect class="pressure-band danger" x="${chartBox.left}" y="${chartBox.top}" width="${chartBox.right - chartBox.left}" height="${yPosition(permitted * .85, pressureMax) - chartBox.top}"/><line class="permitted-line" x1="${chartBox.left}" y1="${yPosition(permitted, pressureMax)}" x2="${chartBox.right}" y2="${yPosition(permitted, pressureMax)}"/>` : "";
-  return `<div class="chart-wrap"><svg class="result-chart" viewBox="0 0 770 320" role="img" aria-label="Pressure, energy and velocity over bullet travel" data-x-min="${xMin}" data-x-max="${xMax}" data-p-max="${pressureMax}" data-e-max="${energyMax}" data-v-max="${velocityMax}">${bands}${ticks("x")}${ticks("pressure")}${ticks("energy")}${ticks("velocity")}${otherPaths}<path class="pressure-curve" d="${chartPath(result.points, (point) => pressure(point.pressureBar), xMin, xMax, pressureMax)}"/><path class="energy-curve" d="${chartPath(result.points, (point) => energy(point.energyJ), xMin, xMax, energyMax)}"/><path class="velocity-curve" d="${chartPath(result.points, (point) => velocity(point.velocityMs), xMin, xMax, velocityMax)}"/>${markers}<line class="chart-cursor" x1="0" y1="${chartBox.top}" x2="0" y2="${chartBox.bottom}"/><circle class="cursor-dot pressure-dot" r="4"/><circle class="cursor-dot energy-dot" r="4"/><circle class="cursor-dot velocity-dot" r="4"/><text class="axis-title" x="377" y="310" text-anchor="middle">${chartAxis === "time" ? "ms" : `Bullet base position [${unitPreferences.unitFor("length").symbol}]`}</text><text class="axis-title pressure" x="13" y="150" text-anchor="middle" transform="rotate(-90 13 150)">${pressureUnit.symbol}</text><text class="axis-title energy" x="722" y="150" text-anchor="middle" transform="rotate(90 722 150)">${energyUnit.symbol}</text><text class="axis-title velocity" x="764" y="150" text-anchor="middle" transform="rotate(90 764 150)">${velocityUnit.symbol}</text></svg><div class="chart-tooltip" role="status"></div></div>`;
+  return `<div class="chart-wrap"><svg class="result-chart" viewBox="0 0 770 320" role="img" aria-label="Pressure, energy and velocity over bullet travel" data-x-min="${xMin}" data-x-max="${xMax}" data-p-max="${pressureMax}" data-e-max="${energyMax}" data-v-max="${velocityMax}">${bands}${ticks("x")}${ticks("pressure")}${ticks("energy")}${ticks("velocity")}${otherPaths}${referencePaths}<path class="pressure-curve" d="${chartPath(result.points, (point) => pressure(point.pressureBar), xMin, xMax, pressureMax)}"/><path class="energy-curve" d="${chartPath(result.points, (point) => energy(point.energyJ), xMin, xMax, energyMax)}"/><path class="velocity-curve" d="${chartPath(result.points, (point) => velocity(point.velocityMs), xMin, xMax, velocityMax)}"/>${markers}<line class="chart-cursor" x1="0" y1="${chartBox.top}" x2="0" y2="${chartBox.bottom}"/><circle class="cursor-dot pressure-dot" r="4"/><circle class="cursor-dot energy-dot" r="4"/><circle class="cursor-dot velocity-dot" r="4"/><text class="axis-title" x="377" y="310" text-anchor="middle">${chartAxis === "time" ? "ms" : `Bullet base position [${unitPreferences.unitFor("length").symbol}]`}</text><text class="axis-title pressure" x="13" y="150" text-anchor="middle" transform="rotate(-90 13 150)">${pressureUnit.symbol}</text><text class="axis-title energy" x="722" y="150" text-anchor="middle" transform="rotate(90 722 150)">${energyUnit.symbol}</text><text class="axis-title velocity" x="764" y="150" text-anchor="middle" transform="rotate(90 764 150)">${velocityUnit.symbol}</text></svg><div class="chart-tooltip" role="status"></div></div>`;
 }
 
 function vivacityView(input: SimInput): string {
@@ -326,6 +330,29 @@ function simulationFor(load: LoadFile): LadderResult[] {
   return result;
 }
 
+function referenceComparison(result: SimResult, reference: ReferenceRun): string {
+  const rows: Array<{ label: string; value: number; quantity?: Exclude<Quantity, "none">; unit?: string; decimals?: number; key: string }> = [
+    { label: "Maximum pressure", value: result.maxPressureBar, quantity: "pressure", key: "MaxPressure" },
+    { label: "Muzzle pressure", value: result.muzzlePressureBar, quantity: "pressure", key: "MuzzlePressure" },
+    { label: "Muzzle velocity", value: result.muzzleVelocityMs, quantity: "velocity", key: "MuzzleVelocity" },
+    { label: "Muzzle energy", value: result.muzzleEnergyJ, quantity: "energy", key: "MuzzleEnergy" },
+    { label: "Bullet time", value: result.muzzleTimeMs, unit: "ms", decimals: 3, key: "MuzzleTime" },
+    { label: "Recoil impulse", value: result.recoilImpulseNs, quantity: "impulse", key: "RecoilImpulse" }
+  ];
+  const body = rows.map((row) => {
+    const referenceValue = referenceNumber(reference, row.key, Number.NaN);
+    const unit = row.quantity ? unitPreferences.unitFor(row.quantity) : undefined;
+    const format = (value: number): string => unit
+      ? formatUnit(value, unit, row.decimals)
+      : new Intl.NumberFormat("en-US", { minimumFractionDigits: row.decimals, maximumFractionDigits: row.decimals }).format(value);
+    const compared = Number.isFinite(referenceValue) && referenceValue !== 0
+      ? `<td>${format(referenceValue)}</td><td>${formatNumber(100 * (row.value / referenceValue - 1), 1)} %</td>`
+      : "<td></td><td></td>";
+    return `<tr><th>${row.label}</th><td><strong>${format(row.value)}</strong></td>${compared}<td>${unit?.symbol ?? row.unit ?? ""}</td></tr>`;
+  }).join("");
+  return `<div class="reference-comparison"><table><thead><tr><th></th><th>this</th><th>original</th><th>Δ</th><th></th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
 function resultView(load: LoadFile): string {
   const ladder = simulationFor(load);
   const input = simInputFromLoad(load);
@@ -341,16 +368,17 @@ function resultView(load: LoadFile): string {
     return `<div class="result-toolbar">${profile}<span>${sourceFormat}</span></div><div class="empty-panel">Simulation status: <strong>${focused?.result.status ?? "invalid_input"}</strong></div>`;
   }
   const result = focused.result;
+  const reference = referenceRuns.get(load);
   const rows = ladder.map((entry, index) => `<tr data-ladder="${index}" class="${index === focus ? "focused" : ""}" tabindex="0"><td>${shown(entry.chargeG, "bulletMass")}</td><td class="${entry.result.maxPressureBar > input.maxPressureBar && input.maxPressureBar > 0 ? "overpressure-cell" : ""}">${entry.result.status === "ok" ? shown(entry.result.maxPressureBar, "pressure") : "charge too high"}</td><td>${entry.result.status === "ok" ? shown(entry.result.muzzleVelocityMs, "velocity") : "—"}</td><td>${entry.result.status === "ok" ? shown(entry.result.muzzleEnergyJ, "energy") : "—"}</td><td>${entry.result.status === "ok" ? `${formatNumber(entry.result.loadRatio * 100, 1)} %` : "—"}</td></tr>`).join("");
   const tabs = ladder.length > 1 ? `<div class="ladder-tabs" role="tablist" aria-label="Load development ladder">${ladder.map((entry, index) => `<button role="tab" aria-selected="${index === focus}" data-ladder="${index}" class="${index === focus ? "active" : ""}">${shown(entry.chargeG, "bulletMass")}</button>`).join("")}</div>` : "";
   const overpressure = input.maxPressureBar > 0 && result.maxPressureBar > input.maxPressureBar ? `<div class="warning-banner"><strong>Overpressure!</strong> The maximum pressure ${shown(result.maxPressureBar, "pressure")} is ${formatNumber(100 * (result.maxPressureBar / input.maxPressureBar - 1), 1)} % above the permitted ${shown(input.maxPressureBar, "pressure")}. Do not load this charge.</div>` : "";
   const burnNotice = activeProfile === "physical" && !input.shotshell && !input.physicalBurn ? `<div class="notice-banner"><strong>No physical burn values</strong> for this propellant (or its burn values were changed): the load's burn rate is scaled; results are less accurate than for powders with Physical Model data.</div>` : "";
   const gasVelocity = input.chargeG > 0 ? result.gasImpulseNs / (focused.chargeG * 1e-3) : 0;
   return `<div class="result-view"${splitStyle("results")}><div class="result-toolbar">${profile}<span>${escapeHtml(activeProfile[0]!.toUpperCase() + activeProfile.slice(1))} model · ${result.points.length} points</span><span>${sourceFormat}</span></div>
-    <div class="result-top"><section><h2>${escapeHtml(load.title)}</h2>${overpressure}${burnNotice}<div class="result-summary"><dl><dt>Maximum pressure</dt><dd>${shown(result.maxPressureBar, "pressure")}</dd><dt>Muzzle pressure</dt><dd>${shown(result.muzzlePressureBar, "pressure")}</dd><dt>Projectile energy</dt><dd>${shown(result.muzzleEnergyJ, "energy")}</dd><dt>Muzzle velocity</dt><dd>${shown(result.muzzleVelocityMs, "velocity")}</dd><dt>Barrel time (BT)</dt><dd>${formatNumber(result.muzzleTimeMs, 4)} ms</dd></dl><dl><dt>Burnout pressure</dt><dd>${result.burnoutInBarrel ? shown(result.burnoutPressureBar, "pressure") : "not burnt out"}</dd><dt>Gas outflow velocity</dt><dd>${shown(gasVelocity, "velocity")}</dd><dt>Projectile speed</dt><dd>${result.muzzleRpm > 0 ? `${formatNumber(result.muzzleRpm / 1000, 1)} k/min` : "—"}</dd><dt>Recoil energy</dt><dd>${result.recoilEnergyJ > 0 ? shown(result.recoilEnergyJ, "energy") : "— (gun weight 0)"}</dd><dt>IPSC / MIP factor</dt><dd>${formatNumber(result.ipscFactor, 0)}, ${formatNumber(result.mipFactor, 0)}</dd></dl><dl><dt>Load ratio</dt><dd>${formatNumber(result.loadRatio * 100, 1)} %</dd><dt>Burnt propellant</dt><dd>${formatNumber(result.burntFraction * 100, 1)} %</dd><dt>Effective efficiency</dt><dd>${formatNumber(result.efficiency * 100, 1)} %</dd><dt>Heat / friction loss</dt><dd>${result.heatLossJ > 0 ? shown(result.heatLossJ, "energy") : "—"}, ${shown(result.muzzleFrictionEnergyJ, "energy")}</dd></dl></div>${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>Charge</th><th>Max. pressure</th><th>Velocity</th><th>Energy</th><th>Load ratio</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input)}</div>
+    <div class="result-top"><section><h2>${escapeHtml(load.title)}</h2>${overpressure}${burnNotice}<div class="result-summary"><dl><dt>Maximum pressure</dt><dd>${shown(result.maxPressureBar, "pressure")}</dd><dt>Muzzle pressure</dt><dd>${shown(result.muzzlePressureBar, "pressure")}</dd><dt>Projectile energy</dt><dd>${shown(result.muzzleEnergyJ, "energy")}</dd><dt>Muzzle velocity</dt><dd>${shown(result.muzzleVelocityMs, "velocity")}</dd><dt>Barrel time (BT)</dt><dd>${formatNumber(result.muzzleTimeMs, 4)} ms</dd></dl><dl><dt>Burnout pressure</dt><dd>${result.burnoutInBarrel ? shown(result.burnoutPressureBar, "pressure") : "not burnt out"}</dd><dt>Gas outflow velocity</dt><dd>${shown(gasVelocity, "velocity")}</dd><dt>Projectile speed</dt><dd>${result.muzzleRpm > 0 ? `${formatNumber(result.muzzleRpm / 1000, 1)} k/min` : "—"}</dd><dt>Recoil energy</dt><dd>${result.recoilEnergyJ > 0 ? shown(result.recoilEnergyJ, "energy") : "— (gun weight 0)"}</dd><dt>IPSC / MIP factor</dt><dd>${formatNumber(result.ipscFactor, 0)}, ${formatNumber(result.mipFactor, 0)}</dd></dl><dl><dt>Load ratio</dt><dd>${formatNumber(result.loadRatio * 100, 1)} %</dd><dt>Burnt propellant</dt><dd>${formatNumber(result.burntFraction * 100, 1)} %</dd><dt>Effective efficiency</dt><dd>${formatNumber(result.efficiency * 100, 1)} %</dd><dt>Heat / friction loss</dt><dd>${result.heatLossJ > 0 ? shown(result.heatLossJ, "energy") : "—"}, ${shown(result.muzzleFrictionEnergyJ, "energy")}</dd></dl></div>${reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>Charge</th><th>Max. pressure</th><th>Velocity</th><th>Energy</th><th>Load ratio</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input)}</div>
     ${splitter("results", "horizontal", "Resize result summary and chart", 150, 250)}<div class="result-chart-pane"><div class="chart-controls">${tabs}<label>Horizontal axis <select id="chart-axis"><option value="time" ${chartAxis === "time" ? "selected" : ""}>Time axis</option><option value="position" ${chartAxis === "position" ? "selected" : ""}>Position axis</option></select></label></div>
-    ${chartView(result, ladder.filter((_, index) => index !== focus).map((entry) => entry.result), input)}
-    <div class="chart-legend"><span class="pressure-key">Pressure</span><span class="permitted-key">Pmax permitted</span><span class="energy-key">Energy</span><span class="velocity-key">Velocity</span></div></div></div>`;
+    ${chartView(result, ladder.filter((_, index) => index !== focus).map((entry) => entry.result), input, reference)}
+    <div class="chart-legend"><span class="pressure-key">Pressure</span><span class="permitted-key">Pmax permitted</span><span class="energy-key">Energy</span><span class="velocity-key">Velocity</span>${reference?.points.length ? `<span class="reference-key">Original reference</span>` : ""}</div></div></div>`;
 }
 
 function clampInteger(value: number, low: number, high: number): number {
@@ -600,7 +628,7 @@ function render(): void {
   const current = activeLoad();
   const currentHistory = current ? historyFor(current) : undefined;
   const tabs = [`<button data-tab="database" class="${activeTab === "database" ? "active" : ""}">Database</button>`, ...loads.map((load, index) => `<button data-tab="load-${index}" class="${activeTab === `load-${index}` ? "active" : ""}">${escapeHtml(load.fileName.replace(/\.(csrload|grtload)$/i, ""))}${historyFor(load).modified ? "*" : ""}<span class="close" data-close="${index}" aria-label="Close load">×</span></button>`)].join("");
-  app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu"><button>File</button><button id="save-csr" ${current ? "" : "disabled"}>Save CSR</button><button id="export-grt" ${current ? "" : "disabled"}>Export GRT</button><button>Edit</button><button id="undo" ${currentHistory?.canUndo ? "" : "disabled"}>Undo</button><button id="redo" ${currentHistory?.canRedo ? "" : "disabled"}>Redo</button><button>View</button><button>Tools</button><label class="menu-select">Units <select id="unit-system" aria-label="Unit system"><option value="metric" ${unitPreferences.system === "metric" ? "selected" : ""}>Metric</option><option value="imperial" ${unitPreferences.system === "imperial" ? "selected" : ""}>Imperial</option><option value="original" ${unitPreferences.system === "original" ? "selected" : ""}>Original</option></select></label><button id="reset-field-units">Reset field units</button><button>Help</button></nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden /><input id="chronograph-picker" type="file" accept=".fit,.FIT,.csv,.CSV" hidden />`;
+  app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu"><button>File</button><button id="save-csr" ${current ? "" : "disabled"}>Save CSR</button><button id="export-grt" ${current ? "" : "disabled"}>Export GRT</button><button id="overlay-reference" ${current ? "" : "disabled"} title="Overlay an original-program reference result (Ctrl+R)">Overlay reference…</button><button id="clear-reference" ${current && referenceRuns.has(current) ? "" : "disabled"}>Clear reference</button><button>Edit</button><button id="undo" ${currentHistory?.canUndo ? "" : "disabled"}>Undo</button><button id="redo" ${currentHistory?.canRedo ? "" : "disabled"}>Redo</button><button>View</button><button>Tools</button><label class="menu-select">Units <select id="unit-system" aria-label="Unit system"><option value="metric" ${unitPreferences.system === "metric" ? "selected" : ""}>Metric</option><option value="imperial" ${unitPreferences.system === "imperial" ? "selected" : ""}>Imperial</option><option value="original" ${unitPreferences.system === "original" ? "selected" : ""}>Original</option></select></label><button id="reset-field-units">Reset field units</button><button>Help</button></nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="reference-picker" type="file" accept=".json,application/json" hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden /><input id="chronograph-picker" type="file" accept=".fit,.FIT,.csv,.CSV" hidden />`;
   const fileButton = app.querySelector<HTMLButtonElement>(".menubar > button:first-child");
   if (fileButton) { fileButton.id = "settings"; fileButton.title = "Settings, including the optional Original GRT database"; }
   bindEvents();
@@ -611,6 +639,21 @@ function invalidateLoad(load: LoadFile): void {
   measurementSimulationCache.delete(load);
   const count = Math.max(simInputFromLoad(load).ladderCount, 1);
   ladderFocus.set(load, clampInteger(ladderFocus.get(load) ?? 0, 0, Math.min(count, 10) - 1));
+}
+
+async function importReferenceFile(load: LoadFile, file: File): Promise<void> {
+  try {
+    const reference = parseReferenceRun(await file.text());
+    referenceRuns.set(load, reference);
+    status = `Reference overlay: ${file.name} (${reference.points.length} points${reference.stale ? ", stale" : ""})`;
+    render();
+    if (reference.stale) window.alert("This reference run is marked stale (the wrong tab was read).");
+  } catch (problem) {
+    const detail = problem instanceof Error ? problem.message : String(problem);
+    status = `Cannot read reference ${file.name}: ${detail}`;
+    render();
+    window.alert(status);
+  }
 }
 
 function undoActive(redo = false): void {
@@ -1658,6 +1701,18 @@ function bindEvents(): void {
   app.querySelector("#redo")?.addEventListener("click", () => undoActive(true));
   app.querySelector("#save-csr")?.addEventListener("click", () => downloadLoad("reload"));
   app.querySelector("#export-grt")?.addEventListener("click", () => downloadLoad("original"));
+  const referencePicker = app.querySelector<HTMLInputElement>("#reference-picker");
+  app.querySelector("#overlay-reference")?.addEventListener("click", () => referencePicker?.click());
+  referencePicker?.addEventListener("change", () => {
+    const load = activeLoad(), file = referencePicker.files?.[0];
+    referencePicker.value = "";
+    if (load && file) void importReferenceFile(load, file);
+  });
+  app.querySelector("#clear-reference")?.addEventListener("click", () => {
+    const load = activeLoad();
+    if (!load) return;
+    referenceRuns.delete(load); status = "Reference overlay cleared"; render();
+  });
   app.querySelector<HTMLSelectElement>("#unit-system")?.addEventListener("change", (event) => {
     unitPreferences.setSystem((event.currentTarget as HTMLSelectElement).value as UnitSystem);
     status = `Unit system: ${unitPreferences.system}`;
@@ -1808,6 +1863,9 @@ document.addEventListener("keydown", (event) => {
   } else if (event.key.toLowerCase() === "y") {
     event.preventDefault();
     undoActive(true);
+  } else if (event.key.toLowerCase() === "r" && activeLoad()) {
+    event.preventDefault();
+    app.querySelector<HTMLInputElement>("#reference-picker")?.click();
   }
 });
 
