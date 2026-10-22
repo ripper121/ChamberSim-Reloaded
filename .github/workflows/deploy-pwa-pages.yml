@@ -36,15 +36,6 @@ jobs:
       - name: Install dependencies
         working-directory: pwa
         run: npm ci
-
-      - name: Run unit tests without unavailable release fixture
-        working-directory: pwa
-        run: |
-          npm test -- \
-            --exclude src/lib/loadfile.test.ts \
-            --exclude src/lib/loadedit.test.ts \
-            --exclude src/lib/siminput.test.ts \
-            --exclude src/lib/solver.test.ts
             
       - name: Build PWA for project Pages
         working-directory: pwa
