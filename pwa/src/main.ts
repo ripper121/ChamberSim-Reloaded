@@ -76,6 +76,7 @@ let projectDatabaseError = "";
 let untitledCounter = 0;
 const databaseRowHeight = 22;
 const databaseWindowSize = 120;
+const dialogFilterDelayMs = 500;
 const reportTemplateKey = "csr-report-template";
 const reportScaleKey = "csr-report-scale";
 
@@ -1127,13 +1128,13 @@ function openNewLoadDialog(): void {
   const sorts: Record<ProjectTable, { column: string; direction: "asc" | "desc" }> = { caliber: { column: "id", direction: "asc" }, projectile: { column: "id", direction: "asc" }, propellant: { column: "id", direction: "asc" } };
   const scrolls: Record<ProjectTable, number> = { caliber: 0, projectile: 0, propellant: 0 };
   const labels: Record<ProjectTable, string> = { caliber: "Caliber", projectile: "Projectile", propellant: "Propellant" };
-  let active: ProjectTable = "caliber", step = 0, matchDiameter = true, defaultsFor = "";
+  let active: ProjectTable = "caliber", step = 0, matchDiameter = true, defaultsFor = "", filterTimer: ReturnType<typeof setTimeout> | undefined;
   let params = { chargeG: 0, barrelLengthMm: 0, seatingDepthMm: 0, twistLengthMm: 240, powderTemperatureC: 21 };
   const dialog = document.createElement("dialog");
   dialog.className = "new-load-dialog";
   dialog.setAttribute("aria-label", "New load");
   document.body.append(dialog);
-  const close = (): void => { dialog.close(); dialog.remove(); };
+  const close = (): void => { if (filterTimer) clearTimeout(filterTimer); dialog.close(); dialog.remove(); };
   const description = (table: ProjectTable, record?: ProjectRecord): string => {
     if (!record) return "not selected";
     if (table === "caliber") return `${String(record.cipname ?? "")}${record.altname ? ` ${String(record.altname)}` : ""}`.trim();
@@ -1178,7 +1179,25 @@ function openNewLoadDialog(): void {
     }
     dialog.querySelector("[data-new-load-cancel]")?.addEventListener("click", close);
     dialog.querySelectorAll<HTMLElement>("[data-new-load-tab]").forEach((tab) => tab.addEventListener("click", () => { active = tab.dataset.newLoadTab as ProjectTable; renderDialog(); }));
-    dialog.querySelector<HTMLInputElement>("[data-new-load-filter]")?.addEventListener("input", (event) => { queries[active] = (event.currentTarget as HTMLInputElement).value; scrolls[active] = 0; renderDialog(); dialog.querySelector<HTMLInputElement>("[data-new-load-filter]")?.focus(); });
+    const filter = dialog.querySelector<HTMLInputElement>("[data-new-load-filter]");
+    const scheduleFilter = (): void => {
+      if (filterTimer) clearTimeout(filterTimer);
+      const table = active;
+      filterTimer = setTimeout(() => {
+        filterTimer = undefined;
+        if (!dialog.isConnected || step !== 0 || active !== table) return;
+        const current = dialog.querySelector<HTMLInputElement>("[data-new-load-filter]");
+        const start = current?.selectionStart ?? queries[table].length, end = current?.selectionEnd ?? start, direction = current?.selectionDirection ?? "none";
+        scrolls[table] = 0; renderDialog();
+        const replacement = dialog.querySelector<HTMLInputElement>("[data-new-load-filter]");
+        replacement?.focus(); replacement?.setSelectionRange(start, end, direction);
+      }, dialogFilterDelayMs);
+    };
+    filter?.addEventListener("input", (event) => {
+      queries[active] = (event.currentTarget as HTMLInputElement).value;
+      if (!(event as InputEvent).isComposing) scheduleFilter();
+    });
+    filter?.addEventListener("compositionend", (event) => { queries[active] = (event.currentTarget as HTMLInputElement).value; scheduleFilter(); });
     dialog.querySelector<HTMLInputElement>("[data-match-diameter]")?.addEventListener("change", (event) => { matchDiameter = (event.currentTarget as HTMLInputElement).checked; renderDialog(); });
     const chooseRow = (row: HTMLElement): void => {
       const id = Number(row.dataset.dbId);
@@ -1257,12 +1276,13 @@ function openSelectComponentDialog(table: ProjectTable): void {
     : table === "projectile" ? "Also set the seating depth to the default (maximum cartridge length)"
       : "Also set the charge to the default (70 % of the case capacity)";
   let selected: ProjectRecord | undefined, query = "", restrict = table === "projectile", reset = table === "caliber", scrollTop = 0;
+  let filterTimer: ReturnType<typeof setTimeout> | undefined;
   let sort: { column: string; direction: "asc" | "desc" } = { column: "id", direction: "asc" };
   const dialog = document.createElement("dialog");
   dialog.className = "select-component-dialog";
   dialog.setAttribute("aria-label", title);
   document.body.append(dialog);
-  const close = (): void => { dialog.close(); dialog.remove(); };
+  const close = (): void => { if (filterTimer) clearTimeout(filterTimer); dialog.close(); dialog.remove(); };
   const display = (record: ProjectRecord): string => table === "caliber"
     ? `${String(record.cipname ?? "")}${record.altname ? ` ${String(record.altname)}` : ""}`.trim()
     : recordTitle(table, record);
@@ -1277,7 +1297,24 @@ function openSelectComponentDialog(table: ProjectTable): void {
     const quality = table === "propellant" && selected ? `<p class="powder-quality">Fit quality: ${formatNumber(Number(selected.Qlty ?? 0) * 100, 0)} %</p>` : "";
     dialog.innerHTML = `<form method="dialog"><h2>${title}</h2>${table === "projectile" ? `<label class="match-diameter"><input type="checkbox" data-component-restrict ${restrict ? "checked" : ""}> Show only bullets that fit the caliber</label>` : ""}<input data-component-filter aria-label="Filter ${table} records" placeholder="Filter (all columns)…" value="${escapeHtml(query)}">${recordTable.html}${quality}<label class="reset-dependent"><input type="checkbox" data-component-reset ${reset ? "checked" : ""}> ${resetText}</label><div class="dialog-buttons"><button type="button" data-component-cancel>Cancel</button><button type="button" data-component-apply ${selected ? "" : "disabled"}>OK</button></div></form>`;
     dialog.querySelector("[data-component-cancel]")?.addEventListener("click", close);
-    dialog.querySelector<HTMLInputElement>("[data-component-filter]")?.addEventListener("input", (event) => { query = (event.currentTarget as HTMLInputElement).value; scrollTop = 0; renderDialog(); dialog.querySelector<HTMLInputElement>("[data-component-filter]")?.focus(); });
+    const filter = dialog.querySelector<HTMLInputElement>("[data-component-filter]");
+    const scheduleFilter = (): void => {
+      if (filterTimer) clearTimeout(filterTimer);
+      filterTimer = setTimeout(() => {
+        filterTimer = undefined;
+        if (!dialog.isConnected) return;
+        const current = dialog.querySelector<HTMLInputElement>("[data-component-filter]");
+        const start = current?.selectionStart ?? query.length, end = current?.selectionEnd ?? start, direction = current?.selectionDirection ?? "none";
+        scrollTop = 0; renderDialog();
+        const replacement = dialog.querySelector<HTMLInputElement>("[data-component-filter]");
+        replacement?.focus(); replacement?.setSelectionRange(start, end, direction);
+      }, dialogFilterDelayMs);
+    };
+    filter?.addEventListener("input", (event) => {
+      query = (event.currentTarget as HTMLInputElement).value;
+      if (!(event as InputEvent).isComposing) scheduleFilter();
+    });
+    filter?.addEventListener("compositionend", (event) => { query = (event.currentTarget as HTMLInputElement).value; scheduleFilter(); });
     dialog.querySelector<HTMLInputElement>("[data-component-restrict]")?.addEventListener("change", (event) => {
       restrict = (event.currentTarget as HTMLInputElement).checked;
       const diameter = Number(load.caliber.find((item) => item.name === "Dz")?.value ?? 0);

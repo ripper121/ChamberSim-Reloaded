@@ -228,6 +228,7 @@ test("imports a manufacturer bullet file, persists it, and suppresses duplicates
 });
 
 test("creates a simulatable load through the native two-step database workflow", async ({ page }) => {
+  test.setTimeout(60_000);
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
@@ -236,14 +237,25 @@ test("creates a simulatable load through the native two-step database workflow",
   const dialog = page.getByRole("dialog", { name: "New load" });
   await expect(dialog).toBeVisible();
 
-  const choose = async (label: "Caliber" | "Projectile" | "Propellant", query: string, optionText: string): Promise<void> => {
+  const choose = async (label: "Caliber" | "Projectile" | "Propellant", query: string, optionText: string, typeKeys = false): Promise<void> => {
     await dialog.getByRole("tab", { name: new RegExp(label) }).click();
-    await dialog.getByLabel(`Filter ${label.toLowerCase()} records`).fill(query);
+    const filter = dialog.getByLabel(`Filter ${label.toLowerCase()} records`);
+    if (typeKeys) {
+      await filter.click();
+      const originalInput = await filter.elementHandle();
+      await page.keyboard.type(query.slice(0, 3));
+      await page.waitForTimeout(300);
+      await page.keyboard.type(query.slice(3));
+      await page.waitForTimeout(300);
+      expect(await originalInput!.evaluate((input) => input.isConnected)).toBe(true);
+      await expect.poll(() => originalInput!.evaluate((input) => input.isConnected)).toBe(false);
+    } else await filter.fill(query);
+    await expect(filter).toHaveValue(query);
     const row = dialog.locator("tr[data-db-id]").filter({ hasText: optionText }).first();
     await expect(row).toBeVisible();
     await row.click();
   };
-  await choose("Caliber", "223 rem", "223 Rem.");
+  await choose("Caliber", "223 rem", "223 Rem.", true);
   await choose("Projectile", "scorion 52", "Scorion Hpbt-Match 2313343");
   await choose("Propellant", "lovex d073.5", "D073.5");
   await expect(dialog.getByText("Fit quality: 30 %", { exact: true })).toBeVisible();
@@ -275,7 +287,10 @@ test("creates a simulatable load through the native two-step database workflow",
   const originalCharge = await page.getByRole("textbox", { name: "Powder Charge", exact: true }).inputValue();
   await page.getByRole("button", { name: "Select Propellant…", exact: true }).click();
   const selectDialog = page.getByRole("dialog", { name: "Select Propellant" });
-  await selectDialog.getByLabel("Filter propellant records").fill("lovex d073.4");
+  const componentFilter = selectDialog.getByLabel("Filter propellant records");
+  await componentFilter.click();
+  await page.keyboard.type("lovex d073.4");
+  await expect(componentFilter).toHaveValue("lovex d073.4");
   const replacement = selectDialog.locator("tr[data-db-id]").filter({ hasText: "LovexD073.4" }).first();
   await expect(replacement).toBeVisible();
   await replacement.click();
