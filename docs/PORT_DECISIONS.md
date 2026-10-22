@@ -173,3 +173,15 @@ Last updated: 2026-10-22
 **Decision:** Expose the prompt-style Workbox update lifecycle as a right-aligned Sync control. Green represents the currently loaded application version, red represents a waiting service worker, a green click calls `ServiceWorkerRegistration.update()`, and a red click activates the waiting worker and reloads through `virtual:pwa-register`.
 
 **Rationale:** A cache-first installable application can otherwise leave users unsure whether they are running the deployed version. Reusing the generated service worker's waiting/activation lifecycle avoids bypassing Workbox or clearing offline caches, while explicit click-to-activate behavior prevents an update from interrupting unsaved load edits without a user gesture.
+
+## D-028 — Store theme preference separately from its effective palette
+
+**Decision:** Store only explicit Light or Dark choices. System default removes the stored override and derives the effective palette from `prefers-color-scheme`, including live operating-system changes. Apply the effective theme through a root attribute and CSS palette, with source-derived drawings consuming shared theme variables; reports remain paper-white in every application theme.
+
+**Rationale:** This mirrors `theme::storedMode`, `theme::storeMode`, and the exclusive View > Theme actions while respecting the browser's platform-theme API. Separating preference from effective appearance prevents a current OS value from becoming a stale saved override. Root-scoped styling also updates existing modal dialogs and SVG surfaces immediately without recreating application state or dirtying an open load.
+
+## D-029 — Activate language choices only on application startup
+
+**Decision:** Normalize and resolve browser locale tags with the native algorithm, persist only explicit locale choices, and treat no stored value as System default. A language-menu change displays the native restart notice and does not mutate the running interface; startup resolves the stored/browser preference and sets the document language.
+
+**Rationale:** The Qt application installs translators and its default locale before constructing the UI, so its language menu deliberately requires a restart. Preserving that boundary avoids partially translating an already-rendered workspace and provides a stable active locale for the forthcoming catalog and number-format ports. Selection semantics are verified independently while translated surface coverage remains `IN PROGRESS`.

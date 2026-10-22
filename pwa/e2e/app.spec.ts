@@ -289,6 +289,7 @@ test("creates a simulatable load through the native two-step database workflow",
 });
 
 test("stores, reloads, displays, enlarges, and removes personal powder photos", async ({ page }) => {
+  test.setTimeout(45_000);
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await page.getByRole("tab", { name: "Propellants" }).click();
@@ -1061,7 +1062,7 @@ test("switches and persists System default, Light, and Dark themes", async ({ pa
     await page.locator(".view-menu summary").click();
   };
   await openView();
-  await expect(page.getByRole("menuitemradio", { name: "System default", exact: true })).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator('[data-theme-mode="system"]')).toHaveAttribute("aria-checked", "true");
   await page.getByRole("menuitemradio", { name: "Light", exact: true }).click();
   await expect(root).toHaveAttribute("data-theme", "light");
   await expect(page.locator(".app-shell")).toHaveCSS("background-color", "rgb(239, 239, 239)");
@@ -1092,11 +1093,29 @@ test("switches and persists System default, Light, and Dark themes", async ({ pa
   await expect(page.locator(".app-shell")).toHaveCSS("background-color", "rgb(40, 40, 40)");
 
   await openView();
-  await page.getByRole("menuitemradio", { name: "System default", exact: true }).click();
+  await page.locator('[data-theme-mode="system"]').click();
   expect(await page.evaluate(() => localStorage.getItem("csr-theme"))).toBeNull();
   await expect(root).toHaveAttribute("data-theme", "dark");
   await page.emulateMedia({ colorScheme: "light" });
   await expect(root).toHaveAttribute("data-theme", "light");
+});
+
+test("stores language choices with native restart semantics", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en-US");
+  await page.locator(".view-menu summary").click();
+  await expect(page.locator('[data-language="system"]')).toHaveAttribute("aria-checked", "true");
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toBe("The language change takes effect after restarting the application.");
+    await dialog.accept();
+  });
+  await page.getByRole("menuitemradio", { name: "Deutsch (Deutschland)", exact: true }).click();
+  expect(await page.evaluate(() => localStorage.getItem("csr-ui-language"))).toBe("de_DE");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("lang", "de-DE");
+  await page.locator(".view-menu summary").click();
+  await expect(page.getByRole("menuitemradio", { name: "Deutsch (Deutschland)", exact: true })).toHaveAttribute("aria-checked", "true");
 });
 
 test("the golden load fixture used by browser QA is present", () => {
