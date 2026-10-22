@@ -4,6 +4,8 @@ import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig({
   // GitHub Pages serves this project below /ChamberSim-Reloaded/; local builds stay rooted at /.
   base: process.env.VITE_BASE_PATH ?? "/",
+  // Translation catalogs are authoritative repository inputs one directory above the PWA root.
+  server: { fs: { allow: [".."] } },
   publicDir: "../resources/icons",
   // The complete licensed project database is one intentional lazy, offline-cached data chunk (~137 KiB gzip).
   build: { chunkSizeWarningLimit: 1_400 },

@@ -260,7 +260,7 @@ test("creates a simulatable load through the native two-step database workflow",
   await expect(page.getByRole("definition").filter({ hasText: "1,992 bar" })).toBeVisible();
   await expect(page.getByRole("definition").filter({ hasText: "786.8 m/s" })).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save CSR", exact: true }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   const download = await downloadPromise;
   if (process.platform === "win32" && existsSync(nativeSimulator)) {
     const native = JSON.parse(execFileSync(nativeSimulator, ["--format", "json", (await download.path())!], { encoding: "utf8" }))[0];
@@ -486,7 +486,7 @@ test("resizes and remembers native-style workspace splitters", async ({ page }) 
   await expect.poll(async () => (await resultTop.boundingBox())!.height).toBeCloseTo(originalResultHeight + 10, 0);
 
   await page.getByRole("button", { name: "Measurements", exact: true }).click();
-  await expect.poll(async () => (await input.boundingBox())!.width).toBeCloseTo(draggedWidth, 0);
+  await expect.poll(async () => (await input.boundingBox())?.width ?? 0).toBeCloseTo(draggedWidth, 0);
   const measurementTop = page.locator(".measurement-top");
   const originalMeasurementHeight = (await measurementTop.boundingBox())!.height;
   const measurement = page.getByRole("separator", { name: "Resize measurement charges and shot details" });
@@ -501,7 +501,7 @@ test("resizes and remembers native-style workspace splitters", async ({ page }) 
 
   await page.reload();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
-  await expect.poll(async () => (await input.boundingBox())!.width).toBeCloseTo(draggedWidth, 0);
+  await expect.poll(async () => (await input.boundingBox())?.width ?? 0).toBeCloseTo(draggedWidth, 0);
   await main.dblclick();
   expect(await page.evaluate(() => localStorage.getItem("csr-layout-main"))).toBeNull();
 });
@@ -574,7 +574,7 @@ test("edits measurement series and compares measured shots with simulation", asy
   await expect(page.getByRole("button", { name: /measurements\*/i })).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save CSR" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
   const saved = readFileSync((await (await downloadPromise).path())!, "utf8");
   expect(saved.match(/<Measurement/g)).toHaveLength(2);
   expect(saved).toContain("Browser%20range%20session");
@@ -612,7 +612,7 @@ test("fits powder models to measurements and applies or saves the result", async
   await expect(page.getByRole("button", { name: /measurements\*/i })).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save CSR" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
   const fitted = readFileSync((await (await downloadPromise).path())!, "utf8");
   expect(fitted).toMatch(/name="Ba" value="50"/);
   expect(fitted).toMatch(/name="physBa" value="50"/);
@@ -714,8 +714,8 @@ test("overlays, warns about, switches axes for, and clears original reference re
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
-  await expect(page.getByRole("button", { name: "Overlay reference…" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Clear reference" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Overlay reference result…" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Clear reference overlay" })).toBeDisabled();
 
   const reference = {
     job: "browser-reference.grtload", stale: false,
@@ -730,7 +730,7 @@ test("overlays, warns about, switches axes for, and clears original reference re
     ]
   };
   const referenceChooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Overlay reference…" }).click();
+  await page.getByRole("button", { name: "Overlay reference result…" }).click();
   await (await referenceChooser).setFiles({
     name: "browser-reference.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(reference))
   });
@@ -740,7 +740,7 @@ test("overlays, warns about, switches axes for, and clears original reference re
   await expect(page.locator(".reference-comparison tbody tr")).toHaveCount(6);
   await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("3,000");
   await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("20.5 %");
-  await expect(page.getByRole("button", { name: "Clear reference" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Clear reference overlay" })).toBeEnabled();
 
   const timePath = await page.locator(".pressure-reference").getAttribute("d");
   await page.getByLabel("Horizontal axis").selectOption("position");
@@ -756,7 +756,7 @@ test("overlays, warns about, switches axes for, and clears original reference re
     name: "stale.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ ...reference, stale: true }))
   });
   await expect(page.getByText("Reference overlay: stale.json (3 points, stale)", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Clear reference" }).click();
+  await page.getByRole("button", { name: "Clear reference overlay" }).click();
   await expect(page.locator(".reference-curve")).toHaveCount(0);
   await expect(page.locator(".reference-comparison")).toHaveCount(0);
   await expect(page.getByText("Reference overlay cleared", { exact: true })).toBeVisible();
@@ -832,7 +832,7 @@ test("downloads an edited CSR and a compatible original GRT export", async ({ pa
   await charge.press("Tab");
 
   const csrPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save CSR", exact: true }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   const csr = await csrPromise;
   expect(csr.suggestedFilename()).toBe("223Rem_D0735_RWS.csrload");
   expect(readFileSync((await csr.path())!, "utf8")).toMatch(/name="mc" value="1\.5"/);
@@ -1112,8 +1112,17 @@ test("stores language choices with native restart semantics", async ({ page }) =
   });
   await page.getByRole("menuitemradio", { name: "Deutsch (Deutschland)", exact: true }).click();
   expect(await page.evaluate(() => localStorage.getItem("csr-ui-language"))).toBe("de_DE");
+  await page.evaluate(() => localStorage.removeItem("csr-disclaimer-accepted"));
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "de-DE");
+  const disclaimer = page.getByRole("dialog");
+  await expect(disclaimer.getByRole("heading", { name: "Sicherheitshinweis" })).toBeVisible();
+  await expect(disclaimer).toContainText("Das Wiederladen von Munition ist gefährlich.");
+  await disclaimer.getByRole("button", { name: "Verstanden", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Datei", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Datenbank", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Kaliber", exact: true })).toBeVisible();
+  await expect(page.getByText("484 Einträge", { exact: true })).toBeVisible();
   await page.locator(".view-menu summary").click();
   await expect(page.getByRole("menuitemradio", { name: "Deutsch (Deutschland)", exact: true })).toHaveAttribute("aria-checked", "true");
 });

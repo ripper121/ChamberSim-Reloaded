@@ -26,6 +26,7 @@ import { burnRateRows, filterBurnRateRows, sortBurnRateRows, type BurnRateColumn
 import { convertUnitValues, converterQuantities, type ConvertibleQuantity } from "./lib/unitconverter";
 import { ThemePreference, type ThemeMode } from "./lib/theme";
 import { LanguagePreference, type LanguageChoice } from "./lib/language";
+import { loadI18n } from "./lib/i18n";
 
 const appNode = document.querySelector<HTMLDivElement>("#app");
 if (!appNode) throw new Error("Application root is missing");
@@ -33,6 +34,7 @@ const app: HTMLDivElement = appNode;
 const themePreference = new ThemePreference(localStorage, document.documentElement, window.matchMedia("(prefers-color-scheme: dark)"));
 const languagePreference = new LanguagePreference(localStorage, navigator.languages);
 document.documentElement.lang = languagePreference.active.replace("_", "-");
+const i18n = await loadI18n(languagePreference.active);
 
 const loads: LoadFile[] = [];
 let activeTab = "database";
@@ -630,7 +632,9 @@ function databaseView(): string {
   const combined = combinedDatabaseRecords(activeDatabaseTable);
   const records = database.sortedRecords(database.filteredRecords(activeDatabaseTable, query, combined), sortColumn, sorting.direction);
   const total = combined.length;
-  const count = records.length === total ? `${total.toLocaleString("en-US")} entries` : `${records.length.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} entries`;
+  const count = records.length === total
+    ? i18n.plural("TableBrowser", "%n entries", total)
+    : i18n.plural("TableBrowser", "%1 of %n entries", total, records.length.toLocaleString(i18n.locale));
   const tabs: Array<[ProjectTable, string]> = [["caliber", "Calibers"], ["projectile", "Projectiles"], ["propellant", "Propellants"]];
   const header = columns.map((column) => {
     const selected = column.name === sortColumn.name;
@@ -646,6 +650,55 @@ function databaseView(): string {
   return `<main class="database"><div class="primary-actions"><button id="new-load" ${ownDatabaseReady ? "" : "disabled"}>▤ New load</button><button id="open-load">📂 Open load</button></div><div class="button-row"><button id="new-record" ${ownDatabaseReady ? "" : "disabled"}>New</button><button id="copy-record" ${selected && ownDatabaseReady ? "" : "disabled"}>Copy</button><button id="edit-record" ${own ? "" : "disabled"} title="${selected && !own ? "Only personal records can be changed: make a copy" : "Change the selected record"}">Edit</button><button id="delete-record" ${own ? "" : "disabled"} title="${selected && !own ? "Only personal records can be changed: make a copy" : "Delete the selected record"}">Delete</button>${importButton}<button id="export-record" ${own ? "" : "disabled"}>Export</button></div><div class="subtabs" role="tablist">${tabs.map(([table, label]) => `<button role="tab" data-db-table="${table}" class="${activeDatabaseTable === table ? "active" : ""}" aria-selected="${activeDatabaseTable === table}">${label}</button>`).join("")}</div><div class="database-filter-row"><input class="filter" aria-label="Filter all columns" placeholder="Filter (all columns)…" value="${escapeHtml(query)}" /><span aria-live="polite">${count}</span></div><div class="database-table-scroll"><table class="database-table"><thead><tr>${header}</tr></thead><tbody data-window-start="${body.start}">${body.html}</tbody></table></div></main>`;
 }
 
+function localizeShell(): void {
+  const text = (selector: string, context: string, source: string): void => {
+    const element = app.querySelector<HTMLElement>(selector);
+    if (element) element.textContent = i18n.text(context, source);
+  };
+  const choice = (selector: string, context: string, source: string): void => {
+    const element = app.querySelector<HTMLElement>(selector);
+    const label = element?.lastChild;
+    if (label?.nodeType === Node.TEXT_NODE) label.textContent = i18n.text(context, source);
+  };
+  const initialText = (selector: string, source: string, context = "MainWindow"): void => {
+    const element = [...app.querySelectorAll<HTMLElement>(selector)].find((candidate) => candidate.textContent?.trim() === source);
+    if (element) element.textContent = i18n.text(context, `&${source}`);
+  };
+
+  text("#settings", "MainWindow", "&File");
+  text("#save-csr", "MainWindow", "&Save");
+  text("#overlay-reference", "MainWindow", "Overlay &reference result…");
+  text("#clear-reference", "MainWindow", "&Clear reference overlay");
+  text("#undo", "MainWindow", "&Undo");
+  text("#redo", "MainWindow", "&Redo");
+  initialText(".menubar > button", "Edit");
+  initialText(".menubar > button", "Help");
+  text(".view-menu > summary", "MainWindow", "&View");
+  const headings = app.querySelectorAll<HTMLElement>(".view-menu .menu-heading");
+  if (headings[0]) headings[0].textContent = i18n.text("MainWindow", "&Theme");
+  if (headings[1]) headings[1].textContent = i18n.text("MainWindow", "&Language");
+  choice('[data-theme-mode="system"]', "MainWindow", "System default");
+  choice('[data-theme-mode="light"]', "MainWindow", "Light");
+  choice('[data-theme-mode="dark"]', "MainWindow", "Dark");
+  choice('[data-language="system"]', "MainWindow", "System default");
+  text(".menu-dropdown:not(.view-menu) > summary", "MainWindow", "&Tools");
+  text("#burn-rate-table", "MainWindow", "&Burn rate table…");
+  text("#unit-converter", "MainWindow", "&Unit converter…");
+  text('[data-tab="database"]', "MainWindow", "Database");
+  text("#new-load", "MainWindow", "New load");
+  text("#open-load", "MainWindow", "Open load");
+  text("#new-record", "MainWindow", "New");
+  text("#copy-record", "MainWindow", "Copy");
+  text("#edit-record", "MainWindow", "Edit");
+  text("#delete-record", "MainWindow", "Delete");
+  text("#export-record", "MainWindow", "Export");
+  text('[data-db-table="caliber"]', "MainWindow", "Calibers");
+  text('[data-db-table="projectile"]', "MainWindow", "Projectiles");
+  text('[data-db-table="propellant"]', "MainWindow", "Propellants");
+  const filter = app.querySelector<HTMLInputElement>(".database-filter-row .filter");
+  if (filter) filter.placeholder = i18n.text("TableBrowser", "Filter (all columns)…");
+}
+
 function render(): void {
   const current = activeLoad();
   const currentHistory = current ? historyFor(current) : undefined;
@@ -659,6 +712,7 @@ function render(): void {
   app.querySelector(".menubar")?.insertAdjacentHTML("beforeend", `<button id="app-sync" class="app-sync ${appSyncState}" aria-label="${syncLabel}" title="${syncLabel}. Click to check for and load the latest app version." ${appSyncState === "checking" || appSyncState === "updating" ? "disabled" : ""}><span class="sync-dot" aria-hidden="true"></span><span>Sync</span></button>`);
   const fileButton = app.querySelector<HTMLButtonElement>(".menubar > button:first-child");
   if (fileButton) { fileButton.id = "settings"; fileButton.title = "Settings, including the optional Original GRT database"; }
+  localizeShell();
   bindEvents();
 }
 
@@ -1736,7 +1790,7 @@ function bindEvents(): void {
   app.querySelectorAll<HTMLButtonElement>("[data-language]").forEach((button) => button.addEventListener("click", () => {
     languagePreference.store(button.dataset.language as LanguageChoice);
     button.closest("details")?.removeAttribute("open");
-    window.alert("The language change takes effect after restarting the application.");
+    window.alert(i18n.text("MainWindow", "The language change takes effect after restarting the application."));
   }));
   app.querySelector("#settings")?.addEventListener("click", openDatabaseSettings);
   app.querySelector("#burn-rate-table")?.addEventListener("click", (event) => {
@@ -1982,7 +2036,9 @@ function showDisclaimer(): void {
   if (localStorage.getItem("csr-disclaimer-accepted") === "yes") return;
   const dialog = document.createElement("dialog");
   dialog.className = "disclaimer";
-  dialog.innerHTML = `<h1>Safety notice</h1><p>The results are calculated and can differ considerably from reality. Compare every load with current manufacturer data and start low.</p><p>Reloading ammunition is dangerous and is done entirely at your own responsibility.</p><button autofocus>I understand</button>`;
+  const warning = "<b>Handloading ammunition is dangerous.</b> A wrong load can destroy a firearm and cause severe injury or death.";
+  const detail = "ChamberSim Reloaded simulates interior ballistics. Its results are estimates and can be far from reality: use the program only if you know what you are doing.<br><br>Never use a simulated load as a recipe. Always start from the current load data of the powder and bullet maker, start low, work up carefully and watch for pressure signs.<br><br>The program is provided as it is, without any warranty. The authors are not responsible for any damage, injury or loss that results from its use.";
+  dialog.innerHTML = `<h1>${i18n.text("Disclaimer", "Safety notice")}</h1><p>${i18n.text("Disclaimer", warning)}</p><p>${i18n.text("Disclaimer", detail)}</p><button autofocus>${i18n.text("Disclaimer", "I understand")}</button>`;
   document.body.append(dialog);
   dialog.querySelector("button")?.addEventListener("click", () => {
     localStorage.setItem("csr-disclaimer-accepted", "yes");
