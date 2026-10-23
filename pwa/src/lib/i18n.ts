@@ -2,6 +2,17 @@ import type { AppLanguage } from "./language";
 
 type Message = string | readonly string[];
 type Catalog = Map<string, Message>;
+export type StandardButton = "OK" | "Save" | "Close" | "Cancel" | "Apply";
+
+// Qt supplies these through qtbase_<locale>.qm (QPlatformTheme), separately
+// from ChamberSim's application catalog. Keep the browser port's equivalent
+// centralized and source-aligned instead of duplicating labels in every dialog.
+const standardButtons: Record<AppLanguage, Record<StandardButton, string>> = {
+  de_DE: { OK: "OK", Save: "Speichern", Close: "Schließen", Cancel: "Abbrechen", Apply: "Anwenden" },
+  en_US: { OK: "OK", Save: "Save", Close: "Close", Cancel: "Cancel", Apply: "Apply" },
+  fr_FR: { OK: "OK", Save: "Enregistrer", Close: "Fermer", Cancel: "Annuler", Apply: "Appliquer" },
+  it_IT: { OK: "OK", Save: "Salva", Close: "Chiudi", Cancel: "Annulla", Apply: "Applica" }
+};
 
 const catalogLoaders: Record<AppLanguage, () => Promise<{ default: string }>> = {
   de_DE: () => import("../../../translations/ChamberSimReloaded_de_DE.ts?raw"),
@@ -60,6 +71,10 @@ export class I18n {
   text(context: string, source: string, ...args: readonly (string | number)[]): string {
     const message = this.catalog.get(key(context, source));
     return substitute(typeof message === "string" ? message : source, args);
+  }
+
+  standardButton(source: StandardButton): string {
+    return standardButtons[this.language][source];
   }
 
   plural(context: string, source: string, n: number, ...args: readonly (string | number)[]): string {

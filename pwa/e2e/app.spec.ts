@@ -1031,7 +1031,7 @@ test("persists unit systems and per-field overrides without dirtying the load", 
   await expect(page.getByLabel("Unit system")).toHaveValue("metric");
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await expect(page.getByLabel("Case Length unit")).toHaveValue("cm");
-  await page.getByRole("button", { name: "Reset field units" }).click();
+  await page.getByRole("button", { name: "Reset per-field units" }).click();
   await expect(page.getByLabel("Case Length unit")).toHaveValue("mm");
 });
 
@@ -1377,6 +1377,9 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(page.getByRole("button", { name: "Datenbank", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Kaliber", exact: true })).toBeVisible();
   await expect(page.getByText("484 Einträge", { exact: true })).toBeVisible();
+  await expect(page.locator(".menu-select")).toContainText("Einheiten");
+  await expect(page.locator("#unit-system")).toContainText("Metrisch");
+  await expect(page.locator("#reset-field-units")).toHaveText("Feldeinheiten zurücksetzen");
   await page.getByRole("button", { name: "Datei", exact: true }).click();
   const settings = page.getByRole("dialog", { name: "Einstellungen" });
   await expect(settings.getByRole("group", { name: "Darstellung" })).toBeVisible();
@@ -1396,18 +1399,22 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(settings.getByLabel("In die Protokolldatei schreiben")).not.toBeChecked();
   await expect(settings.getByRole("button", { name: "Protokolldatei öffnen", exact: true })).toBeVisible();
   await expect(settings.getByRole("button", { name: "Protokolldatei leeren", exact: true })).toBeVisible();
+  await expect(settings.locator("[data-settings-close]")).toHaveText("Schließen");
   await settings.locator("[data-settings-close]").click();
   await page.locator("#new-load").click();
   const newLoad = page.getByRole("dialog", { name: "Neue Ladung" });
   await expect(newLoad.getByRole("tab", { name: "1. Kaliber", exact: true })).toBeVisible();
   await newLoad.getByRole("tab", { name: "2. Geschoss", exact: true }).click();
   await expect(newLoad.getByLabel("Nur Geschosse anzeigen, die zum Kaliber passen")).toBeVisible();
+  await expect(newLoad.locator("[data-new-load-cancel]")).toHaveText("Abbrechen");
   await newLoad.locator("[data-new-load-cancel]").click();
   await page.locator("#new-record").click();
   const recordDialog = page.getByRole("dialog", { name: "Neu: Kaliber" });
   await expect(recordDialog).toContainText("Mit * markierte Felder sind Pflicht.");
   await expect(recordDialog.getByRole("textbox", { name: "Kaliberbezeichnung", exact: true })).toBeVisible();
   await expect(recordDialog.locator("label").first()).toHaveAttribute("title", /Datenbankspalte:/);
+  await expect(recordDialog.locator("[data-record-save]")).toHaveText("Speichern");
+  await expect(recordDialog.locator("[data-record-cancel]")).toHaveText("Abbrechen");
   await recordDialog.locator("[data-record-cancel]").click();
   await page.locator("#unit-system").selectOption("metric");
   await page.locator("#file-picker").setInputFiles(referenceLoad);
@@ -1423,6 +1430,7 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await page.getByRole("button", { name: "Pulver wählen…", exact: true }).click();
   const componentDialog = page.getByRole("dialog", { name: "Pulver wählen" });
   await expect(componentDialog).toContainText("Auch die Ladung auf die Vorgabe setzen (70 % des Hülsenvolumens)");
+  await expect(componentDialog.locator("[data-component-cancel]")).toHaveText("Abbrechen");
   await componentDialog.locator("[data-component-cancel]").click();
   await expect(page.getByRole("button", { name: "Ergebnisse", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Messungen", exact: true })).toBeVisible();
@@ -1447,6 +1455,7 @@ test("stores language choices with native restart semantics", async ({ page }) =
   const reportEditor = page.getByRole("dialog", { name: "Berichtsvorlage bearbeiten" });
   await expect(reportEditor.locator(".report-editor-bar label")).toContainText("Wert einfügen");
   await expect(reportEditor.getByRole("button", { name: "Auf Vorgabe zurücksetzen", exact: true })).toBeVisible();
+  await expect(reportEditor.locator("[data-report-cancel]")).toHaveText("Abbrechen");
   await reportEditor.locator("[data-report-cancel]").click();
   await page.locator(".menu-dropdown summary").filter({ hasText: "Werkzeuge" }).click();
   await page.locator("#burn-rate-table").click();
@@ -1454,14 +1463,14 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(toolDialog.getByRole("button", { name: "Progressivität", exact: true })).toBeVisible();
   await expect(toolDialog.getByLabel("Alle Chargen")).toBeVisible();
   await expect(toolDialog.locator("[data-burn-count]")).toContainText("Pulver");
-  await toolDialog.getByRole("button", { name: "Close", exact: true }).click();
+  await toolDialog.getByRole("button", { name: "Schließen", exact: true }).click();
   await page.locator(".menu-dropdown summary").filter({ hasText: "Werkzeuge" }).click();
   await page.locator("#unit-converter").click();
   toolDialog = page.getByRole("dialog", { name: "Einheitenumrechner" });
   await expect(toolDialog.getByLabel("Größe")).toHaveValue("pressure");
   await expect(toolDialog.getByLabel("Umrechnen", { exact: true })).toHaveValue("1");
   await expect(toolDialog.getByRole("option", { name: "Temperatur", exact: true })).toBeAttached();
-  await toolDialog.getByRole("button", { name: "Close", exact: true }).click();
+  await toolDialog.getByRole("button", { name: "Schließen", exact: true }).click();
   await page.getByRole("button", { name: "Ergebnisse", exact: true }).click();
   const charge = page.getByRole("textbox", { name: "Pulvermasse", exact: true });
   await expect(charge).toHaveValue("1,639");
@@ -1480,6 +1489,7 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(fitDialog.getByText("Anzupassende Werte:", { exact: true })).toBeVisible();
   await expect(fitDialog.getByLabel("Abbrandgeschwindigkeit (Ba)")).toBeChecked();
   await expect(fitDialog.getByRole("button", { name: "Auf diese Ladung anwenden", exact: true })).toBeEnabled();
+  await expect(fitDialog.locator("[data-fit-close]")).toHaveText("Schließen");
   await fitDialog.locator("[data-fit-close]").click();
   const magneto = "Series,15, Shots:,3\r\nSeries,Shot,Speed\r\n15,1,2721,ft/s\r\n15,2,2722,ft/s\r\n15,3,2745,ft/s\r\n";
   await page.locator("#chronograph-picker").setInputFiles({ name: "magneto.csv", mimeType: "text/csv", buffer: Buffer.from(magneto) });
@@ -1487,6 +1497,7 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(chronographDialog).toContainText("MagnetoSpeed-Datei mit 1 Serie.");
   await expect(chronographDialog.getByRole("columnheader", { name: "Geschwindigkeit [m/s]", exact: true })).toBeVisible();
   await expect(chronographDialog.getByRole("button", { name: "Importieren", exact: true })).toBeVisible();
+  await expect(chronographDialog.locator("[data-chronograph-cancel]")).toHaveText("Abbrechen");
   await chronographDialog.locator("[data-chronograph-cancel]").click();
   await page.locator(".view-menu summary").click();
   await expect(page.getByRole("menuitemradio", { name: "Deutsch (Deutschland)", exact: true })).toHaveAttribute("aria-checked", "true");
@@ -1501,14 +1512,16 @@ test("renders representative French and Italian database and load surfaces", asy
       source: "Source", project: "Projet", projectTitle: "Enregistrement de la base du projet (lecture seule)",
       changeRecord: "Modifier l'enregistrement choisi", lockedRecord: "Seuls vos propres enregistrements peuvent être modifiés : faites une copie",
       newLoad: "Nouveau chargement", cartridge: "Cartouche & arme", results: "Résultats",
-      maximumPressure: "Pression maximale", model: "Modèle : Modèle physique", propellantMass: "Masse de poudre"
+      maximumPressure: "Pression maximale", model: "Modèle : Modèle physique", propellantMass: "Masse de poudre",
+      units: "Unités", metric: "Métrique", resetUnits: "Réinitialiser les unités par champ", save: "Enregistrer", cancel: "Annuler"
     },
     {
       locale: "it_IT", lang: "it-IT", database: "Banca dati", calibers: "Calibri", projectiles: "Proiettili", entries: "484 voci",
       source: "Fonte", project: "Progetto", projectTitle: "Record della banca dati del progetto (sola lettura)",
       changeRecord: "Modifica il record scelto", lockedRecord: "Si possono modificare solo i propri record: crea una copia",
       newLoad: "Nuovo caricamento", cartridge: "Cartuccia & arma", results: "Risultati",
-      maximumPressure: "Pressione massima", model: "Modello: Modello fisico", propellantMass: "Massa di polvere"
+      maximumPressure: "Pressione massima", model: "Modello: Modello fisico", propellantMass: "Massa di polvere",
+      units: "Unità", metric: "Metrico", resetUnits: "Ripristina le unità dei campi", save: "Salva", cancel: "Annulla"
     }
   ] as const;
 
@@ -1524,6 +1537,9 @@ test("renders representative French and Italian database and load surfaces", asy
     await expect(sourceCell).toHaveText(sample.project);
     await expect(sourceCell).toHaveAttribute("title", sample.projectTitle);
     await expect(page.locator("#new-load")).toHaveText(sample.newLoad);
+    await expect(page.locator(".menu-select")).toContainText(sample.units);
+    await expect(page.locator("#unit-system")).toContainText(sample.metric);
+    await expect(page.locator("#reset-field-units")).toHaveText(sample.resetUnits);
     await expect(page.locator("#edit-record")).toHaveAttribute("title", sample.changeRecord);
     await sourceCell.click();
     await expect(page.locator("#edit-record")).toHaveAttribute("title", sample.lockedRecord);
@@ -1531,6 +1547,12 @@ test("renders representative French and Italian database and load surfaces", asy
     await page.getByRole("tab", { name: sample.projectiles, exact: true }).click();
     await expect(page.locator('[data-db-sort="gValid"]')).toHaveText("Validated");
     await expect(page.locator(".database-table tbody td.valid, .database-table tbody td.invalid").first()).toHaveAttribute("title", /^(Validated by hand:|Not validated:)/);
+
+    await page.locator("#new-record").click();
+    const recordDialog = page.locator("dialog.record-dialog");
+    await expect(recordDialog.locator("[data-record-save]")).toHaveText(sample.save);
+    await expect(recordDialog.locator("[data-record-cancel]")).toHaveText(sample.cancel);
+    await recordDialog.locator("[data-record-cancel]").click();
 
     await page.locator("#unit-system").selectOption("metric");
     await page.locator("#file-picker").setInputFiles(referenceLoad);
