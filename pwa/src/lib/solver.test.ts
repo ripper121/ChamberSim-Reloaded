@@ -12,6 +12,7 @@ import {
   freeVolumeCm3,
   ladderCharges,
   preflightSimulation,
+  simulate,
   simulateOriginal,
   simulatePhysical,
   simulateLadder,
@@ -95,6 +96,21 @@ describe("simulation preflight", () => {
     expect(preflightSimulation({ ...value, caseVolumeCm3: Number.POSITIVE_INFINITY }, calibrationFor("original")).status).toBe("invalid_input");
     expect(preflightSimulation({ ...value, bulletJumpMm: Number.NaN }, calibrationFor("physical")).status).toBe("invalid_input");
     expect(preflightSimulation({ ...value, physicalBurn: { Ba: Number.NaN, a0: 0.5, z1: 0.3, z2: 0.7, grain: "fitted", grainLd: 0, grainHole: 0, grainAmplitude: 1 } }, calibrationFor("physical")).status).toBe("invalid_input");
+  });
+
+  it("matches release CLI failure and overpressure cases across every profile", () => {
+    const value = input("tests/fixtures/8x57is.grtload");
+    for (const profile of ["physical", "published", "original"] as const) {
+      const calibration = calibrationFor(profile);
+      expect(simulate({ ...value, chargeG: 0 }, calibration).status).toBe("invalid_input");
+      expect(simulate({ ...value, chargeG: 4 }, calibration).status).toBe("charge_too_high");
+    }
+    expect(simulate({ ...value, chargeG: 0.1 }, calibrationFor("physical")).status).toBe("bullet_stuck");
+    expect(simulate({ ...value, chargeG: 0.1 }, calibrationFor("published")).status).toBe("ok");
+    expect(simulate({ ...value, chargeG: 0.1 }, calibrationFor("original")).status).toBe("ok");
+    expect(simulate({ ...value, chargeG: 3 }, calibrationFor("physical")).maxPressureBar).toBeCloseTo(4406.7, 1);
+    expect(simulate({ ...value, chargeG: 3.5 }, calibrationFor("published")).maxPressureBar).toBeCloseTo(4321.84, 1);
+    expect(simulate({ ...value, chargeG: 3.5 }, calibrationFor("original")).maxPressureBar).toBeCloseTo(4932.09, 1);
   });
 
   it("raises short-barrel handgun start pressure exactly like the physical profile", () => {

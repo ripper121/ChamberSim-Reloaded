@@ -840,6 +840,76 @@ test("edits numeric inputs, recalculates, validates, and supports undo and redo"
   await expect(page.getByText(/Invalid value for Propellant Mass/)).toBeVisible();
 });
 
+test("shows native invalid, capacity, stuck-bullet, ladder, and overpressure states", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.getByLabel("Unit system").selectOption("metric");
+  await page.locator("#file-picker").setInputFiles(originalLoad);
+  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  const setCharge = async (value: string): Promise<void> => {
+    const charge = page.getByRole("textbox", { name: "Propellant Mass", exact: true });
+    await charge.fill(value);
+    await charge.press("Tab");
+  };
+  const selectProfile = async (profile: "physical" | "published" | "original"): Promise<void> => {
+    await page.locator("#solver-profile").selectOption(profile);
+  };
+  const expectClearedSummary = async (): Promise<void> => {
+    const values = page.locator(".result-summary dd");
+    await expect(values).toHaveCount(14);
+    expect(await values.allTextContents()).toEqual(Array(14).fill("—"));
+  };
+
+  await setCharge("0");
+  await expect(page.getByText("Invalid input: the simulation cannot run with these values.", { exact: true })).toBeVisible();
+  await expect(page.locator(".result-heading h2")).toHaveText("8 x 57 IS (8 x 57 JS)");
+  await expectClearedSummary();
+  await expect(page.locator(".result-chart")).toBeVisible();
+
+  await setCharge("0.1");
+  await expect(page.getByText(/Bullet stuck: the gas cannot push the bullet out of the barrel/)).toBeVisible();
+  await expectClearedSummary();
+  await selectProfile("published");
+  await expect(page.getByText("301 bar", { exact: true })).toBeVisible();
+  await selectProfile("original");
+  await expect(page.getByText("250 bar", { exact: true })).toBeVisible();
+
+  await setCharge("4");
+  for (const profile of ["physical", "published", "original"] as const) {
+    await selectProfile(profile);
+    await expect(page.getByText("Charge too high: the propellant charge does not fit into the case behind the bullet.", { exact: true })).toBeVisible();
+    await expectClearedSummary();
+  }
+
+  await selectProfile("physical");
+  await page.locator('[data-entry="laddercnt"]').selectOption("3");
+  await page.locator('[data-entry="laddermc"]').fill("0.5");
+  await page.locator('[data-entry="laddermc"]').press("Tab");
+  await setCharge("4");
+  const ladderRows = page.locator(".result-table tbody tr");
+  await expect(ladderRows).toHaveCount(3);
+  await expect(ladderRows.nth(0).locator("td").nth(1)).toHaveText("charge too high");
+  await expect(ladderRows.nth(1).locator("td").nth(1)).toContainText("⚠");
+  await expect(ladderRows.nth(1).locator("td").nth(1)).toHaveAttribute("title", "Above the permitted maximum pressure 3,900 bar");
+  await expect(page.locator(".result-chart .ladder-curve.pressure-curve")).toHaveCount(2);
+
+  await page.locator('[data-entry="laddercnt"]').selectOption("1");
+  const overpressureCases = [
+    { profile: "physical", charge: "3", pressure: "4,407 bar", percent: "13 %" },
+    { profile: "published", charge: "3.5", pressure: "4,322 bar", percent: "10.8 %" },
+    { profile: "original", charge: "3.5", pressure: "4,932 bar", percent: "26.5 %" }
+  ] as const;
+  for (const sample of overpressureCases) {
+    await selectProfile(sample.profile);
+    await setCharge(sample.charge);
+    const banner = page.locator(".warning-banner");
+    await expect(banner).toContainText("Overpressure!");
+    await expect(banner).toContainText(sample.pressure);
+    await expect(banner).toContainText(sample.percent);
+    await expect(page.locator(".overpressure-value")).toHaveText(sample.pressure);
+  }
+});
+
 test("keeps overall length and seating depth synchronized", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
