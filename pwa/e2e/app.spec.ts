@@ -48,7 +48,15 @@ test("browses, filters, sorts, and selects the complete project database", async
   await expect(page.locator('[data-db-id="1000483"]')).toBeVisible();
 
   const filter = page.getByLabel("Filter all columns");
-  await filter.fill("8x57 is");
+  await filter.click();
+  const originalFilter = await filter.elementHandle();
+  await page.keyboard.type("8x5");
+  await page.waitForTimeout(300);
+  await page.keyboard.type("7 is");
+  await page.waitForTimeout(300);
+  expect(await originalFilter!.evaluate((input) => input.isConnected)).toBe(true);
+  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+  await expect.poll(() => originalFilter!.evaluate((input) => input.isConnected)).toBe(false);
   await expect(page.getByText("3 of 484 entries", { exact: true })).toBeVisible();
   const matchingCell = page.getByRole("cell", { name: "8 x 57 IS", exact: true });
   await expect(matchingCell).toBeVisible();
@@ -103,10 +111,18 @@ test("sorts and filters the native burn-rate table and converts every unit group
   await expect(dialog.getByRole("button", { name: "Brisance", exact: true })).toHaveAttribute("aria-pressed", "true");
   const brisance = (await rows.locator("td:nth-child(5)").allTextContents()).slice(0, 20).map(Number);
   expect(brisance).toEqual([...brisance].sort((left, right) => right - left));
-  await dialog.getByLabel("Search manufacturer or name").fill("vihtavuori");
+  const search = dialog.getByLabel("Search manufacturer or name");
+  const unfilteredCount = await rows.count();
+  await search.click();
+  await page.keyboard.type("vihta");
+  await page.waitForTimeout(300);
+  await page.keyboard.type("vuori");
+  await page.waitForTimeout(300);
+  expect(await rows.count()).toBe(unfilteredCount);
+  await expect.poll(() => rows.count()).toBeLessThan(unfilteredCount);
   expect(await rows.count()).toBeGreaterThanOrEqual(16);
   expect((await rows.locator("td:first-child").allTextContents()).every((maker) => maker === "Vihtavuori")).toBe(true);
-  await dialog.getByLabel("Search manufacturer or name").fill("no such powder");
+  await search.fill("no such powder");
   await expect(dialog.getByText("0 propellants", { exact: true })).toBeVisible();
   await dialog.getByLabel("All lots").check();
   await dialog.getByRole("button", { name: "Close", exact: true }).click();
@@ -1007,6 +1023,36 @@ test("persists solver settings and applies the original-file override", async ({
   await expect(page.getByText("Model: GRT Tuned", { exact: true })).toBeVisible();
 });
 
+test("applies and persists font size and rounded-dialog appearance", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.locator("#settings").click();
+  let settings = page.getByRole("dialog", { name: "Settings" });
+  await expect(settings.getByRole("group", { name: "Appearance" })).toBeVisible();
+  await expect(settings.getByLabel("Font size:")).toHaveValue("10");
+  await expect(settings.getByLabel("Custom Title Bar:")).toBeDisabled();
+  await expect(settings.getByText("Browser controlled; the application header is always shown.", { exact: true })).toBeVisible();
+  await expect(settings.getByLabel("Rounded Dialog Corners:")).toBeChecked();
+  await settings.getByLabel("Font size:").fill("14");
+  await settings.getByLabel("Rounded Dialog Corners:").uncheck();
+  await settings.getByRole("button", { name: "OK", exact: true }).click();
+  await expect.poll(() => page.locator("html").evaluate((root) => getComputedStyle(root).fontSize)).toBe("18.2px");
+  expect(await page.evaluate(() => localStorage.getItem("csr-ui-font-size"))).toBe("14");
+  expect(await page.evaluate(() => localStorage.getItem("csr-ui-rounded-dialogs"))).toBe("false");
+
+  await page.reload();
+  await expect.poll(() => page.locator("html").evaluate((root) => getComputedStyle(root).fontSize)).toBe("18.2px");
+  await page.locator("#settings").click();
+  settings = page.getByRole("dialog", { name: "Settings" });
+  await expect(settings).toHaveCSS("border-radius", "0px");
+  await expect(settings.getByLabel("Font size:")).toHaveValue("14");
+  await expect(settings.getByLabel("Rounded Dialog Corners:")).not.toBeChecked();
+  await settings.getByRole("button", { name: "Default (10 pt)", exact: true }).click();
+  await expect(settings.getByLabel("Font size:")).toHaveValue("10");
+  await settings.locator("[data-settings-close]").click();
+  expect(await page.evaluate(() => localStorage.getItem("csr-ui-font-size"))).toBe("14");
+});
+
 test("keeps both load panes reachable at a narrow viewport", async ({ page }) => {
   await page.setViewportSize({ width: 600, height: 900 });
   await page.goto("/");
@@ -1170,6 +1216,8 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(page.getByText("484 Einträge", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Datei", exact: true }).click();
   const settings = page.getByRole("dialog", { name: "Einstellungen" });
+  await expect(settings.getByRole("group", { name: "Darstellung" })).toBeVisible();
+  await expect(settings.getByLabel("Schriftgröße:")).toHaveValue("10");
   await expect(settings.getByRole("group", { name: "Einheiten" })).toBeVisible();
   await expect(settings.getByLabel("Einheitensystem:")).toContainText("Metrisch");
   await expect(settings.getByRole("group", { name: "Löser" })).toBeVisible();

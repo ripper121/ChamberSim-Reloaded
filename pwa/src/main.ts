@@ -27,11 +27,12 @@ import { convertUnitValues, converterQuantities, type ConvertibleQuantity } from
 import { ThemePreference, type ThemeMode } from "./lib/theme";
 import { LanguagePreference, type LanguageChoice } from "./lib/language";
 import { loadI18n } from "./lib/i18n";
-import { SolverPreferences } from "./lib/settings";
+import { AppearancePreferences, defaultFontSize, maxFontSize, minFontSize, SolverPreferences } from "./lib/settings";
 
 const appNode = document.querySelector<HTMLDivElement>("#app");
 if (!appNode) throw new Error("Application root is missing");
 const app: HTMLDivElement = appNode;
+const appearancePreferences = new AppearancePreferences(localStorage, document.documentElement);
 const themePreference = new ThemePreference(localStorage, document.documentElement, window.matchMedia("(prefers-color-scheme: dark)"));
 const languagePreference = new LanguagePreference(localStorage, navigator.languages);
 document.documentElement.lang = languagePreference.active.replace("_", "-");
@@ -80,12 +81,27 @@ let untitledCounter = 0;
 const databaseRowHeight = 22;
 const databaseWindowSize = 120;
 const dialogFilterDelayMs = 500;
+const databaseFilterDebounce = deferredAction();
 const reportTemplateKey = "csr-report-template";
 const reportScaleKey = "csr-report-scale";
 
 const escapeHtml = (value: string): string => value.replace(/[&<>'"]/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
 })[character] ?? character);
+
+function deferredAction(delay = dialogFilterDelayMs): { schedule(action: () => void): void; cancel(): void } {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return {
+    schedule(action): void {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { timer = undefined; action(); }, delay);
+    },
+    cancel(): void {
+      if (timer) clearTimeout(timer);
+      timer = undefined;
+    }
+  };
+}
 
 function splitStyle(name: string): string {
   const value = Number(localStorage.getItem(`csr-layout-${name}`));
@@ -856,6 +872,7 @@ function openDatabaseSettings(): void {
   dialog.className = "database-settings-dialog";
   dialog.setAttribute("aria-label", tr("Settings"));
   dialog.innerHTML = `<form><h2>${escapeHtml(tr("Settings"))}</h2>
+    <fieldset><legend>${escapeHtml(tr("Appearance"))}</legend><div class="settings-form-row"><label for="settings-font-size">${escapeHtml(tr("Font size:"))}</label><span class="font-size-control"><input id="settings-font-size" type="number" min="${minFontSize}" max="${maxFontSize}" step="1" required> ${escapeHtml(tr(" pt").trim())}</span><button type="button" data-default-font>${escapeHtml(tr("Default (%1 pt)", defaultFontSize))}</button></div><div class="settings-form-row"><label for="settings-title-bar">${escapeHtml(tr("Custom Title Bar:"))}</label><input id="settings-title-bar" type="checkbox" checked disabled><span class="setting-note browser-limitation">Browser controlled; the application header is always shown.</span></div><div class="settings-form-row"><label for="settings-rounded-dialogs">${escapeHtml(tr("Rounded Dialog Corners:"))}</label><input id="settings-rounded-dialogs" type="checkbox" title="${escapeHtml(tr("Dialogs have rounded corners (with the custom title bar). Applies to dialogs opened afterwards."))}"></div></fieldset>
     <fieldset><legend>${escapeHtml(tr("Units"))}</legend><div class="settings-form-row"><label for="settings-unit-system">${escapeHtml(tr("Unit system:"))}</label><select id="settings-unit-system"><option value="original">${escapeHtml(unitName("original"))}</option><option value="metric">${escapeHtml(unitName("metric"))}</option><option value="imperial">${escapeHtml(unitName("imperial"))}</option></select><button type="button" data-reset-units title="${escapeHtml(tr("Forget the units chosen for single fields; every field follows the unit system again"))}">${escapeHtml(tr("Reset per-field units"))}</button></div></fieldset>
     <fieldset><legend>${escapeHtml(tr("Solver"))}</legend><div class="settings-form-row"><label for="settings-solver-profile">${escapeHtml(tr("Model:"))}</label><select id="settings-solver-profile"><option value="physical">${escapeHtml(profileName("physical"))}</option><option value="published">${escapeHtml(profileName("published"))}</option><option value="original">${escapeHtml(profileName("original"))}</option></select></div><p class="setting-note" data-solver-description></p><div class="settings-form-row"><span>${escapeHtml(tr("GRT files:"))}</span><label title="${escapeHtml(tr("A load whose file is a *.grtload of Gordon's Reloading Tool is simulated with GRT Original and the burn values in the file, whatever model is chosen above: the results are close to those of the original program. Loads saved as *.csrload use the chosen model."))}"><input type="checkbox" data-original-grt-model> ${escapeHtml(tr("Always use GRT Original for original GRT files (*.grtload)"))}</label></div></fieldset>
     <fieldset><legend>${escapeHtml(tr("Database"))}</legend><div class="database-setting-row"><span>${escapeHtml(tr("Original database:"))}</span><output data-original-name></output><button type="button" data-original-browse>${escapeHtml(tr("Browse"))}</button></div><p data-original-summary></p><p class="setting-note">${escapeHtml(tr("The decrypted database of Gordon's Reloading Tool. It is only read; new records go into the program's own database, and both appear as one database."))}</p><input type="file" accept=".db,.sqlite,application/vnd.sqlite3" data-original-file hidden><p class="record-error" role="alert"></p></fieldset>
@@ -867,10 +884,14 @@ function openDatabaseSettings(): void {
   const browse = dialog.querySelector<HTMLButtonElement>("[data-original-browse]")!;
   const remove = dialog.querySelector<HTMLButtonElement>("[data-original-remove]")!;
   const picker = dialog.querySelector<HTMLInputElement>("[data-original-file]")!;
+  const fontSize = dialog.querySelector<HTMLInputElement>("#settings-font-size")!;
+  const roundedDialogs = dialog.querySelector<HTMLInputElement>("#settings-rounded-dialogs")!;
   const unitSystem = dialog.querySelector<HTMLSelectElement>("#settings-unit-system")!;
   const solverProfile = dialog.querySelector<HTMLSelectElement>("#settings-solver-profile")!;
   const originalGrtModel = dialog.querySelector<HTMLInputElement>("[data-original-grt-model]")!;
   const solverDescription = dialog.querySelector<HTMLElement>("[data-solver-description]")!;
+  fontSize.value = String(appearancePreferences.fontSize);
+  roundedDialogs.checked = appearancePreferences.roundedDialogs;
   unitSystem.value = unitPreferences.system;
   solverProfile.value = activeProfile;
   originalGrtModel.checked = solverPreferences.originalForGrtFiles;
@@ -894,9 +915,11 @@ function openDatabaseSettings(): void {
   const close = (): void => { dialog.close(); dialog.remove(); };
   dialog.querySelector("[data-settings-close]")?.addEventListener("click", close);
   dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.querySelector("[data-default-font]")?.addEventListener("click", () => { fontSize.value = String(defaultFontSize); });
   dialog.querySelector("[data-reset-units]")?.addEventListener("click", () => unitPreferences.resetFieldUnits());
   dialog.querySelector("form")?.addEventListener("submit", (event) => {
     event.preventDefault();
+    appearancePreferences.set(Number(fontSize.value), roundedDialogs.checked);
     unitPreferences.setSystem(unitSystem.value as UnitSystem);
     activeProfile = solverProfile.value as CalibrationProfile;
     solverPreferences.setProfile(activeProfile);
@@ -957,6 +980,7 @@ function openBurnRateDialog(): void {
   const storedFactor = localStorage.getItem("csr-burnrate-factor");
   let factor: BurnRateFactor = storedFactor === "br" || storedFactor === "brp" ? storedFactor : "bp";
   let allLots = localStorage.getItem("csr-burnrate-all-lots") === "yes";
+  const filterDebounce = deferredAction();
   let sort: { column: BurnRateColumn; direction: "asc" | "desc" } = { column: factor, direction: "desc" };
   const dialog = document.createElement("dialog");
   dialog.className = "tool-dialog burn-rate-dialog";
@@ -1000,13 +1024,15 @@ function openBurnRateDialog(): void {
     if (column === "br" || column === "bp" || column === "brp") factor = column;
     renderRows();
   }));
-  search.addEventListener("input", renderRows);
+  const scheduleFilter = (): void => filterDebounce.schedule(() => { if (dialog.isConnected) renderRows(); });
+  search.addEventListener("input", (event) => { if (!(event as InputEvent).isComposing) scheduleFilter(); });
+  search.addEventListener("compositionend", scheduleFilter);
   dialog.querySelector<HTMLInputElement>("[data-burn-all-lots]")!.addEventListener("change", (event) => {
     allLots = (event.currentTarget as HTMLInputElement).checked;
     localStorage.setItem("csr-burnrate-all-lots", allLots ? "yes" : "no");
     renderRows();
   });
-  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.addEventListener("close", () => { filterDebounce.cancel(); dialog.remove(); }, { once: true });
   renderRows();
   dialog.showModal();
 }
@@ -1213,13 +1239,14 @@ function openNewLoadDialog(): void {
   const scrolls: Record<ProjectTable, number> = { caliber: 0, projectile: 0, propellant: 0 };
   const labels: Record<ProjectTable, string> = { caliber: tr("Caliber:").replace(/:$/, ""), projectile: tr("Projectile:").replace(/:$/, ""), propellant: tr("Propellant:").replace(/:$/, "") };
   const tabLabels: Record<ProjectTable, string> = { caliber: tr("1. Caliber"), projectile: tr("2. Projectile"), propellant: tr("3. Propellant") };
-  let active: ProjectTable = "caliber", step = 0, matchDiameter = true, defaultsFor = "", filterTimer: ReturnType<typeof setTimeout> | undefined;
+  let active: ProjectTable = "caliber", step = 0, matchDiameter = true, defaultsFor = "";
+  const filterDebounce = deferredAction();
   let params = { chargeG: 0, barrelLengthMm: 0, seatingDepthMm: 0, twistLengthMm: 240, powderTemperatureC: 21 };
   const dialog = document.createElement("dialog");
   dialog.className = "new-load-dialog";
   dialog.setAttribute("aria-label", tr("New load"));
   document.body.append(dialog);
-  const close = (): void => { if (filterTimer) clearTimeout(filterTimer); dialog.close(); dialog.remove(); };
+  const close = (): void => { filterDebounce.cancel(); dialog.close(); dialog.remove(); };
   const description = (table: ProjectTable, record?: ProjectRecord): string => {
     if (!record) return "";
     if (table === "caliber") return `${String(record.cipname ?? "")}${record.altname ? ` ${String(record.altname)}` : ""}`.trim();
@@ -1269,17 +1296,15 @@ function openNewLoadDialog(): void {
     dialog.querySelectorAll<HTMLElement>("[data-new-load-tab]").forEach((tab) => tab.addEventListener("click", () => { active = tab.dataset.newLoadTab as ProjectTable; renderDialog(); }));
     const filter = dialog.querySelector<HTMLInputElement>("[data-new-load-filter]");
     const scheduleFilter = (): void => {
-      if (filterTimer) clearTimeout(filterTimer);
       const table = active;
-      filterTimer = setTimeout(() => {
-        filterTimer = undefined;
+      filterDebounce.schedule(() => {
         if (!dialog.isConnected || step !== 0 || active !== table) return;
         const current = dialog.querySelector<HTMLInputElement>("[data-new-load-filter]");
         const start = current?.selectionStart ?? queries[table].length, end = current?.selectionEnd ?? start, direction = current?.selectionDirection ?? "none";
         scrolls[table] = 0; renderDialog();
         const replacement = dialog.querySelector<HTMLInputElement>("[data-new-load-filter]");
         replacement?.focus(); replacement?.setSelectionRange(start, end, direction);
-      }, dialogFilterDelayMs);
+      });
     };
     filter?.addEventListener("input", (event) => {
       queries[active] = (event.currentTarget as HTMLInputElement).value;
@@ -1365,13 +1390,13 @@ function openSelectComponentDialog(table: ProjectTable): void {
     : table === "projectile" ? tr("Also set the seating depth to the default (maximum cartridge length)")
       : tr("Also set the charge to the default (70 % of the case capacity)");
   let selected: ProjectRecord | undefined, query = "", restrict = table === "projectile", reset = table === "caliber", scrollTop = 0;
-  let filterTimer: ReturnType<typeof setTimeout> | undefined;
+  const filterDebounce = deferredAction();
   let sort: { column: string; direction: "asc" | "desc" } = { column: "id", direction: "asc" };
   const dialog = document.createElement("dialog");
   dialog.className = "select-component-dialog";
   dialog.setAttribute("aria-label", title);
   document.body.append(dialog);
-  const close = (): void => { if (filterTimer) clearTimeout(filterTimer); dialog.close(); dialog.remove(); };
+  const close = (): void => { filterDebounce.cancel(); dialog.close(); dialog.remove(); };
   const display = (record: ProjectRecord): string => table === "caliber"
     ? `${String(record.cipname ?? "")}${record.altname ? ` ${String(record.altname)}` : ""}`.trim()
     : recordTitle(table, record);
@@ -1388,16 +1413,14 @@ function openSelectComponentDialog(table: ProjectTable): void {
     dialog.querySelector("[data-component-cancel]")?.addEventListener("click", close);
     const filter = dialog.querySelector<HTMLInputElement>("[data-component-filter]");
     const scheduleFilter = (): void => {
-      if (filterTimer) clearTimeout(filterTimer);
-      filterTimer = setTimeout(() => {
-        filterTimer = undefined;
+      filterDebounce.schedule(() => {
         if (!dialog.isConnected) return;
         const current = dialog.querySelector<HTMLInputElement>("[data-component-filter]");
         const start = current?.selectionStart ?? query.length, end = current?.selectionEnd ?? start, direction = current?.selectionDirection ?? "none";
         scrollTop = 0; renderDialog();
         const replacement = dialog.querySelector<HTMLInputElement>("[data-component-filter]");
         replacement?.focus(); replacement?.setSelectionRange(start, end, direction);
-      }, dialogFilterDelayMs);
+      });
     };
     filter?.addEventListener("input", (event) => {
       query = (event.currentTarget as HTMLInputElement).value;
@@ -1988,25 +2011,42 @@ function bindEvents(): void {
     if (file) void importBulletFile(file);
   });
   app.querySelectorAll<HTMLElement>("[data-db-table]").forEach((element) => element.addEventListener("click", () => {
+    databaseFilterDebounce.cancel();
     activeDatabaseTable = element.dataset.dbTable as ProjectTable;
     render();
   }));
   app.querySelectorAll<HTMLElement>("[data-db-sort]").forEach((element) => element.addEventListener("click", () => {
+    databaseFilterDebounce.cancel();
     const column = element.dataset.dbSort ?? "id";
     const current = databaseSorts[activeDatabaseTable];
     databaseSorts[activeDatabaseTable] = { column, direction: current.column === column && current.direction === "asc" ? "desc" : "asc" };
     databaseScrolls[activeDatabaseTable] = 0;
     render();
   }));
-  app.querySelector<HTMLInputElement>(".database .filter")?.addEventListener("input", (event) => {
-    const input = event.currentTarget as HTMLInputElement;
-    databaseQueries[activeDatabaseTable] = input.value;
-    databaseScrolls[activeDatabaseTable] = 0;
-    const cursor = input.selectionStart ?? input.value.length;
-    render();
-    const replacement = app.querySelector<HTMLInputElement>(".database .filter");
-    replacement?.focus();
-    replacement?.setSelectionRange(cursor, cursor);
+  const databaseFilter = app.querySelector<HTMLInputElement>(".database .filter");
+  const scheduleDatabaseFilter = (): void => {
+    const table = activeDatabaseTable;
+    databaseFilterDebounce.schedule(() => {
+      if (activeTab !== "database" || activeDatabaseTable !== table) return;
+      const current = app.querySelector<HTMLInputElement>(".database .filter");
+      if (!current) return;
+      const start = current.selectionStart ?? databaseQueries[table].length;
+      const end = current.selectionEnd ?? start;
+      const direction = current.selectionDirection ?? "none";
+      databaseScrolls[table] = 0;
+      render();
+      const replacement = app.querySelector<HTMLInputElement>(".database .filter");
+      replacement?.focus();
+      replacement?.setSelectionRange(start, end, direction);
+    });
+  };
+  databaseFilter?.addEventListener("input", (event) => {
+    databaseQueries[activeDatabaseTable] = (event.currentTarget as HTMLInputElement).value;
+    if (!(event as InputEvent).isComposing) scheduleDatabaseFilter();
+  });
+  databaseFilter?.addEventListener("compositionend", (event) => {
+    databaseQueries[activeDatabaseTable] = (event.currentTarget as HTMLInputElement).value;
+    scheduleDatabaseFilter();
   });
   bindDatabaseRows();
   const databaseScroller = app.querySelector<HTMLElement>(".database-table-scroll");

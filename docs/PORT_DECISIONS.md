@@ -1,6 +1,6 @@
 # PWA Port Decisions
 
-Last updated: 2026-10-22
+Last updated: 2026-10-23
 
 ## D-001 — Keep the PWA isolated under `pwa/`
 
@@ -203,3 +203,15 @@ Last updated: 2026-10-22
 **Decision:** Persist the globally chosen Physical, Published or Original calibration in local storage, but resolve an effective profile for each calculation. When the optional native-compatible override is enabled, only loads whose source format is an original `.grtload` use GRT Original; CSR loads continue using the chosen model. Use the effective profile consistently for results, measurements, reports and vivacity data while leaving the selector on the chosen model and showing the native explanatory suffix.
 
 **Rationale:** `SolverPreferences::profileFor(bool grtFile)` does not mutate the user's calibration preference when an original file is opened. Conflating the two states would make another open CSR load use the wrong calibration or make the UI claim the saved choice had changed. One shared resolver preserves multi-load behavior and keeps every simulation consumer aligned.
+
+## D-033 — Map application appearance to document-owned browser surfaces
+
+**Decision:** Preserve the native 8–20 point font preference as proportional root typography with the existing 10-point/13-pixel PWA baseline, and map the default-on rounded-dialog preference to a root CSS variable. Show the native Custom Title Bar row disabled with an explanation instead of storing a nonfunctional setting.
+
+**Rationale:** Font inheritance and CSS dialog corners are document-owned surfaces and can reproduce the observable native preferences across reloads. A normal PWA cannot replace or restyle the browser/operating-system window frame; pretending otherwise would expose a setting with no effect. The in-document ChamberSim header remains present regardless of browser chrome, while installed-window framing remains controlled by the browser manifest and platform.
+
+## D-034 — Debounce every text-driven data filter at the rendering boundary
+
+**Decision:** Route the main database, burn-rate search, New Load and component-selection text filters through one resettable 500 ms scheduler. Record typed text immediately, but defer filtering and DOM replacement until typing is quiet; ignore intermediate IME composition, preserve selection/caret where the input is rebuilt, and cancel pending dialog work on close.
+
+**Rationale:** Database and selector filtering can sort or rebuild hundreds to thousands of rows. Applying it on every browser `input` event caused needless work and, on surfaces that rerender the input itself, interrupted typing. A shared delay keeps semantics consistent across every filtering text field while discrete choices and ordinary committed data-entry fields remain immediate. The native Qt views filter on `textChanged`, but the browser adaptation is necessary to preserve responsive text entry with DOM reconstruction.
