@@ -1,7 +1,7 @@
 import { registerSW } from "virtual:pwa-register";
 import "./styles.css";
 import packageInfo from "../package.json";
-import { readLoadFile, serializeLoadXml, type Entry, type FileFormat, type LoadFile, type MeasurementSeries } from "./lib/loadfile";
+import { parseLoadXml, readLoadFile, serializeLoadXml, type Entry, type FileFormat, type LoadFile, type MeasurementSeries } from "./lib/loadfile";
 import { LoadHistory, type LoadSection } from "./lib/loadedit";
 import shotPartData from "../../data/shotshell/parts.json";
 import { createMeasuredCharge, emptyMeasurementSeries, hasMeasuredCharge, measurementPredictions, parsePastedShots, pressureStatistics, statistics, velocityStatistics, type MeasurementPrediction } from "./lib/measurement";
@@ -28,6 +28,7 @@ import { ThemePreference, type ThemeMode } from "./lib/theme";
 import { LanguagePreference, type LanguageChoice } from "./lib/language";
 import { loadI18n } from "./lib/i18n";
 import { AppearancePreferences, defaultFontSize, maxFontSize, minFontSize, SolverPreferences } from "./lib/settings";
+import { BrowserSessionStore, SessionPreferences, type SessionSnapshot } from "./lib/session";
 
 const appNode = document.querySelector<HTMLDivElement>("#app");
 if (!appNode) throw new Error("Application root is missing");
@@ -40,6 +41,10 @@ const i18n = await loadI18n(languagePreference.active);
 setNumberLocale(i18n.locale);
 
 const loads: LoadFile[] = [];
+const sessionEligibleLoads = new WeakSet<LoadFile>();
+const sessionPreferences = new SessionPreferences(localStorage);
+const sessionStore = new BrowserSessionStore();
+let sessionReady = false;
 let activeTab = "database";
 let activeInput = "cartridge";
 let activeResult = "results";
@@ -84,6 +89,23 @@ const dialogFilterDelayMs = 500;
 const databaseFilterDebounce = deferredAction();
 const reportTemplateKey = "csr-report-template";
 const reportScaleKey = "csr-report-scale";
+
+function sessionSnapshot(): SessionSnapshot {
+  const eligible = loads.filter((load) => sessionEligibleLoads.has(load));
+  const current = activeLoad();
+  return {
+    id: "current",
+    loads: eligible.map((load) => ({ fileName: load.fileName, source: load.source, xml: serializeLoadXml(load, "reload") })),
+    current: current && sessionEligibleLoads.has(current) ? eligible.indexOf(current) : -1
+  };
+}
+
+function persistSession(): void {
+  if (!sessionReady) return;
+  void sessionStore.store(sessionSnapshot()).catch((problem: unknown) => {
+    console.warn("Cannot store the browser session", problem);
+  });
+}
 
 const escapeHtml = (value: string): string => value.replace(/[&<>'"]/g, (character) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
@@ -766,6 +788,7 @@ function render(): void {
   if (fileButton) { fileButton.id = "settings"; fileButton.title = "Settings, including the optional Original GRT database"; }
   localizeShell();
   bindEvents();
+  persistSession();
 }
 
 function invalidateLoad(load: LoadFile): void {
@@ -811,7 +834,10 @@ function downloadLoad(format: FileFormat): void {
   anchor.download = fileName;
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
-  if (format === "reload") historyFor(load).markClean();
+  if (format === "reload") {
+    historyFor(load).markClean();
+    sessionEligibleLoads.add(load);
+  }
   status = format === "reload" ? `Saved ${fileName}` : `Exported ${fileName}`;
   render();
 }
@@ -873,6 +899,7 @@ function openDatabaseSettings(): void {
   dialog.setAttribute("aria-label", tr("Settings"));
   dialog.innerHTML = `<form><h2>${escapeHtml(tr("Settings"))}</h2>
     <fieldset><legend>${escapeHtml(tr("Appearance"))}</legend><div class="settings-form-row"><label for="settings-font-size">${escapeHtml(tr("Font size:"))}</label><span class="font-size-control"><input id="settings-font-size" type="number" min="${minFontSize}" max="${maxFontSize}" step="1" required> ${escapeHtml(tr(" pt").trim())}</span><button type="button" data-default-font>${escapeHtml(tr("Default (%1 pt)", defaultFontSize))}</button></div><div class="settings-form-row"><label for="settings-title-bar">${escapeHtml(tr("Custom Title Bar:"))}</label><input id="settings-title-bar" type="checkbox" checked disabled><span class="setting-note browser-limitation">Browser controlled; the application header is always shown.</span></div><div class="settings-form-row"><label for="settings-rounded-dialogs">${escapeHtml(tr("Rounded Dialog Corners:"))}</label><input id="settings-rounded-dialogs" type="checkbox" title="${escapeHtml(tr("Dialogs have rounded corners (with the custom title bar). Applies to dialogs opened afterwards."))}"></div></fieldset>
+    <fieldset><legend>${escapeHtml(tr("Start-up"))}</legend><div class="settings-form-row"><label for="settings-reopen-loads">${escapeHtml(tr("Last loads:"))}</label><label title="${escapeHtml(tr("The files of the open loads are remembered when the program is closed and opened again at the next start (not when load files are given on the command line)"))}"><input id="settings-reopen-loads" type="checkbox"> ${escapeHtml(tr("Open the loads of the last session at start"))}</label></div><p class="setting-note">The browser keeps local copies because it cannot reopen previously selected file paths without permission.</p></fieldset>
     <fieldset><legend>${escapeHtml(tr("Units"))}</legend><div class="settings-form-row"><label for="settings-unit-system">${escapeHtml(tr("Unit system:"))}</label><select id="settings-unit-system"><option value="original">${escapeHtml(unitName("original"))}</option><option value="metric">${escapeHtml(unitName("metric"))}</option><option value="imperial">${escapeHtml(unitName("imperial"))}</option></select><button type="button" data-reset-units title="${escapeHtml(tr("Forget the units chosen for single fields; every field follows the unit system again"))}">${escapeHtml(tr("Reset per-field units"))}</button></div></fieldset>
     <fieldset><legend>${escapeHtml(tr("Solver"))}</legend><div class="settings-form-row"><label for="settings-solver-profile">${escapeHtml(tr("Model:"))}</label><select id="settings-solver-profile"><option value="physical">${escapeHtml(profileName("physical"))}</option><option value="published">${escapeHtml(profileName("published"))}</option><option value="original">${escapeHtml(profileName("original"))}</option></select></div><p class="setting-note" data-solver-description></p><div class="settings-form-row"><span>${escapeHtml(tr("GRT files:"))}</span><label title="${escapeHtml(tr("A load whose file is a *.grtload of Gordon's Reloading Tool is simulated with GRT Original and the burn values in the file, whatever model is chosen above: the results are close to those of the original program. Loads saved as *.csrload use the chosen model."))}"><input type="checkbox" data-original-grt-model> ${escapeHtml(tr("Always use GRT Original for original GRT files (*.grtload)"))}</label></div></fieldset>
     <fieldset><legend>${escapeHtml(tr("Database"))}</legend><div class="database-setting-row"><span>${escapeHtml(tr("Original database:"))}</span><output data-original-name></output><button type="button" data-original-browse>${escapeHtml(tr("Browse"))}</button></div><p data-original-summary></p><p class="setting-note">${escapeHtml(tr("The decrypted database of Gordon's Reloading Tool. It is only read; new records go into the program's own database, and both appear as one database."))}</p><input type="file" accept=".db,.sqlite,application/vnd.sqlite3" data-original-file hidden><p class="record-error" role="alert"></p></fieldset>
@@ -886,12 +913,14 @@ function openDatabaseSettings(): void {
   const picker = dialog.querySelector<HTMLInputElement>("[data-original-file]")!;
   const fontSize = dialog.querySelector<HTMLInputElement>("#settings-font-size")!;
   const roundedDialogs = dialog.querySelector<HTMLInputElement>("#settings-rounded-dialogs")!;
+  const reopenLoads = dialog.querySelector<HTMLInputElement>("#settings-reopen-loads")!;
   const unitSystem = dialog.querySelector<HTMLSelectElement>("#settings-unit-system")!;
   const solverProfile = dialog.querySelector<HTMLSelectElement>("#settings-solver-profile")!;
   const originalGrtModel = dialog.querySelector<HTMLInputElement>("[data-original-grt-model]")!;
   const solverDescription = dialog.querySelector<HTMLElement>("[data-solver-description]")!;
   fontSize.value = String(appearancePreferences.fontSize);
   roundedDialogs.checked = appearancePreferences.roundedDialogs;
+  reopenLoads.checked = sessionPreferences.reopen;
   unitSystem.value = unitPreferences.system;
   solverProfile.value = activeProfile;
   originalGrtModel.checked = solverPreferences.originalForGrtFiles;
@@ -920,6 +949,7 @@ function openDatabaseSettings(): void {
   dialog.querySelector("form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     appearancePreferences.set(Number(fontSize.value), roundedDialogs.checked);
+    sessionPreferences.setReopen(reopenLoads.checked);
     unitPreferences.setSystem(unitSystem.value as UnitSystem);
     activeProfile = solverProfile.value as CalibrationProfile;
     solverPreferences.setProfile(activeProfile);
@@ -2198,6 +2228,7 @@ function bindEvents(): void {
     for (const file of Array.from(picker.files ?? [])) {
       try {
         const load = await readLoadFile(file);
+        sessionEligibleLoads.add(load);
         loads.push(load);
         activeTab = `load-${loads.length - 1}`;
         status = `Opened ${file.name}`;
@@ -2290,6 +2321,27 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+if (sessionPreferences.reopen) {
+  try {
+    const snapshot = await sessionStore.load();
+    for (const saved of snapshot?.loads ?? []) {
+      try {
+        const load = parseLoadXml(saved.xml, saved.fileName);
+        load.source = saved.source;
+        sessionEligibleLoads.add(load);
+        loads.push(load);
+      } catch (problem) {
+        console.warn(`Cannot restore ${saved.fileName}`, problem);
+      }
+    }
+    if (snapshot && snapshot.current >= 0 && snapshot.current < loads.length) activeTab = `load-${snapshot.current}`;
+    if (loads.length) status = `Restored ${loads.length} load${loads.length === 1 ? "" : "s"} from the last session`;
+  } catch (problem) {
+    status = `Cannot restore the last session: ${problem instanceof Error ? problem.message : String(problem)}`;
+  }
+}
+
+sessionReady = true;
 render();
 showDisclaimer();
 

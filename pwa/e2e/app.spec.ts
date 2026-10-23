@@ -1023,6 +1023,53 @@ test("persists solver settings and applies the original-file override", async ({
   await expect(page.getByText("Model: GRT Tuned", { exact: true })).toBeVisible();
 });
 
+test("optionally restores browser-held load copies, edits, order, and active tab", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.locator("#file-picker").setInputFiles([referenceLoad, originalLoad]);
+  await expect(page.getByRole("button", { name: /223Rem_D0735_RWS/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /8x57is/ })).toHaveClass(/active/);
+
+  await page.getByRole("button", { name: /223Rem_D0735_RWS/ }).click();
+  await page.getByRole("textbox", { name: "Barrel Length", exact: true }).fill("511");
+  await page.getByRole("textbox", { name: "Barrel Length", exact: true }).press("Tab");
+  await expect(page.getByRole("button", { name: /223Rem_D0735_RWS\*/ })).toBeVisible();
+  await page.getByRole("button", { name: /8x57is/ }).click();
+
+  await page.locator("#settings").click();
+  let settings = page.getByRole("dialog", { name: "Settings" });
+  await expect(settings.getByRole("group", { name: "Start-up" })).toBeVisible();
+  await expect(settings.getByLabel("Open the loads of the last session at start")).not.toBeChecked();
+  await settings.getByLabel("Open the loads of the last session at start").check();
+  await settings.getByRole("button", { name: "OK", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("csr-session-reopen"))).toBe("true");
+  await expect.poll(() => page.evaluate(async () => new Promise<number>((resolve, reject) => {
+    const request = indexedDB.open("ChamberSimReloadedSession");
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const get = request.result.transaction("state").objectStore("state").get("current");
+      get.onerror = () => reject(get.error);
+      get.onsuccess = () => resolve(get.result?.loads?.length ?? 0);
+    };
+  }))).toBe(2);
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: /223Rem_D0735_RWS/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /8x57is/ })).toHaveClass(/active/);
+  await expect(page.getByText("Original GRT", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /223Rem_D0735_RWS/ }).click();
+  await expect(page.getByRole("textbox", { name: "Barrel Length", exact: true })).toHaveValue("511.00");
+
+  await page.locator("#settings").click();
+  settings = page.getByRole("dialog", { name: "Settings" });
+  await settings.getByLabel("Open the loads of the last session at start").uncheck();
+  await settings.getByRole("button", { name: "OK", exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Database", exact: true })).toHaveClass(/active/);
+  await expect(page.getByRole("button", { name: /223Rem_D0735_RWS/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /8x57is/ })).toHaveCount(0);
+});
+
 test("applies and persists font size and rounded-dialog appearance", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
