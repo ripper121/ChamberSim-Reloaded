@@ -52,7 +52,7 @@ export default defineConfig({
       workbox: {
         navigateFallback: "index.html",
         // The lazy SQLite reader must remain available when a previously installed PWA imports a local database offline.
-        globPatterns: ["**/*.{js,css,html,png,ico,webmanifest,wasm}"]
+        globPatterns: ["**/*.{js,css,html,pdf,png,ico,webmanifest,wasm}"]
       }
     })
   ],

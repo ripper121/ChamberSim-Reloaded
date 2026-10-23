@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import initSqlJs from "sql.js";
 
 const pwaRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -12,6 +12,22 @@ const originalLoad = resolve(repositoryRoot, "tests/fixtures/8x57is.grtload");
 const measurementLoad = resolve(repositoryRoot, "tests/fixtures/measurements.grtload");
 const bulletFile = resolve(repositoryRoot, "tests/fixtures/example.csrbullets");
 const nativeSimulator = resolve(repositoryRoot, "build/release/csr_sim.exe");
+
+async function openMenu(page: Page, name: string): Promise<void> {
+  await page.locator(".menubar > .menu-dropdown > summary").filter({ hasText: name }).click();
+}
+
+async function openSettings(page: Page) {
+  await page.locator(".file-menu > summary").click();
+  await page.locator("#settings").click();
+  return page.locator("dialog.database-settings-dialog");
+}
+
+async function setUnitSystem(page: Page, system: "metric" | "imperial" | "original"): Promise<void> {
+  const settings = await openSettings(page);
+  await settings.locator("#settings-unit-system").selectOption(system);
+  await settings.getByRole("button", { name: "OK", exact: true }).click();
+}
 
 async function originalDatabaseFixture(fullSize = false): Promise<Buffer> {
   const wasmBinary = Uint8Array.from(readFileSync(resolve(pwaRoot, "node_modules/sql.js/dist/sql-wasm.wasm"))).buffer;
@@ -86,6 +102,57 @@ test("browses, filters, sorts, and selects the complete project database", async
   expect(errors).toEqual([]);
 });
 
+test("matches the native menu hierarchy and action state", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+  await expect(page.locator(".menubar > .menu-dropdown > summary")).toHaveText(["File", "Edit", "View", "Tools", "Help"]);
+
+  await openMenu(page, "File");
+  const fileMenu = page.locator(".file-menu > .menu-popup");
+  await expect(fileMenu.getByRole("menuitem", { name: /New load/ })).toBeEnabled();
+  await expect(fileMenu.getByRole("menuitem", { name: /Open load/ })).toBeEnabled();
+  await expect(page.locator("#save-csr")).toBeDisabled();
+  await expect(page.locator("#save-as")).toBeDisabled();
+  await expect(fileMenu.locator(".menu-submenu > summary")).toContainText("Open recent");
+  await expect(fileMenu.locator(".menu-submenu > summary")).toHaveAttribute("aria-disabled", "true");
+  await expect(page.locator("#menu-print-preview")).toBeDisabled();
+  await expect(page.locator("#menu-print")).toBeDisabled();
+  await expect(page.locator("#menu-export-pdf")).toBeDisabled();
+  await expect(page.locator("#settings")).toBeEnabled();
+  await expect(page.locator("#menu-quit")).toBeDisabled();
+
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await openMenu(page, "File");
+  await expect(page.locator("#save-csr")).toBeEnabled();
+  await expect(page.locator("#menu-print-preview")).toBeEnabled();
+  await page.locator(".file-menu > summary").click();
+
+  await openMenu(page, "Edit");
+  await expect(page.locator("#undo")).toBeDisabled();
+  await expect(page.locator("#redo")).toBeDisabled();
+  await page.locator(".edit-menu > summary").click();
+  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  const charge = page.getByRole("textbox", { name: "Propellant Mass", exact: true });
+  await charge.fill("1.5");
+  await charge.press("Tab");
+  await openMenu(page, "Edit");
+  await expect(page.locator("#undo")).toBeEnabled();
+  await page.locator("#undo").click();
+  await openMenu(page, "Edit");
+  await expect(page.locator("#redo")).toBeEnabled();
+
+  await openMenu(page, "View");
+  await expect(page.locator(".view-menu .menu-submenu > summary")).toHaveText(["Theme▶", "Language▶"]);
+  await page.locator(".view-menu > summary").click();
+  await openMenu(page, "Help");
+  await expect(page.locator("#user-manual")).toHaveAttribute("href", /\.pdf$/);
+  await page.locator("#about").click();
+  const about = page.getByRole("dialog", { name: "About ChamberSim Reloaded" });
+  await expect(about).toContainText("Interior ballistics for handloaders");
+  await about.getByRole("button", { name: "Close", exact: true }).click();
+});
+
 test("sorts and filters the native burn-rate table and converts every unit group", async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
@@ -95,8 +162,8 @@ test("sorts and filters the native burn-rate table and converts every unit group
   await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
 
   const openTool = async (name: string): Promise<void> => {
-    await page.locator(".menu-dropdown summary").filter({ hasText: "Tools" }).click();
-    await page.getByRole("button", { name, exact: true }).click();
+    await page.locator(".tools-menu > summary").click();
+    await page.getByRole("menuitem", { name, exact: true }).click();
   };
   await openTool("Burn rate table…");
   let dialog = page.getByRole("dialog", { name: "Burn rate table" });
@@ -288,7 +355,8 @@ test("creates a simulatable load through the native two-step database workflow",
   await expect(page.getByRole("definition").filter({ hasText: "1,992 bar" })).toBeVisible();
   await expect(page.getByRole("definition").filter({ hasText: "786.8 m/s" })).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await openMenu(page, "File");
+  await page.locator("#save-csr").click();
   const download = await downloadPromise;
   if (process.platform === "win32" && existsSync(nativeSimulator)) {
     const native = JSON.parse(execFileSync(nativeSimulator, ["--format", "json", (await download.path())!], { encoding: "utf8" }))[0];
@@ -314,8 +382,9 @@ test("creates a simulatable load through the native two-step database workflow",
   await selectDialog.getByRole("button", { name: "OK", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Propellant Product Name", exact: true })).toHaveValue("D073.4");
   await expect(page.getByRole("textbox", { name: "Propellant Mass", exact: true })).toHaveValue(originalCharge);
-  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await openMenu(page, "Edit");
+  await expect(page.locator("#undo")).toBeEnabled();
+  await page.locator("#undo").click();
   await expect(page.getByRole("textbox", { name: "Propellant Product Name", exact: true })).toHaveValue("D073.5");
 });
 
@@ -394,8 +463,7 @@ test("stores, reloads, displays, enlarges, and removes personal powder photos", 
 test("imports, persists, copies from, and removes a plain Original GRT database", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.getByRole("button", { name: "File", exact: true }).click();
-  let settings = page.getByRole("dialog", { name: "Settings" });
+  let settings = await openSettings(page);
   await expect(settings.getByText("None chosen", { exact: true })).toBeVisible();
   await settings.locator("[data-original-file]").setInputFiles({
     name: "GordonsReloadingTool.plain.db", mimeType: "application/vnd.sqlite3", buffer: await originalDatabaseFixture(true)
@@ -428,8 +496,7 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
   await copy.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("cell", { name: "Original Powder (copy)", exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "File", exact: true }).click();
-  settings = page.getByRole("dialog", { name: "Settings" });
+  settings = await openSettings(page);
   await settings.locator("[data-original-file]").setInputFiles({ name: "encrypted.db", mimeType: "application/octet-stream", buffer: Buffer.from("not a sqlite database") });
   await expect(settings.getByRole("alert")).toContainText("not a readable plain Original GRT SQLite database");
   await expect(settings.getByText("GordonsReloadingTool.plain.db", { exact: true })).toBeVisible();
@@ -459,7 +526,9 @@ test("opens the release CSR load and exposes its native panels", async ({ page }
 
   await expect(page.getByRole("button", { name: /223Rem_D0735_RWS/ })).toBeVisible();
   await expect(page.getByText("Case Volume", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("Unit system")).toHaveValue("original");
+  const settings = await openSettings(page);
+  await expect(settings.locator("#settings-unit-system")).toHaveValue("original");
+  await settings.locator("[data-settings-close]").click();
   await expect(page.getByLabel("Case Volume unit")).toHaveValue("grh2o");
   await expect(page.getByRole("textbox", { name: "Case Volume", exact: true })).toHaveValue("30.34");
   await expect(page.getByRole("img", { name: "Loaded cartridge technical drawing" })).toBeVisible();
@@ -544,7 +613,7 @@ test("edits measurement series and compares measured shots with simulation", asy
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: "http://127.0.0.1:4173" });
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.getByLabel("Unit system").selectOption("metric");
+  await setUnitSystem(page, "metric");
   await page.locator("#file-picker").setInputFiles(measurementLoad);
   await page.getByRole("button", { name: "Measurements", exact: true }).click();
 
@@ -598,14 +667,17 @@ test("edits measurement series and compares measured shots with simulation", asy
   await page.getByRole("button", { name: "Add shot", exact: true }).click();
   await page.getByLabel("Shot 1 velocity").fill("810");
   await page.getByLabel("Shot 1 velocity").press("Tab");
-  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await openMenu(page, "Edit");
+  await page.locator("#undo").click();
   await expect(page.getByLabel("Shot 1 velocity")).toHaveValue("");
-  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await openMenu(page, "Edit");
+  await page.locator("#redo").click();
   await expect(page.getByLabel("Shot 1 velocity")).toHaveValue("810.0");
   await expect(page.getByRole("button", { name: /measurements\*/i })).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save" }).click();
+  await openMenu(page, "File");
+  await page.locator("#save-csr").click();
   const saved = readFileSync((await (await downloadPromise).path())!, "utf8");
   expect(saved.match(/<Measurement/g)).toHaveLength(2);
   expect(saved).toContain("Browser%20range%20session");
@@ -623,7 +695,7 @@ test("fits powder models to measurements and applies or saves the result", async
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.getByLabel("Unit system").selectOption("metric");
+  await setUnitSystem(page, "metric");
   await page.locator("#file-picker").setInputFiles(measurementLoad);
   await page.getByRole("button", { name: "Measurements", exact: true }).click();
   await page.getByRole("button", { name: "Fit to measurements…" }).click();
@@ -643,7 +715,8 @@ test("fits powder models to measurements and applies or saves the result", async
   await expect(page.getByRole("button", { name: /measurements\*/i })).toBeVisible();
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save" }).click();
+  await openMenu(page, "File");
+  await page.locator("#save-csr").click();
   const fitted = readFileSync((await (await downloadPromise).path())!, "utf8");
   expect(fitted).toMatch(/name="Ba" value="50"/);
   expect(fitted).toMatch(/name="physBa" value="50"/);
@@ -662,7 +735,7 @@ test("imports native chronograph formats into measurement charges", async ({ pag
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.getByLabel("Unit system").selectOption("metric");
+  await setUnitSystem(page, "metric");
   await page.locator("#file-picker").setInputFiles(measurementLoad);
   await page.getByRole("button", { name: "Measurements", exact: true }).click();
 
@@ -687,9 +760,11 @@ test("imports native chronograph formats into measurement charges", async ({ pag
   await expect(page.getByText("Imported 2 chronograph series from magneto.csv", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Shot 1 velocity")).toHaveValue("830.5");
 
-  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await openMenu(page, "Edit");
+  await page.locator("#undo").click();
   await expect(page.locator(".measurement-table tbody tr")).toHaveCount(2);
-  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await openMenu(page, "Edit");
+  await page.locator("#redo").click();
   await expect(page.locator(".measurement-table tbody tr")).toHaveCount(4);
 
   await page.locator("#chronograph-picker").setInputFiles(resolve(repositoryRoot, "tests/fixtures/xero/garmin-xero.fit"));
@@ -745,8 +820,9 @@ test("overlays, warns about, switches axes for, and clears original reference re
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
-  await expect(page.getByRole("button", { name: "Overlay reference result…" })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Clear reference overlay" })).toBeDisabled();
+  await openMenu(page, "File");
+  await expect(page.locator("#overlay-reference")).toBeEnabled();
+  await expect(page.locator("#clear-reference")).toBeDisabled();
 
   const reference = {
     job: "browser-reference.grtload", stale: false,
@@ -761,7 +837,7 @@ test("overlays, warns about, switches axes for, and clears original reference re
     ]
   };
   const referenceChooser = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Overlay reference result…" }).click();
+  await page.locator("#overlay-reference").click();
   await (await referenceChooser).setFiles({
     name: "browser-reference.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(reference))
   });
@@ -771,7 +847,9 @@ test("overlays, warns about, switches axes for, and clears original reference re
   await expect(page.locator(".reference-comparison tbody tr")).toHaveCount(6);
   await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("3,000");
   await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("20.5 %");
-  await expect(page.getByRole("button", { name: "Clear reference overlay" })).toBeEnabled();
+  await openMenu(page, "File");
+  await expect(page.locator("#clear-reference")).toBeEnabled();
+  await page.locator(".file-menu > summary").click();
 
   const timePath = await page.locator(".pressure-reference").getAttribute("d");
   await page.getByLabel("Horizontal axis").selectOption("position");
@@ -787,7 +865,8 @@ test("overlays, warns about, switches axes for, and clears original reference re
     name: "stale.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ ...reference, stale: true }))
   });
   await expect(page.getByText("Reference overlay: stale.json (3 points, stale)", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Clear reference overlay" }).click();
+  await openMenu(page, "File");
+  await page.locator("#clear-reference").click();
   await expect(page.locator(".reference-curve")).toHaveCount(0);
   await expect(page.locator(".reference-comparison")).toHaveCount(0);
   await expect(page.getByText("Reference overlay cleared", { exact: true })).toBeVisible();
@@ -799,7 +878,7 @@ test("focuses a ladder charge from both native-style selectors", async ({ page }
     .replace('name="laddercnt" value="1"', 'name="laddercnt" value="3"');
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.getByLabel("Unit system").selectOption("metric");
+  await setUnitSystem(page, "metric");
   await page.locator("#file-picker").setInputFiles({ name: "ladder.csrload", mimeType: "application/xml", buffer: Buffer.from(xml) });
 
   await expect(page.getByRole("tab", { name: "1.575 g" })).toBeVisible();
@@ -816,7 +895,7 @@ test("focuses a ladder charge from both native-style selectors", async ({ page }
 test("edits numeric inputs, recalculates, validates, and supports undo and redo", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.getByLabel("Unit system").selectOption("metric");
+  await setUnitSystem(page, "metric");
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await page.getByRole("button", { name: "Propellant", exact: true }).click();
 
@@ -826,7 +905,8 @@ test("edits numeric inputs, recalculates, validates, and supports undo and redo"
   await expect(page.getByText("2,928 bar", { exact: true })).toBeVisible();
   await expect(page.getByText("830.9 m/s", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /223Rem_D0735_RWS\*/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeEnabled();
+  await openMenu(page, "Edit");
+  await expect(page.locator("#undo")).toBeEnabled();
 
   await page.keyboard.press("Control+z");
   await expect(page.getByText("3,614 bar", { exact: true })).toBeVisible();
@@ -843,7 +923,7 @@ test("edits numeric inputs, recalculates, validates, and supports undo and redo"
 test("shows native invalid, capacity, stuck-bullet, ladder, and overpressure states", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.getByLabel("Unit system").selectOption("metric");
+  await setUnitSystem(page, "metric");
   await page.locator("#file-picker").setInputFiles(originalLoad);
   await page.getByRole("button", { name: "Propellant", exact: true }).click();
   const setCharge = async (value: string): Promise<void> => {
@@ -913,7 +993,7 @@ test("shows native invalid, capacity, stuck-bullet, ladder, and overpressure sta
 test("keeps overall length and seating depth synchronized", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.getByLabel("Unit system").selectOption("metric");
+  await setUnitSystem(page, "metric");
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   const overallLength = page.getByRole("textbox", { name: "Cartridge Overall Length", exact: true });
   await overallLength.fill("54");
@@ -925,7 +1005,7 @@ test("keeps overall length and seating depth synchronized", async ({ page }) => 
 test("downloads an edited CSR and a compatible original GRT export", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.getByLabel("Unit system").selectOption("metric");
+  await setUnitSystem(page, "metric");
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await page.getByRole("button", { name: "Propellant", exact: true }).click();
   const charge = page.getByRole("textbox", { name: "Propellant Mass", exact: true });
@@ -933,7 +1013,8 @@ test("downloads an edited CSR and a compatible original GRT export", async ({ pa
   await charge.press("Tab");
 
   const csrPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await openMenu(page, "File");
+  await page.locator("#save-csr").click();
   const csr = await csrPromise;
   expect(csr.suggestedFilename()).toBe("223Rem_D0735_RWS.csrload");
   expect(readFileSync((await csr.path())!, "utf8")).toMatch(/name="mc" value="1\.5"/);
@@ -941,7 +1022,11 @@ test("downloads an edited CSR and a compatible original GRT export", async ({ pa
   await expect(page.getByRole("button", { name: /223Rem_D0735_RWS\*/ })).toHaveCount(0);
 
   const grtPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export GRT", exact: true }).click();
+  await openMenu(page, "File");
+  await page.locator("#save-as").click();
+  const saveAs = page.getByRole("dialog", { name: "Save as…" });
+  await saveAs.locator("[data-save-format]").selectOption("original");
+  await saveAs.getByRole("button", { name: "Save", exact: true }).click();
   const grt = await grtPromise;
   expect(grt.suggestedFilename()).toBe("223Rem_D0735_RWS.grtload");
   const grtXml = readFileSync((await grt.path())!, "utf8");
@@ -953,7 +1038,7 @@ test("downloads an edited CSR and a compatible original GRT export", async ({ pa
 test("renders, customizes, scales, previews and prints the active-load report", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.getByLabel("Unit system").selectOption("metric");
+  await setUnitSystem(page, "metric");
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await page.getByRole("button", { name: "Report", exact: true }).click();
 
@@ -965,7 +1050,7 @@ test("renders, customizes, scales, previews and prints the active-load report", 
   await expect(paper.locator("img")).toHaveCount(5);
   await expect(paper).not.toContainText("[result.");
 
-  await page.getByLabel("Unit system").selectOption("imperial");
+  await setUnitSystem(page, "imperial");
   await expect(paper).toContainText("psi");
   await expect(paper).toContainText("ft/s");
   await page.getByLabel("Report scale").fill("135");
@@ -1016,7 +1101,7 @@ test("persists unit systems and per-field overrides without dirtying the load", 
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
-  await page.getByLabel("Unit system").selectOption("imperial");
+  await setUnitSystem(page, "imperial");
 
   await expect(page.getByLabel("Case Length unit")).toHaveValue("in");
   await expect(page.getByRole("textbox", { name: "Case Length", exact: true })).toHaveValue("1.760");
@@ -1025,13 +1110,17 @@ test("persists unit systems and per-field overrides without dirtying the load", 
 
   await page.getByLabel("Case Length unit").selectOption("cm");
   await expect(page.getByRole("textbox", { name: "Case Length", exact: true })).toHaveValue("4.470");
-  await page.getByLabel("Unit system").selectOption("metric");
+  await setUnitSystem(page, "metric");
   await expect(page.getByLabel("Case Length unit")).toHaveValue("cm");
   await page.reload();
-  await expect(page.getByLabel("Unit system")).toHaveValue("metric");
+  let settings = await openSettings(page);
+  await expect(settings.locator("#settings-unit-system")).toHaveValue("metric");
+  await settings.locator("[data-settings-close]").click();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await expect(page.getByLabel("Case Length unit")).toHaveValue("cm");
-  await page.getByRole("button", { name: "Reset per-field units" }).click();
+  settings = await openSettings(page);
+  await settings.locator("[data-reset-units]").click();
+  await settings.getByRole("button", { name: "OK", exact: true }).click();
   await expect(page.getByLabel("Case Length unit")).toHaveValue("mm");
 });
 
@@ -1066,8 +1155,7 @@ test("opens the original GRT format and identifies its source", async ({ page })
 test("persists solver settings and applies the original-file override", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.locator("#settings").click();
-  let settings = page.getByRole("dialog", { name: "Settings" });
+  let settings = await openSettings(page);
   await expect(settings.getByRole("group", { name: "Units" })).toBeVisible();
   await expect(settings.getByRole("group", { name: "Solver" })).toBeVisible();
   await settings.locator("#settings-solver-profile").selectOption("published");
@@ -1077,8 +1165,7 @@ test("persists solver settings and applies the original-file override", async ({
   await expect.poll(() => page.evaluate(() => localStorage.getItem("csr-solver-original-for-grt-files"))).toBe("true");
 
   await page.reload();
-  await page.locator("#settings").click();
-  settings = page.getByRole("dialog", { name: "Settings" });
+  settings = await openSettings(page);
   await expect(settings.locator("#settings-solver-profile")).toHaveValue("published");
   await expect(settings.locator("[data-original-grt-model]")).toBeChecked();
   await settings.locator("[data-settings-close]").click();
@@ -1086,8 +1173,7 @@ test("persists solver settings and applies the original-file override", async ({
   await expect(page.locator("#solver-profile")).toHaveValue("published");
   await expect(page.getByText(/Model: GRT Original \(original GRT file, see Settings > Solver\)/)).toBeVisible();
 
-  await page.locator("#settings").click();
-  settings = page.getByRole("dialog", { name: "Settings" });
+  settings = await openSettings(page);
   await settings.locator("[data-original-grt-model]").uncheck();
   await settings.getByRole("button", { name: "OK", exact: true }).click();
   await expect(page.getByText("Model: GRT Tuned", { exact: true })).toBeVisible();
@@ -1106,8 +1192,7 @@ test("optionally restores browser-held load copies, edits, order, and active tab
   await expect(page.getByRole("button", { name: /223Rem_D0735_RWS\*/ })).toBeVisible();
   await page.getByRole("button", { name: /8x57is/ }).click();
 
-  await page.locator("#settings").click();
-  let settings = page.getByRole("dialog", { name: "Settings" });
+  let settings = await openSettings(page);
   await expect(settings.getByRole("group", { name: "Start-up" })).toBeVisible();
   await expect(settings.getByLabel("Open the loads of the last session at start")).not.toBeChecked();
   await settings.getByLabel("Open the loads of the last session at start").check();
@@ -1130,8 +1215,7 @@ test("optionally restores browser-held load copies, edits, order, and active tab
   await page.getByRole("button", { name: /223Rem_D0735_RWS/ }).click();
   await expect(page.getByRole("textbox", { name: "Barrel Length", exact: true })).toHaveValue("511.00");
 
-  await page.locator("#settings").click();
-  settings = page.getByRole("dialog", { name: "Settings" });
+  settings = await openSettings(page);
   await settings.getByLabel("Open the loads of the last session at start").uncheck();
   await settings.getByRole("button", { name: "OK", exact: true }).click();
   await page.reload();
@@ -1145,8 +1229,7 @@ test("filters, persists, downloads, and clears the browser log", async ({ page }
   page.on("console", (message) => consoleLines.push(message.text()));
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.locator("#settings").click();
-  let settings = page.getByRole("dialog", { name: "Settings" });
+  let settings = await openSettings(page);
   const logging = settings.getByRole("group", { name: "Logging" });
   await expect(logging.getByLabel("Log level:")).toHaveValue("warning");
   await expect(logging.getByLabel("Write to the console (stderr)")).toBeChecked();
@@ -1157,8 +1240,7 @@ test("filters, persists, downloads, and clears the browser log", async ({ page }
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await expect(page.getByText(`Opened ${referenceLoad.split(/[\\/]/).pop()}`)).toBeVisible();
 
-  await page.locator("#settings").click();
-  settings = page.getByRole("dialog", { name: "Settings" });
+  settings = await openSettings(page);
   const firstDownload = page.waitForEvent("download");
   await settings.getByRole("button", { name: "Open log file", exact: true }).click();
   const firstPath = await (await firstDownload).path();
@@ -1180,8 +1262,7 @@ test("filters, persists, downloads, and clears the browser log", async ({ page }
   expect(await page.evaluate(() => localStorage.getItem("csr-log-level"))).toBe("debug");
   expect(await page.evaluate(() => localStorage.getItem("csr-log-file"))).toBe("true");
   await page.reload();
-  await page.locator("#settings").click();
-  settings = page.getByRole("dialog", { name: "Settings" });
+  settings = await openSettings(page);
   await expect(settings.getByLabel("Log level:")).toHaveValue("debug");
   await expect(settings.getByLabel("Write to the log file")).toBeChecked();
 });
@@ -1189,8 +1270,7 @@ test("filters, persists, downloads, and clears the browser log", async ({ page }
 test("applies and persists font size and rounded-dialog appearance", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.locator("#settings").click();
-  let settings = page.getByRole("dialog", { name: "Settings" });
+  let settings = await openSettings(page);
   await expect(settings.getByRole("group", { name: "Appearance" })).toBeVisible();
   await expect(settings.getByLabel("Font size:")).toHaveValue("10");
   await expect(settings.getByLabel("Custom Title Bar:")).toBeDisabled();
@@ -1205,8 +1285,7 @@ test("applies and persists font size and rounded-dialog appearance", async ({ pa
 
   await page.reload();
   await expect.poll(() => page.locator("html").evaluate((root) => getComputedStyle(root).fontSize)).toBe("18.2px");
-  await page.locator("#settings").click();
-  settings = page.getByRole("dialog", { name: "Settings" });
+  settings = await openSettings(page);
   await expect(settings).toHaveCSS("border-radius", "0px");
   await expect(settings.getByLabel("Font size:")).toHaveValue("14");
   await expect(settings.getByLabel("Rounded Dialog Corners:")).not.toBeChecked();
@@ -1274,8 +1353,7 @@ test("serves a valid manifest and reloads the app shell offline", async ({ page,
   await expect(page).toHaveTitle("ChamberSim Reloaded");
   await expect(page.getByRole("button", { name: "Open load" })).toBeVisible();
   await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "File", exact: true }).click();
-  const settings = page.getByRole("dialog", { name: "Settings" });
+  const settings = await openSettings(page);
   await settings.locator("[data-original-file]").setInputFiles({
     name: "offline.plain.db", mimeType: "application/vnd.sqlite3", buffer: await originalDatabaseFixture()
   });
@@ -1313,7 +1391,8 @@ test("switches and persists System default, Light, and Dark themes", async ({ pa
   await expect(root).toHaveAttribute("data-theme", "dark");
 
   const openView = async (): Promise<void> => {
-    await page.locator(".view-menu summary").click();
+    await page.locator(".view-menu > summary").click();
+    await page.locator(".view-menu .menu-submenu > summary").first().click();
   };
   await openView();
   await expect(page.locator('[data-theme-mode="system"]')).toHaveAttribute("aria-checked", "true");
@@ -1322,8 +1401,8 @@ test("switches and persists System default, Light, and Dark themes", async ({ pa
   await expect(page.locator(".app-shell")).toHaveCSS("background-color", "rgb(239, 239, 239)");
   expect(await page.evaluate(() => localStorage.getItem("csr-theme"))).toBe("light");
 
-  await page.locator(".menu-dropdown summary").filter({ hasText: "Tools" }).click();
-  await page.getByRole("button", { name: "Unit converter…", exact: true }).click();
+  await page.locator(".tools-menu > summary").click();
+  await page.locator("#unit-converter").click();
   const converter = page.getByRole("dialog", { name: "Unit converter" });
   await expect(converter).toHaveCSS("background-color", "rgb(239, 239, 239)");
   await converter.getByRole("button", { name: "Close", exact: true }).click();
@@ -1358,7 +1437,8 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en-US");
-  await page.locator(".view-menu summary").click();
+  await page.locator(".view-menu > summary").click();
+  await page.locator(".view-menu .menu-submenu > summary").nth(1).click();
   await expect(page.locator('[data-language="system"]')).toHaveAttribute("aria-checked", "true");
   page.once("dialog", async (dialog) => {
     expect(dialog.message()).toBe("The language change takes effect after restarting the application.");
@@ -1373,19 +1453,16 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(disclaimer.getByRole("heading", { name: "Sicherheitshinweis" })).toBeVisible();
   await expect(disclaimer).toContainText("Das Wiederladen von Munition ist gefährlich.");
   await disclaimer.getByRole("button", { name: "Verstanden", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Datei", exact: true })).toBeVisible();
+  await expect(page.locator(".file-menu > summary")).toHaveText("Datei");
   await expect(page.getByRole("button", { name: "Datenbank", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Kaliber", exact: true })).toBeVisible();
   await expect(page.getByText("484 Einträge", { exact: true })).toBeVisible();
-  await expect(page.locator(".menu-select")).toContainText("Einheiten");
-  await expect(page.locator("#unit-system")).toContainText("Metrisch");
-  await expect(page.locator("#reset-field-units")).toHaveText("Feldeinheiten zurücksetzen");
-  await page.getByRole("button", { name: "Datei", exact: true }).click();
-  const settings = page.getByRole("dialog", { name: "Einstellungen" });
+  const settings = await openSettings(page);
   await expect(settings.getByRole("group", { name: "Darstellung" })).toBeVisible();
   await expect(settings.getByLabel("Schriftgröße:")).toHaveValue("10");
   await expect(settings.getByRole("group", { name: "Einheiten" })).toBeVisible();
   await expect(settings.getByLabel("Einheitensystem:")).toContainText("Metrisch");
+  await expect(settings.locator("[data-reset-units]")).toHaveText("Feldeinheiten zurücksetzen");
   await expect(settings.getByRole("group", { name: "Löser" })).toBeVisible();
   await expect(settings.getByLabel("Modell:")).toContainText("Physikalisches Modell");
   await expect(settings.getByText("GRT-Dateien:", { exact: true })).toBeVisible();
@@ -1416,7 +1493,7 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(recordDialog.locator("[data-record-save]")).toHaveText("Speichern");
   await expect(recordDialog.locator("[data-record-cancel]")).toHaveText("Abbrechen");
   await recordDialog.locator("[data-record-cancel]").click();
-  await page.locator("#unit-system").selectOption("metric");
+  await setUnitSystem(page, "metric");
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await expect(page.getByRole("button", { name: "Patrone & Waffe", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Geschoss", exact: true })).toBeVisible();
@@ -1457,14 +1534,14 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(reportEditor.getByRole("button", { name: "Auf Vorgabe zurücksetzen", exact: true })).toBeVisible();
   await expect(reportEditor.locator("[data-report-cancel]")).toHaveText("Abbrechen");
   await reportEditor.locator("[data-report-cancel]").click();
-  await page.locator(".menu-dropdown summary").filter({ hasText: "Werkzeuge" }).click();
+  await page.locator(".tools-menu > summary").click();
   await page.locator("#burn-rate-table").click();
   let toolDialog = page.getByRole("dialog", { name: "Abbrandtabelle" });
   await expect(toolDialog.getByRole("button", { name: "Progressivität", exact: true })).toBeVisible();
   await expect(toolDialog.getByLabel("Alle Chargen")).toBeVisible();
   await expect(toolDialog.locator("[data-burn-count]")).toContainText("Pulver");
   await toolDialog.getByRole("button", { name: "Schließen", exact: true }).click();
-  await page.locator(".menu-dropdown summary").filter({ hasText: "Werkzeuge" }).click();
+  await page.locator(".tools-menu > summary").click();
   await page.locator("#unit-converter").click();
   toolDialog = page.getByRole("dialog", { name: "Einheitenumrechner" });
   await expect(toolDialog.getByLabel("Größe")).toHaveValue("pressure");
@@ -1499,7 +1576,8 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(chronographDialog.getByRole("button", { name: "Importieren", exact: true })).toBeVisible();
   await expect(chronographDialog.locator("[data-chronograph-cancel]")).toHaveText("Abbrechen");
   await chronographDialog.locator("[data-chronograph-cancel]").click();
-  await page.locator(".view-menu summary").click();
+  await page.locator(".view-menu > summary").click();
+  await page.locator(".view-menu .menu-submenu > summary").nth(1).click();
   await expect(page.getByRole("menuitemradio", { name: "Deutsch (Deutschland)", exact: true })).toHaveAttribute("aria-checked", "true");
 });
 
@@ -1537,9 +1615,11 @@ test("renders representative French and Italian database and load surfaces", asy
     await expect(sourceCell).toHaveText(sample.project);
     await expect(sourceCell).toHaveAttribute("title", sample.projectTitle);
     await expect(page.locator("#new-load")).toHaveText(sample.newLoad);
-    await expect(page.locator(".menu-select")).toContainText(sample.units);
-    await expect(page.locator("#unit-system")).toContainText(sample.metric);
-    await expect(page.locator("#reset-field-units")).toHaveText(sample.resetUnits);
+    const settings = await openSettings(page);
+    await expect(settings.getByRole("group", { name: sample.units })).toBeVisible();
+    await expect(settings.locator("#settings-unit-system")).toContainText(sample.metric);
+    await expect(settings.locator("[data-reset-units]")).toHaveText(sample.resetUnits);
+    await settings.locator("[data-settings-close]").click();
     await expect(page.locator("#edit-record")).toHaveAttribute("title", sample.changeRecord);
     await sourceCell.click();
     await expect(page.locator("#edit-record")).toHaveAttribute("title", sample.lockedRecord);
@@ -1554,7 +1634,7 @@ test("renders representative French and Italian database and load surfaces", asy
     await expect(recordDialog.locator("[data-record-cancel]")).toHaveText(sample.cancel);
     await recordDialog.locator("[data-record-cancel]").click();
 
-    await page.locator("#unit-system").selectOption("metric");
+    await setUnitSystem(page, "metric");
     await page.locator("#file-picker").setInputFiles(referenceLoad);
     await expect(page.getByRole("button", { name: sample.cartridge, exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: sample.results, exact: true })).toBeVisible();

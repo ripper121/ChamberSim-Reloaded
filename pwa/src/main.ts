@@ -1,6 +1,7 @@
 import { registerSW } from "virtual:pwa-register";
 import "./styles.css";
 import packageInfo from "../package.json";
+import manualUrl from "../../docs/manual/manual.pdf?url";
 import { parseLoadXml, readLoadFile, serializeLoadXml, type Entry, type FileFormat, type LoadFile, type MeasurementSeries } from "./lib/loadfile";
 import { LoadHistory, type LoadSection } from "./lib/loadedit";
 import shotPartData from "../../data/shotshell/parts.json";
@@ -149,11 +150,6 @@ function shown(value: number, quantity: Exclude<Quantity, "none">, decimals?: nu
 
 function standardButton(source: "OK" | "Save" | "Close" | "Cancel" | "Apply"): string {
   return escapeHtml(i18n.standardButton(source));
-}
-
-function unitSystemShortLabel(system: UnitSystem): string {
-  const source = system === "metric" ? "Metric (mm, g, bar, m/s)" : system === "imperial" ? "Imperial (in, grain, psi, ft/s)" : "Original (mm, grain, bar, m/s)";
-  return i18n.text("csr::units", source).replace(/\s*\([^)]*\)$/u, "");
 }
 
 function resultHeading(load: LoadFile, input: SimInput, chargeG: number): string {
@@ -755,40 +751,58 @@ function databaseView(): string {
   return `<main class="database"><div class="primary-actions"><button id="new-load" ${ownDatabaseReady ? "" : "disabled"}>▤ New load</button><button id="open-load">📂 Open load</button></div><div class="button-row"><button id="new-record" ${ownDatabaseReady ? "" : "disabled"}>New</button><button id="copy-record" ${selected && ownDatabaseReady ? "" : "disabled"}>Copy</button><button id="edit-record" ${own ? "" : "disabled"} title="${escapeHtml(selected && !own ? lockedRecordHelp : i18n.text("MainWindow", "Change the selected record"))}">Edit</button><button id="delete-record" ${own ? "" : "disabled"} title="${escapeHtml(selected && !own ? lockedRecordHelp : i18n.text("MainWindow", "Delete the selected record"))}">Delete</button>${importButton}<button id="export-record" ${own ? "" : "disabled"}>Export</button></div><div class="subtabs" role="tablist">${tabs.map(([table, label]) => `<button role="tab" data-db-table="${table}" class="${activeDatabaseTable === table ? "active" : ""}" aria-selected="${activeDatabaseTable === table}">${label}</button>`).join("")}</div><div class="database-filter-row"><input class="filter" aria-label="Filter all columns" placeholder="Filter (all columns)…" value="${escapeHtml(query)}" /><span aria-live="polite">${count}</span></div><div class="database-table-scroll"><table class="database-table"><thead><tr>${header}</tr></thead><tbody data-window-start="${body.start}">${body.html}</tbody></table></div></main>`;
 }
 
+function menuBarHtml(current: LoadFile | undefined, canUndo: boolean, canRedo: boolean): string {
+  const tr = (source: string): string => escapeHtml(i18n.text("MainWindow", source));
+  const item = (id: string, source: string, shortcut = "", enabled = true, title = ""): string =>
+    `<button id="${id}" role="menuitem" ${enabled ? "" : "disabled"}${title ? ` title="${escapeHtml(title)}"` : ""}><span>${tr(source)}</span>${shortcut ? `<kbd>${shortcut}</kbd>` : ""}</button>`;
+  const separator = `<hr class="menu-separator">`;
+  const themeOptions: Array<[ThemeMode, string]> = [["system", "System default"], ["light", "Light"], ["dark", "Dark"]];
+  const languageOptions: Array<[LanguageChoice, string]> = [["system", "System default"], ["de_DE", "Deutsch (Deutschland)"], ["en_US", "English (United States)"], ["fr_FR", "Français (France)"], ["it_IT", "Italiano (Italia)"]];
+  const themeMenu = themeOptions.map(([mode, source]) => `<button role="menuitemradio" aria-checked="${themePreference.mode === mode}" data-theme-mode="${mode}"><span aria-hidden="true">${themePreference.mode === mode ? "✓" : ""}</span><span>${tr(source)}</span></button>`).join("");
+  const languageMenu = languageOptions.map(([choice, label]) => `<button role="menuitemradio" aria-checked="${languagePreference.choice === choice}" data-language="${choice}"><span aria-hidden="true">${languagePreference.choice === choice ? "✓" : ""}</span><span>${choice === "system" ? tr(label) : escapeHtml(label)}</span></button>`).join("");
+  const recentUnavailable = "Browsers do not expose durable recent-file paths; use Start-up session restore instead.";
+  const quitUnavailable = "The browser controls closing this application window.";
+  return `<details class="menu-dropdown file-menu"><summary>${tr("&File")}</summary><div class="menu-popup" role="menu" aria-label="${tr("&File")}">
+    ${item("menu-new-load", "&New load…", "Ctrl+N", ownDatabaseReady)}
+    ${item("menu-open-load", "&Open load…", "Ctrl+O")}
+    ${item("save-csr", "&Save", "Ctrl+S", Boolean(current))}
+    ${item("save-as", "Save &as…", "Ctrl+Shift+S", Boolean(current))}
+    <details class="menu-submenu" title="${escapeHtml(recentUnavailable)}"><summary aria-disabled="true"><span>${tr("Open &recent")}</span><span aria-hidden="true">▶</span></summary></details>
+    ${separator}
+    ${item("menu-print-preview", "Print pre&view…", "", Boolean(current))}
+    ${item("menu-print", "&Print…", "Ctrl+P", Boolean(current))}
+    ${item("menu-export-pdf", "Export report as P&DF…", "", Boolean(current))}
+    ${separator}
+    ${item("overlay-reference", "Overlay &reference result…", "Ctrl+R", Boolean(current))}
+    ${item("clear-reference", "&Clear reference overlay", "", Boolean(current && referenceRuns.has(current)))}
+    ${separator}
+    ${item("settings", "&Settings…", "Ctrl+,")}
+    ${separator}
+    ${item("menu-quit", "&Quit", "Ctrl+Q", false, quitUnavailable)}
+  </div></details>
+  <details class="menu-dropdown edit-menu"><summary>${tr("&Edit")}</summary><div class="menu-popup" role="menu" aria-label="${tr("&Edit")}">
+    ${item("undo", "&Undo", "Ctrl+Z", canUndo)}
+    ${item("redo", "&Redo", "Ctrl+Shift+Z", canRedo)}
+  </div></details>
+  <details class="menu-dropdown view-menu"><summary>${tr("&View")}</summary><div class="menu-popup" role="menu" aria-label="${tr("&View")}">
+    <details class="menu-submenu"><summary><span>${tr("&Theme")}</span><span aria-hidden="true">▶</span></summary><div class="menu-popup submenu-popup" role="menu" aria-label="${tr("&Theme")}">${themeMenu}</div></details>
+    <details class="menu-submenu"><summary><span>${tr("&Language")}</span><span aria-hidden="true">▶</span></summary><div class="menu-popup submenu-popup" role="menu" aria-label="${tr("&Language")}">${languageMenu}</div></details>
+  </div></details>
+  <details class="menu-dropdown tools-menu"><summary>${tr("&Tools")}</summary><div class="menu-popup" role="menu" aria-label="${tr("&Tools")}">
+    ${item("burn-rate-table", "&Burn rate table…", "", Boolean(projectDatabase))}
+    ${item("unit-converter", "&Unit converter…")}
+  </div></details>
+  <details class="menu-dropdown help-menu"><summary>${tr("&Help")}</summary><div class="menu-popup" role="menu" aria-label="${tr("&Help")}">
+    <a id="user-manual" role="menuitem" href="${escapeHtml(manualUrl)}" target="_blank" rel="noopener"><span>${tr("&User manual")}</span><kbd>F1</kbd></a>
+    ${item("about", "&About ChamberSim Reloaded…")}
+  </div></details>`;
+}
+
 function localizeShell(): void {
   const text = (selector: string, context: string, source: string): void => {
     const element = app.querySelector<HTMLElement>(selector);
     if (element) element.textContent = i18n.text(context, source);
   };
-  const choice = (selector: string, context: string, source: string): void => {
-    const element = app.querySelector<HTMLElement>(selector);
-    const label = element?.lastChild;
-    if (label?.nodeType === Node.TEXT_NODE) label.textContent = i18n.text(context, source);
-  };
-  const initialText = (selector: string, source: string, context = "MainWindow"): void => {
-    const element = [...app.querySelectorAll<HTMLElement>(selector)].find((candidate) => candidate.textContent?.trim() === source);
-    if (element) element.textContent = i18n.text(context, `&${source}`);
-  };
-
-  text("#settings", "MainWindow", "&File");
-  text("#save-csr", "MainWindow", "&Save");
-  text("#overlay-reference", "MainWindow", "Overlay &reference result…");
-  text("#clear-reference", "MainWindow", "&Clear reference overlay");
-  text("#undo", "MainWindow", "&Undo");
-  text("#redo", "MainWindow", "&Redo");
-  initialText(".menubar > button", "Edit");
-  initialText(".menubar > button", "Help");
-  text(".view-menu > summary", "MainWindow", "&View");
-  const headings = app.querySelectorAll<HTMLElement>(".view-menu .menu-heading");
-  if (headings[0]) headings[0].textContent = i18n.text("MainWindow", "&Theme");
-  if (headings[1]) headings[1].textContent = i18n.text("MainWindow", "&Language");
-  choice('[data-theme-mode="system"]', "MainWindow", "System default");
-  choice('[data-theme-mode="light"]', "MainWindow", "Light");
-  choice('[data-theme-mode="dark"]', "MainWindow", "Dark");
-  choice('[data-language="system"]', "MainWindow", "System default");
-  text(".menu-dropdown:not(.view-menu) > summary", "MainWindow", "&Tools");
-  text("#burn-rate-table", "MainWindow", "&Burn rate table…");
-  text("#unit-converter", "MainWindow", "&Unit converter…");
   text('[data-tab="database"]', "MainWindow", "Database");
   text("#new-load", "MainWindow", "New load");
   text("#open-load", "MainWindow", "Open load");
@@ -809,24 +823,10 @@ function render(): void {
   const current = activeLoad();
   const currentHistory = current ? historyFor(current) : undefined;
   const tabs = [`<button data-tab="database" class="${activeTab === "database" ? "active" : ""}">Database</button>`, ...loads.map((load, index) => `<button data-tab="load-${index}" class="${activeTab === `load-${index}` ? "active" : ""}">${escapeHtml(load.fileName.replace(/\.(csrload|grtload)$/i, ""))}${historyFor(load).modified ? "*" : ""}<span class="close" data-close="${index}" aria-label="Close load">×</span></button>`)].join("");
-  const themeOptions: Array<[ThemeMode, string]> = [["system", "System default"], ["light", "Light"], ["dark", "Dark"]];
-  const languageOptions: Array<[LanguageChoice, string]> = [["system", "System default"], ["de_DE", "Deutsch (Deutschland)"], ["en_US", "English (United States)"], ["fr_FR", "Français (France)"], ["it_IT", "Italiano (Italia)"]];
-  const languageMenu = languageOptions.map(([choice, label]) => `<button role="menuitemradio" aria-checked="${languagePreference.choice === choice}" data-language="${choice}"><span aria-hidden="true">${languagePreference.choice === choice ? "✓" : ""}</span>${label}</button>`).join("");
-  const themeMenu = themeOptions.map(([mode, label]) => `<button role="menuitemradio" aria-checked="${themePreference.mode === mode}" data-theme-mode="${mode}"><span aria-hidden="true">${themePreference.mode === mode ? "✓" : ""}</span>${label}</button>`).join("") + `<span class="menu-heading">Language</span>${languageMenu}`;
-  const unitsLabel = i18n.text("SettingsDialog", "Units");
-  app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu"><button>File</button><button id="save-csr" ${current ? "" : "disabled"}>Save CSR</button><button id="export-grt" ${current ? "" : "disabled"}>Export GRT</button><button id="overlay-reference" ${current ? "" : "disabled"} title="Overlay an original-program reference result (Ctrl+R)">Overlay reference…</button><button id="clear-reference" ${current && referenceRuns.has(current) ? "" : "disabled"}>Clear reference</button><button>Edit</button><button id="undo" ${currentHistory?.canUndo ? "" : "disabled"}>Undo</button><button id="redo" ${currentHistory?.canRedo ? "" : "disabled"}>Redo</button><details class="menu-dropdown view-menu"><summary>View</summary><div class="menu-popup" role="menu" aria-label="View"><span class="menu-heading">Theme</span>${themeMenu}</div></details><details class="menu-dropdown"><summary>Tools</summary><div class="menu-popup"><button id="burn-rate-table" ${projectDatabase ? "" : "disabled"}>Burn rate table…</button><button id="unit-converter">Unit converter…</button></div></details><label class="menu-select">Units <select id="unit-system" aria-label="Unit system"><option value="metric" ${unitPreferences.system === "metric" ? "selected" : ""}>Metric</option><option value="imperial" ${unitPreferences.system === "imperial" ? "selected" : ""}>Imperial</option><option value="original" ${unitPreferences.system === "original" ? "selected" : ""}>Original</option></select></label><button id="reset-field-units">Reset field units</button><button>Help</button></nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="reference-picker" type="file" accept=".json,application/json" hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden /><input id="chronograph-picker" type="file" accept=".fit,.FIT,.csv,.CSV" hidden />`;
-  const unitSystem = app.querySelector<HTMLSelectElement>("#unit-system");
-  const unitMenuLabel = unitSystem?.closest<HTMLLabelElement>("label");
-  if (unitSystem && unitMenuLabel) {
-    unitMenuLabel.firstChild!.textContent = `${unitsLabel} `;
-    for (const option of unitSystem.options) option.textContent = unitSystemShortLabel(option.value as UnitSystem);
-  }
-  const resetFieldUnits = app.querySelector<HTMLButtonElement>("#reset-field-units");
-  if (resetFieldUnits) resetFieldUnits.textContent = i18n.text("SettingsDialog", "Reset per-field units");
+  const menuBar = menuBarHtml(current, Boolean(currentHistory?.canUndo), Boolean(currentHistory?.canRedo));
+  app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu">${menuBar}</nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="reference-picker" type="file" accept=".json,application/json" hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden /><input id="chronograph-picker" type="file" accept=".fit,.FIT,.csv,.CSV" hidden />`;
   const syncLabel = appSyncState === "outdated" ? "Update available" : appSyncState === "checking" ? "Checking for updates" : appSyncState === "updating" ? "Applying update" : "App is up to date";
   app.querySelector(".menubar")?.insertAdjacentHTML("beforeend", `<button id="app-sync" class="app-sync ${appSyncState}" aria-label="${syncLabel}" title="${syncLabel}. Click to check for and load the latest app version." ${appSyncState === "checking" || appSyncState === "updating" ? "disabled" : ""}><span class="sync-dot" aria-hidden="true"></span><span>Sync</span></button>`);
-  const fileButton = app.querySelector<HTMLButtonElement>(".menubar > button:first-child");
-  if (fileButton) { fileButton.id = "settings"; fileButton.title = "Settings, including the optional Original GRT database"; }
   localizeShell();
   bindEvents();
   persistSession();
@@ -882,6 +882,36 @@ function downloadLoad(format: FileFormat): void {
   status = format === "reload" ? `Saved ${fileName}` : `Exported ${fileName}`;
   logger.info(`${format === "reload" ? "Load saved" : "Load exported"}: ${fileName}`, "main.ts");
   render();
+}
+
+function openSaveAsDialog(): void {
+  if (!activeLoad()) return;
+  const dialog = document.createElement("dialog");
+  dialog.className = "save-as-dialog";
+  dialog.setAttribute("aria-label", i18n.text("MainWindow", "Save &as…"));
+  dialog.innerHTML = `<form><h2>${escapeHtml(i18n.text("MainWindow", "Save &as…"))}</h2><label>File format <select data-save-format><option value="reload">ChamberSim Reloaded (*.csrload)</option><option value="original">Gordon's Reloading Tool (*.grtload)</option></select></label><p class="setting-note">Browsers download a new file because they cannot overwrite the previously opened path without permission.</p><div class="dialog-buttons"><button type="button" data-save-cancel>${standardButton("Cancel")}</button><button class="primary" type="submit">${standardButton("Save")}</button></div></form>`;
+  document.body.append(dialog);
+  const close = (): void => { dialog.close(); dialog.remove(); };
+  dialog.querySelector("[data-save-cancel]")?.addEventListener("click", close);
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.querySelector("form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const format = dialog.querySelector<HTMLSelectElement>("[data-save-format]")!.value as FileFormat;
+    close();
+    downloadLoad(format);
+  });
+  dialog.showModal();
+}
+
+function openAboutDialog(): void {
+  const dialog = document.createElement("dialog");
+  const title = i18n.text("about", "About ChamberSim Reloaded");
+  dialog.className = "about-dialog";
+  dialog.setAttribute("aria-label", title);
+  dialog.innerHTML = `<form method="dialog"><div class="about-layout"><img src="${escapeHtml(`${import.meta.env.BASE_URL}chambersimreloaded-64.png`)}" alt=""><div><h2>ChamberSim Reloaded</h2><p><b>Version ${escapeHtml(packageInfo.version)}</b><br>Interior ballistics for handloaders</p><p>A Qt 6 re-creation of the workflow of Gordon's Reloading Tool. It is an independent project and is not affiliated with or supported by the original program or its author.</p><p>${escapeHtml(i18n.text("about", "Source code and issue tracker:"))} <a href="https://github.com/Schildkroet/ChamberSim-Reloaded" target="_blank" rel="noopener">github.com/Schildkroet/ChamberSim-Reloaded</a></p><h3>Safety</h3><p>The results are calculated and can differ considerably from reality. Compare every load with current manufacturer data and start low.</p><p><small>Project database: ${projectDatabase ? "484 calibers, 3,010 projectiles, 245 propellants" : "loading"}<br>Personal records: ${ownRecords.caliber.length} calibers, ${ownRecords.projectile.length} projectiles, ${ownRecords.propellant.length} propellants</small></p></div></div><div class="dialog-buttons"><button>${standardButton("Close")}</button></div></form>`;
+  document.body.append(dialog);
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.showModal();
 }
 
 function bindDatabaseRows(root: ParentNode = app): void {
@@ -2051,25 +2081,41 @@ function bindSplitters(root: ParentNode = app): void {
 
 function bindEvents(): void {
   bindSplitters();
+  const closeMenus = (): void => app.querySelectorAll<HTMLDetailsElement>(".menubar details[open]").forEach((menu) => menu.removeAttribute("open"));
+  app.querySelectorAll<HTMLDetailsElement>(".menubar > .menu-dropdown").forEach((menu) => menu.addEventListener("toggle", () => {
+    if (!menu.open) return;
+    app.querySelectorAll<HTMLDetailsElement>(".menubar > .menu-dropdown[open]").forEach((other) => { if (other !== menu) other.removeAttribute("open"); });
+  }));
+  app.querySelector(".app-shell")?.addEventListener("pointerdown", (event) => {
+    if (!(event.target as Element).closest(".menu-dropdown")) closeMenus();
+  });
   app.querySelector("#app-sync")?.addEventListener("click", () => { void syncLatestApp(); });
   app.querySelectorAll<HTMLButtonElement>("[data-theme-mode]").forEach((button) => button.addEventListener("click", () => {
     const mode = button.dataset.themeMode as ThemeMode;
     themePreference.set(mode);
     status = `Theme: ${button.textContent?.trim() ?? mode}`;
+    closeMenus();
     render();
   }));
   app.querySelectorAll<HTMLButtonElement>("[data-language]").forEach((button) => button.addEventListener("click", () => {
     languagePreference.store(button.dataset.language as LanguageChoice);
-    button.closest("details")?.removeAttribute("open");
+    closeMenus();
     window.alert(i18n.text("MainWindow", "The language change takes effect after restarting the application."));
   }));
-  app.querySelector("#settings")?.addEventListener("click", openDatabaseSettings);
+  app.querySelector("#settings")?.addEventListener("click", () => { closeMenus(); openDatabaseSettings(); });
+  app.querySelector("#menu-new-load")?.addEventListener("click", () => { closeMenus(); openNewLoadDialog(); });
+  app.querySelector("#menu-open-load")?.addEventListener("click", () => { closeMenus(); app.querySelector<HTMLInputElement>("#file-picker")?.click(); });
+  app.querySelector("#save-as")?.addEventListener("click", () => { closeMenus(); openSaveAsDialog(); });
+  app.querySelector("#menu-print-preview")?.addEventListener("click", () => { const load = activeLoad(); if (load) { closeMenus(); openReportOutput(load, false); } });
+  app.querySelector("#menu-print")?.addEventListener("click", () => { const load = activeLoad(); if (load) { closeMenus(); openReportOutput(load, true); } });
+  app.querySelector("#menu-export-pdf")?.addEventListener("click", () => { const load = activeLoad(); if (load) { closeMenus(); openReportOutput(load, true, true); } });
+  app.querySelector("#about")?.addEventListener("click", () => { closeMenus(); openAboutDialog(); });
   app.querySelector("#burn-rate-table")?.addEventListener("click", (event) => {
-    (event.currentTarget as HTMLElement).closest("details")?.removeAttribute("open");
+    closeMenus();
     openBurnRateDialog();
   });
   app.querySelector("#unit-converter")?.addEventListener("click", (event) => {
-    (event.currentTarget as HTMLElement).closest("details")?.removeAttribute("open");
+    closeMenus();
     openUnitConverterDialog();
   });
   app.querySelectorAll<HTMLElement>("[data-tab]").forEach((element) => element.addEventListener("click", () => { activeTab = element.dataset.tab ?? "database"; render(); }));
@@ -2180,12 +2226,11 @@ function bindEvents(): void {
       bindDatabaseRows(body);
     });
   }
-  app.querySelector("#undo")?.addEventListener("click", () => undoActive());
-  app.querySelector("#redo")?.addEventListener("click", () => undoActive(true));
-  app.querySelector("#save-csr")?.addEventListener("click", () => downloadLoad("reload"));
-  app.querySelector("#export-grt")?.addEventListener("click", () => downloadLoad("original"));
+  app.querySelector("#undo")?.addEventListener("click", () => { closeMenus(); undoActive(); });
+  app.querySelector("#redo")?.addEventListener("click", () => { closeMenus(); undoActive(true); });
+  app.querySelector("#save-csr")?.addEventListener("click", () => { closeMenus(); downloadLoad("reload"); });
   const referencePicker = app.querySelector<HTMLInputElement>("#reference-picker");
-  app.querySelector("#overlay-reference")?.addEventListener("click", () => referencePicker?.click());
+  app.querySelector("#overlay-reference")?.addEventListener("click", () => { closeMenus(); referencePicker?.click(); });
   referencePicker?.addEventListener("change", () => {
     const load = activeLoad(), file = referencePicker.files?.[0];
     referencePicker.value = "";
@@ -2194,17 +2239,8 @@ function bindEvents(): void {
   app.querySelector("#clear-reference")?.addEventListener("click", () => {
     const load = activeLoad();
     if (!load) return;
+    closeMenus();
     referenceRuns.delete(load); status = "Reference overlay cleared"; render();
-  });
-  app.querySelector<HTMLSelectElement>("#unit-system")?.addEventListener("change", (event) => {
-    unitPreferences.setSystem((event.currentTarget as HTMLSelectElement).value as UnitSystem);
-    status = `Unit system: ${unitPreferences.system}`;
-    render();
-  });
-  app.querySelector("#reset-field-units")?.addEventListener("click", () => {
-    unitPreferences.resetFieldUnits();
-    status = "Reset all per-field unit overrides";
-    render();
   });
   app.querySelectorAll<HTMLSelectElement>("[data-field-unit]").forEach((element) => element.addEventListener("change", () => {
     unitPreferences.setFieldUnit(element.dataset.field ?? "", element.dataset.quantity as Exclude<Quantity, "none">, element.value);
@@ -2394,14 +2430,41 @@ const updateServiceWorker = registerSW({
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    app.querySelectorAll<HTMLDetailsElement>(".menubar details[open]").forEach((menu) => menu.removeAttribute("open"));
+    return;
+  }
+  if (event.key === "F1") {
+    event.preventDefault();
+    window.open(manualUrl, "_blank", "noopener");
+    return;
+  }
   if (!event.ctrlKey || event.altKey) return;
-  if (event.key.toLowerCase() === "z") {
+  if (document.querySelector("dialog[open]")) return;
+  const key = event.key.toLowerCase();
+  if (key === "n") {
+    event.preventDefault();
+    if (ownDatabaseReady) openNewLoadDialog();
+  } else if (key === "o") {
+    event.preventDefault();
+    app.querySelector<HTMLInputElement>("#file-picker")?.click();
+  } else if (key === "s") {
+    event.preventDefault();
+    if (activeLoad()) event.shiftKey ? openSaveAsDialog() : downloadLoad("reload");
+  } else if (key === "p") {
+    event.preventDefault();
+    const load = activeLoad();
+    if (load) openReportOutput(load, true);
+  } else if (event.key === ",") {
+    event.preventDefault();
+    openDatabaseSettings();
+  } else if (key === "z") {
     event.preventDefault();
     undoActive(event.shiftKey);
-  } else if (event.key.toLowerCase() === "y") {
+  } else if (key === "y") {
     event.preventDefault();
     undoActive(true);
-  } else if (event.key.toLowerCase() === "r" && activeLoad()) {
+  } else if (key === "r" && activeLoad()) {
     event.preventDefault();
     app.querySelector<HTMLInputElement>("#reference-picker")?.click();
   }
