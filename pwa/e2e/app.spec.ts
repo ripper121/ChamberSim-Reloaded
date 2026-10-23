@@ -778,7 +778,7 @@ test("overlays, warns about, switches axes for, and clears original reference re
   const positionPath = await page.locator(".pressure-reference").getAttribute("d");
   expect(positionPath).not.toBe(timePath);
 
-  page.once("dialog", (warning) => { expect(warning.message()).toContain("Cannot read reference broken.json"); void warning.accept(); });
+  page.once("dialog", (warning) => { expect(warning.message()).toContain("Cannot read broken.json:\n"); void warning.accept(); });
   await page.locator("#reference-picker").setInputFiles({ name: "broken.json", mimeType: "application/json", buffer: Buffer.from("not json") });
   await expect(page.locator(".reference-curve")).toHaveCount(3); // a bad replacement keeps the active overlay
 
@@ -1490,6 +1490,57 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await chronographDialog.locator("[data-chronograph-cancel]").click();
   await page.locator(".view-menu summary").click();
   await expect(page.getByRole("menuitemradio", { name: "Deutsch (Deutschland)", exact: true })).toHaveAttribute("aria-checked", "true");
+});
+
+test("renders representative French and Italian database and load surfaces", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("csr-disclaimer-accepted", "yes"));
+  await page.goto("/");
+  const cases = [
+    {
+      locale: "fr_FR", lang: "fr-FR", database: "Base de données", calibers: "Calibres", projectiles: "Projectiles", entries: "484 entrées",
+      source: "Source", project: "Projet", projectTitle: "Enregistrement de la base du projet (lecture seule)",
+      changeRecord: "Modifier l'enregistrement choisi", lockedRecord: "Seuls vos propres enregistrements peuvent être modifiés : faites une copie",
+      newLoad: "Nouveau chargement", cartridge: "Cartouche & arme", results: "Résultats",
+      maximumPressure: "Pression maximale", model: "Modèle : Modèle physique", propellantMass: "Masse de poudre"
+    },
+    {
+      locale: "it_IT", lang: "it-IT", database: "Banca dati", calibers: "Calibri", projectiles: "Proiettili", entries: "484 voci",
+      source: "Fonte", project: "Progetto", projectTitle: "Record della banca dati del progetto (sola lettura)",
+      changeRecord: "Modifica il record scelto", lockedRecord: "Si possono modificare solo i propri record: crea una copia",
+      newLoad: "Nuovo caricamento", cartridge: "Cartuccia & arma", results: "Risultati",
+      maximumPressure: "Pressione massima", model: "Modello: Modello fisico", propellantMass: "Massa di polvere"
+    }
+  ] as const;
+
+  for (const sample of cases) {
+    await page.evaluate((locale) => localStorage.setItem("csr-ui-language", locale), sample.locale);
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("lang", sample.lang);
+    await expect(page.getByRole("button", { name: sample.database, exact: true })).toBeVisible();
+    await expect(page.getByRole("tab", { name: sample.calibers, exact: true })).toBeVisible();
+    await expect(page.getByText(sample.entries, { exact: true })).toBeVisible();
+    await expect(page.locator('[data-db-sort="source"]')).toHaveText(sample.source);
+    const sourceCell = page.locator(".database-table tbody tr[data-db-id] td").first();
+    await expect(sourceCell).toHaveText(sample.project);
+    await expect(sourceCell).toHaveAttribute("title", sample.projectTitle);
+    await expect(page.locator("#new-load")).toHaveText(sample.newLoad);
+    await expect(page.locator("#edit-record")).toHaveAttribute("title", sample.changeRecord);
+    await sourceCell.click();
+    await expect(page.locator("#edit-record")).toHaveAttribute("title", sample.lockedRecord);
+    await expect(page.locator("#delete-record")).toHaveAttribute("title", sample.lockedRecord);
+    await page.getByRole("tab", { name: sample.projectiles, exact: true }).click();
+    await expect(page.locator('[data-db-sort="gValid"]')).toHaveText("Validated");
+    await expect(page.locator(".database-table tbody td.valid, .database-table tbody td.invalid").first()).toHaveAttribute("title", /^(Validated by hand:|Not validated:)/);
+
+    await page.locator("#unit-system").selectOption("metric");
+    await page.locator("#file-picker").setInputFiles(referenceLoad);
+    await expect(page.getByRole("button", { name: sample.cartridge, exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: sample.results, exact: true })).toBeVisible();
+    await expect(page.getByText(sample.maximumPressure, { exact: true })).toBeVisible();
+    await expect(page.getByText(sample.model, { exact: true })).toBeVisible();
+    await page.locator('[data-input="propellant"]').click();
+    await expect(page.getByRole("textbox", { name: sample.propellantMass, exact: true })).toHaveValue("1,639");
+  }
 });
 
 test("the golden load fixture used by browser QA is present", () => {

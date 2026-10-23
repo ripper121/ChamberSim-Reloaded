@@ -664,13 +664,22 @@ function databaseStatus(): string {
 function databaseRowHtml(record: ProjectRecord, columns: readonly DatabaseColumn[], table: ProjectTable = activeDatabaseTable, selectedId = databaseSelections[table]): string {
   if (!projectDatabase) return "";
   return `<tr data-db-id="${record.id}" tabindex="0" aria-selected="${selectedId === record.id}">${columns.map((column) => {
-    const value = projectDatabase!.displayValue(record, column);
+    const value = column.name === "source"
+      ? i18n.text("TableBrowser", record.source === "own" ? "Personal" : record.source === "original" ? "Original GRT" : "Project")
+      : projectDatabase!.displayValue(record, column);
     const classes = [column.numeric ? "number" : "", column.boolean ? (record[column.name] ? "valid" : "invalid") : ""].filter(Boolean).join(" ");
     const title = column.name === "source"
-      ? record.source === "own" ? "Record of your personal database" : record.source === "original" ? "Record of the Original GRT database (read-only)" : "Record of the project's database (read-only)"
-      : column.boolean ? (record[column.name] ? "Validated by hand" : "Not validated") : "";
-    return `<td${classes ? ` class="${classes}"` : ""}${title ? ` title="${title}"` : ""}>${escapeHtml(value)}</td>`;
+      ? i18n.text("TableBrowser", record.source === "own" ? "Your own record (can be changed)" : record.source === "original" ? "Record of Gordon's Reloading Tool's database (read-only)" : "Record of the project's database (read-only)")
+      : column.boolean
+        ? i18n.text("TableBrowser", record[column.name] ? "Validated by hand: measured on a bullet or checked against the original database" : "Not validated: the length is estimated or taken from a photo")
+        : "";
+    return `<td${classes ? ` class="${classes}"` : ""}${title ? ` title="${escapeHtml(title)}"` : ""}>${escapeHtml(value)}</td>`;
   }).join("")}</tr>`;
+}
+
+function databaseColumnLabel(column: DatabaseColumn): string {
+  return column.name === "source" ? i18n.text("TableBrowser", "Source")
+    : column.name === "gValid" ? i18n.text("TableBrowser", "Validated") : column.name;
 }
 
 function databaseBodyHtml(records: readonly ProjectRecord[], columns: readonly DatabaseColumn[], scrollTop: number, table: ProjectTable = activeDatabaseTable, selectedId = databaseSelections[table]): { html: string; start: number } {
@@ -691,7 +700,7 @@ function recordTableHtml(table: ProjectTable, records: readonly ProjectRecord[],
   const header = columns.map((column) => {
     const active = column.name === sortColumn.name;
     const marker = active ? (sort.direction === "asc" ? " ▲" : " ▼") : "";
-    const label = column.name === "source" ? "Source" : column.name === "gValid" ? "Validated" : column.name;
+    const label = databaseColumnLabel(column);
     return `<th aria-sort="${active ? sort.direction === "asc" ? "ascending" : "descending" : "none"}"><button type="button" data-dialog-sort="${escapeHtml(column.name)}">${escapeHtml(label)}${marker}</button></th>`;
   }).join("");
   const body = databaseBodyHtml(sorted, columns, scrollTop, table, selectedId);
@@ -726,14 +735,15 @@ function databaseView(): string {
     const selected = column.name === sortColumn.name;
     const direction = selected ? sorting.direction : "none";
     const marker = selected ? (sorting.direction === "asc" ? " ▲" : " ▼") : "";
-    const label = column.name === "source" ? "Source" : column.name === "gValid" ? "Validated" : column.name;
+    const label = databaseColumnLabel(column);
     return `<th aria-sort="${direction === "none" ? "none" : direction === "asc" ? "ascending" : "descending"}"><button data-db-sort="${escapeHtml(column.name)}" aria-label="Sort by ${escapeHtml(label)}">${escapeHtml(label)}${marker}</button></th>`;
   }).join("");
   const body = databaseBodyHtml(records, columns, databaseScrolls[activeDatabaseTable]);
   const selected = selectedDatabaseRecord();
   const own = selected?.source === "own";
-  const importButton = activeDatabaseTable === "projectile" ? `<button id="import-bullets" ${ownDatabaseReady ? "" : "disabled"} title="Add the bullets of a manufacturer's bullet file (*.csrbullets) to your personal records">Import bullets</button>` : "";
-  return `<main class="database"><div class="primary-actions"><button id="new-load" ${ownDatabaseReady ? "" : "disabled"}>▤ New load</button><button id="open-load">📂 Open load</button></div><div class="button-row"><button id="new-record" ${ownDatabaseReady ? "" : "disabled"}>New</button><button id="copy-record" ${selected && ownDatabaseReady ? "" : "disabled"}>Copy</button><button id="edit-record" ${own ? "" : "disabled"} title="${selected && !own ? "Only personal records can be changed: make a copy" : "Change the selected record"}">Edit</button><button id="delete-record" ${own ? "" : "disabled"} title="${selected && !own ? "Only personal records can be changed: make a copy" : "Delete the selected record"}">Delete</button>${importButton}<button id="export-record" ${own ? "" : "disabled"}>Export</button></div><div class="subtabs" role="tablist">${tabs.map(([table, label]) => `<button role="tab" data-db-table="${table}" class="${activeDatabaseTable === table ? "active" : ""}" aria-selected="${activeDatabaseTable === table}">${label}</button>`).join("")}</div><div class="database-filter-row"><input class="filter" aria-label="Filter all columns" placeholder="Filter (all columns)…" value="${escapeHtml(query)}" /><span aria-live="polite">${count}</span></div><div class="database-table-scroll"><table class="database-table"><thead><tr>${header}</tr></thead><tbody data-window-start="${body.start}">${body.html}</tbody></table></div></main>`;
+  const lockedRecordHelp = i18n.text("MainWindow", "Only your own records can be changed: make a copy");
+  const importButton = activeDatabaseTable === "projectile" ? `<button id="import-bullets" ${ownDatabaseReady ? "" : "disabled"} title="${escapeHtml(i18n.text("MainWindow", "Add the bullets of a manufacturer's bullet file (*.%1) to your own records", "csrbullets"))}">Import bullets</button>` : "";
+  return `<main class="database"><div class="primary-actions"><button id="new-load" ${ownDatabaseReady ? "" : "disabled"}>▤ New load</button><button id="open-load">📂 Open load</button></div><div class="button-row"><button id="new-record" ${ownDatabaseReady ? "" : "disabled"}>New</button><button id="copy-record" ${selected && ownDatabaseReady ? "" : "disabled"}>Copy</button><button id="edit-record" ${own ? "" : "disabled"} title="${escapeHtml(selected && !own ? lockedRecordHelp : i18n.text("MainWindow", "Change the selected record"))}">Edit</button><button id="delete-record" ${own ? "" : "disabled"} title="${escapeHtml(selected && !own ? lockedRecordHelp : i18n.text("MainWindow", "Delete the selected record"))}">Delete</button>${importButton}<button id="export-record" ${own ? "" : "disabled"}>Export</button></div><div class="subtabs" role="tablist">${tabs.map(([table, label]) => `<button role="tab" data-db-table="${table}" class="${activeDatabaseTable === table ? "active" : ""}" aria-selected="${activeDatabaseTable === table}">${label}</button>`).join("")}</div><div class="database-filter-row"><input class="filter" aria-label="Filter all columns" placeholder="Filter (all columns)…" value="${escapeHtml(query)}" /><span aria-live="polite">${count}</span></div><div class="database-table-scroll"><table class="database-table"><thead><tr>${header}</tr></thead><tbody data-window-start="${body.start}">${body.html}</tbody></table></div></main>`;
 }
 
 function localizeShell(): void {
@@ -777,6 +787,7 @@ function localizeShell(): void {
   text("#copy-record", "MainWindow", "Copy");
   text("#edit-record", "MainWindow", "Edit");
   text("#delete-record", "MainWindow", "Delete");
+  text("#import-bullets", "MainWindow", "Import bullets");
   text("#export-record", "MainWindow", "Export");
   text('[data-db-table="caliber"]', "MainWindow", "Calibers");
   text('[data-db-table="projectile"]', "MainWindow", "Projectiles");
@@ -816,10 +827,10 @@ async function importReferenceFile(load: LoadFile, file: File): Promise<void> {
     referenceRuns.set(load, reference);
     status = `Reference overlay: ${file.name} (${reference.points.length} points${reference.stale ? ", stale" : ""})`;
     render();
-    if (reference.stale) window.alert("This reference run is marked stale (the wrong tab was read).");
+    if (reference.stale) window.alert(i18n.text("MainWindow", "This reference run is marked stale (the wrong tab was read)."));
   } catch (problem) {
     const detail = problem instanceof Error ? problem.message : String(problem);
-    status = `Cannot read reference ${file.name}: ${detail}`;
+    status = i18n.text("MainWindow", "Cannot read %1:\n%2", file.name, detail);
     render();
     window.alert(status);
   }
@@ -864,6 +875,11 @@ function bindDatabaseRows(root: ParentNode = app): void {
     set("#edit-record", Boolean(own));
     set("#delete-record", Boolean(own));
     set("#export-record", Boolean(own));
+    const locked = i18n.text("MainWindow", "Only your own records can be changed: make a copy");
+    const edit = app.querySelector<HTMLButtonElement>("#edit-record");
+    const remove = app.querySelector<HTMLButtonElement>("#delete-record");
+    if (edit) edit.title = selected && !own ? locked : i18n.text("MainWindow", "Change the selected record");
+    if (remove) remove.title = selected && !own ? locked : i18n.text("MainWindow", "Delete the selected record");
   };
   const selectDatabaseRow = (element: HTMLElement): void => {
     databaseSelections[activeDatabaseTable] = Number(element.dataset.dbId);
@@ -1270,7 +1286,7 @@ async function openRecordDialog(mode: RecordEditMode): Promise<void> {
       close();
       render();
     } catch (problem) {
-      error.textContent = `The record could not be stored: ${problem instanceof Error ? problem.message : String(problem)}`;
+      error.textContent = i18n.text("MainWindow", "The record could not be stored:\n%1", problem instanceof Error ? problem.message : String(problem));
     }
   });
   dialog.showModal();
@@ -1280,7 +1296,7 @@ async function openRecordDialog(mode: RecordEditMode): Promise<void> {
 async function deleteSelectedRecord(): Promise<void> {
   const record = selectedDatabaseRecord();
   if (!record || record.source !== "own") return;
-  if (!window.confirm(`Delete “${recordTitle(activeDatabaseTable, record)}”?\n\nLoad files that use it keep their values.`)) return;
+  if (!window.confirm(i18n.text("MainWindow", "Delete \"%1\"?\n\nLoad files that use it keep their values.", recordTitle(activeDatabaseTable, record)))) return;
   try {
     await ownDatabase.remove(activeDatabaseTable, record.id);
     await refreshOwnDatabase();
@@ -1288,7 +1304,7 @@ async function deleteSelectedRecord(): Promise<void> {
     status = databaseStatus();
     render();
   } catch (problem) {
-    status = `The record could not be deleted: ${problem instanceof Error ? problem.message : String(problem)}`;
+    status = i18n.text("MainWindow", "The record could not be deleted:\n%1", problem instanceof Error ? problem.message : String(problem));
     render();
   }
 }
@@ -1297,13 +1313,13 @@ function exportSelectedRecord(): void {
   const record = selectedDatabaseRecord();
   if (!record || record.source !== "own") return;
   const problems = projectValidationProblems(activeDatabaseTable, record);
-  if (problems.length && !window.confirm(`This record is not complete for the project's database:\n${problems.join("\n")}\n\nExport it anyway?`)) return;
+  if (problems.length && !window.confirm(i18n.text("MainWindow", "This record is not complete for the project's database:\n%1\n\nExport it anyway?", problems.join("\n")))) return;
   const fileName = recordFileName(activeDatabaseTable, record);
   const url = URL.createObjectURL(new Blob([recordJson(activeDatabaseTable, record)], { type: "application/json;charset=utf-8" }));
   const anchor = document.createElement("a");
   anchor.href = url; anchor.download = fileName; anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
-  status = `Saved ${fileName}: add it to data/${activeDatabaseTable === "caliber" ? "calibers" : `${activeDatabaseTable}s`}/ in the project to contribute it.`;
+  status = i18n.text("MainWindow", "Saved %1: add it to data/%2/ in the project to contribute it.", fileName, activeDatabaseTable === "caliber" ? "calibers" : `${activeDatabaseTable}s`);
   render();
 }
 
@@ -1563,26 +1579,28 @@ async function importBulletFile(file: File): Promise<void> {
     if (existing.some((record) => sameBullet(record, bullet))) ++known;
     else fresh.push(bullet);
   }
-  let message = `${fresh.length} bullet(s) can be added${parsed.manufacturer ? ` (manufacturer: ${parsed.manufacturer})` : ""}.`;
-  if (parsed.source) message += `\nSource: ${parsed.source}`;
-  if (known) message += `\n${known} bullet(s) are already in the database and are left out.`;
-  if (parsed.errors.length) message += `\n\n${parsed.errors.length} problem(s) in the file, those bullets are left out:\n${parsed.errors.slice(0, 8).join("\n")}${parsed.errors.length > 8 ? "\n…" : ""}`;
+  let message = i18n.plural("MainWindow", "%n bullet(s) can be added", fresh.length);
+  if (parsed.manufacturer) message += i18n.text("MainWindow", " (manufacturer: %1)", parsed.manufacturer);
+  message += ".";
+  if (parsed.source) message += `\n${i18n.text("MainWindow", "Source: %1", parsed.source)}`;
+  if (known) message += `\n${i18n.plural("MainWindow", "%n bullet(s) are already in the database and are left out.", known)}`;
+  if (parsed.errors.length) message += `\n\n${i18n.plural("MainWindow", "%n problem(s) in the file, those bullets are left out:", parsed.errors.length)}\n${parsed.errors.slice(0, 8).join("\n")}${parsed.errors.length > 8 ? "\n…" : ""}`;
   if (!fresh.length) {
     window.alert(message);
     status = `No bullets imported from ${file.name}`;
     render();
     return;
   }
-  if (!window.confirm(`${message}\n\nAdd them to your personal records?`)) return;
+  if (!window.confirm(`${message}\n\n${i18n.text("MainWindow", "Add them to your own records?")}`)) return;
   let added = 0;
   try {
     for (const bullet of fresh) { await ownDatabase.insert("projectile", bullet); ++added; }
     await refreshOwnDatabase();
     databaseSelections.projectile = undefined;
-    status = `${added} bullet(s) imported.`;
+    status = i18n.plural("MainWindow", "%n bullet(s) imported.", added);
   } catch (problem) {
     await refreshOwnDatabase();
-    status = `A bullet could not be stored after ${added} import(s): ${problem instanceof Error ? problem.message : String(problem)}`;
+    status = i18n.text("MainWindow", "A bullet could not be stored:\n%1", problem instanceof Error ? problem.message : String(problem));
   }
   render();
 }
@@ -1636,7 +1654,7 @@ async function importChronographFile(load: LoadFile, file: File): Promise<void> 
     openChronographImportDialog(load, readChronograph(await file.arrayBuffer()), file.name);
   } catch (problem) {
     const detail = problem instanceof Error ? problem.message : String(problem);
-    status = `${file.name} cannot be imported: ${detail}`;
+    status = i18n.text("MeasurementView", "%1 cannot be imported: %2", file.name, detail);
     render();
     window.alert(status);
   }
