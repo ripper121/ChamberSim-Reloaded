@@ -29,6 +29,7 @@ import { LanguagePreference, type LanguageChoice } from "./lib/language";
 import { loadI18n } from "./lib/i18n";
 import { AppearancePreferences, defaultFontSize, maxFontSize, minFontSize, SolverPreferences } from "./lib/settings";
 import { BrowserSessionStore, SessionPreferences, type SessionSnapshot } from "./lib/session";
+import { AppLogger, BrowserPersistentLog, logLevelName, LogPreferences, type LogLevel } from "./lib/log";
 
 const appNode = document.querySelector<HTMLDivElement>("#app");
 if (!appNode) throw new Error("Application root is missing");
@@ -39,6 +40,9 @@ const languagePreference = new LanguagePreference(localStorage, navigator.langua
 document.documentElement.lang = languagePreference.active.replace("_", "-");
 const i18n = await loadI18n(languagePreference.active);
 setNumberLocale(i18n.locale);
+const logger = new AppLogger(new LogPreferences(localStorage), new BrowserPersistentLog());
+window.addEventListener("error", (event) => logger.error(event.message || "Unhandled browser error", "window"));
+window.addEventListener("unhandledrejection", (event) => logger.error(`Unhandled promise rejection: ${event.reason instanceof Error ? event.reason.message : String(event.reason)}`, "window"));
 
 const loads: LoadFile[] = [];
 const sessionEligibleLoads = new WeakSet<LoadFile>();
@@ -103,7 +107,7 @@ function sessionSnapshot(): SessionSnapshot {
 function persistSession(): void {
   if (!sessionReady) return;
   void sessionStore.store(sessionSnapshot()).catch((problem: unknown) => {
-    console.warn("Cannot store the browser session", problem);
+    logger.warn(`Cannot store the browser session: ${problem instanceof Error ? problem.message : String(problem)}`, "main.ts");
   });
 }
 
@@ -839,6 +843,7 @@ function downloadLoad(format: FileFormat): void {
     sessionEligibleLoads.add(load);
   }
   status = format === "reload" ? `Saved ${fileName}` : `Exported ${fileName}`;
+  logger.info(`${format === "reload" ? "Load saved" : "Load exported"}: ${fileName}`, "main.ts");
   render();
 }
 
@@ -903,6 +908,7 @@ function openDatabaseSettings(): void {
     <fieldset><legend>${escapeHtml(tr("Units"))}</legend><div class="settings-form-row"><label for="settings-unit-system">${escapeHtml(tr("Unit system:"))}</label><select id="settings-unit-system"><option value="original">${escapeHtml(unitName("original"))}</option><option value="metric">${escapeHtml(unitName("metric"))}</option><option value="imperial">${escapeHtml(unitName("imperial"))}</option></select><button type="button" data-reset-units title="${escapeHtml(tr("Forget the units chosen for single fields; every field follows the unit system again"))}">${escapeHtml(tr("Reset per-field units"))}</button></div></fieldset>
     <fieldset><legend>${escapeHtml(tr("Solver"))}</legend><div class="settings-form-row"><label for="settings-solver-profile">${escapeHtml(tr("Model:"))}</label><select id="settings-solver-profile"><option value="physical">${escapeHtml(profileName("physical"))}</option><option value="published">${escapeHtml(profileName("published"))}</option><option value="original">${escapeHtml(profileName("original"))}</option></select></div><p class="setting-note" data-solver-description></p><div class="settings-form-row"><span>${escapeHtml(tr("GRT files:"))}</span><label title="${escapeHtml(tr("A load whose file is a *.grtload of Gordon's Reloading Tool is simulated with GRT Original and the burn values in the file, whatever model is chosen above: the results are close to those of the original program. Loads saved as *.csrload use the chosen model."))}"><input type="checkbox" data-original-grt-model> ${escapeHtml(tr("Always use GRT Original for original GRT files (*.grtload)"))}</label></div></fieldset>
     <fieldset><legend>${escapeHtml(tr("Database"))}</legend><div class="database-setting-row"><span>${escapeHtml(tr("Original database:"))}</span><output data-original-name></output><button type="button" data-original-browse>${escapeHtml(tr("Browse"))}</button></div><p data-original-summary></p><p class="setting-note">${escapeHtml(tr("The decrypted database of Gordon's Reloading Tool. It is only read; new records go into the program's own database, and both appear as one database."))}</p><input type="file" accept=".db,.sqlite,application/vnd.sqlite3" data-original-file hidden><p class="record-error" role="alert"></p></fieldset>
+    <fieldset><legend>${escapeHtml(tr("Logging"))}</legend><div class="settings-form-row"><label for="settings-log-level">${escapeHtml(tr("Log level:"))}</label><select id="settings-log-level" title="${escapeHtml(tr("Messages of this level and above are logged: Debug (everything), Info, Warning, Error"))}">${(["debug", "info", "warning", "error", "off"] as const).map((level) => `<option value="${level}">${escapeHtml(level === "off" ? tr("Off") : logLevelName(level))}</option>`).join("")}</select></div><div class="settings-form-row"><span></span><label><input type="checkbox" data-log-console> ${escapeHtml(tr("Write to the console (stderr)"))}</label></div><div class="settings-form-row"><span></span><label><input type="checkbox" data-log-file> ${escapeHtml(tr("Write to the log file"))}</label><button type="button" data-open-log>${escapeHtml(tr("Open log file"))}</button></div><div class="settings-form-row"><span></span><small>Browser storage: ChamberSimReloaded.log; Open downloads a local copy.</small><button type="button" data-clear-log>${escapeHtml(tr("Clear log file"))}</button></div><div class="settings-form-row"><span></span><small>At 1 MB the current log rotates to ChamberSimReloaded.log.1.</small><button type="button" data-open-rotated-log disabled>Download .log.1</button></div></fieldset>
     <div class="dialog-buttons"><button type="button" data-original-remove>Remove imported copy</button><button type="submit">OK</button><button type="button" data-settings-close>${escapeHtml(tr("Close"))}</button></div></form>`;
   document.body.append(dialog);
   const name = dialog.querySelector<HTMLOutputElement>("[data-original-name]")!;
@@ -917,6 +923,12 @@ function openDatabaseSettings(): void {
   const unitSystem = dialog.querySelector<HTMLSelectElement>("#settings-unit-system")!;
   const solverProfile = dialog.querySelector<HTMLSelectElement>("#settings-solver-profile")!;
   const originalGrtModel = dialog.querySelector<HTMLInputElement>("[data-original-grt-model]")!;
+  const logLevel = dialog.querySelector<HTMLSelectElement>("#settings-log-level")!;
+  const logConsole = dialog.querySelector<HTMLInputElement>("[data-log-console]")!;
+  const logFile = dialog.querySelector<HTMLInputElement>("[data-log-file]")!;
+  const openLog = dialog.querySelector<HTMLButtonElement>("[data-open-log]")!;
+  const openRotatedLog = dialog.querySelector<HTMLButtonElement>("[data-open-rotated-log]")!;
+  const clearLog = dialog.querySelector<HTMLButtonElement>("[data-clear-log]")!;
   const solverDescription = dialog.querySelector<HTMLElement>("[data-solver-description]")!;
   fontSize.value = String(appearancePreferences.fontSize);
   roundedDialogs.checked = appearancePreferences.roundedDialogs;
@@ -924,6 +936,9 @@ function openDatabaseSettings(): void {
   unitSystem.value = unitPreferences.system;
   solverProfile.value = activeProfile;
   originalGrtModel.checked = solverPreferences.originalForGrtFiles;
+  logLevel.value = logger.config.level;
+  logConsole.checked = logger.config.console;
+  logFile.checked = logger.config.file;
   const updateSolverDescription = (): void => {
     const source = solverProfile.value === "physical"
       ? "Recommended. The program's own model of the burning powder and the bullet's travel, fitted to the powder makers' published loads and measured pressures: typically about 6 % off in peak pressure and 2.5 % in velocity (median against those tables). Most accurate for the 88 project powders that have their own burn values."
@@ -946,6 +961,29 @@ function openDatabaseSettings(): void {
   dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
   dialog.querySelector("[data-default-font]")?.addEventListener("click", () => { fontSize.value = String(defaultFontSize); });
   dialog.querySelector("[data-reset-units]")?.addEventListener("click", () => unitPreferences.resetFieldUnits());
+  const downloadLog = async (rotated: boolean): Promise<void> => {
+    try {
+      const text = rotated ? await logger.readRotated() : await logger.read();
+      const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+      const anchor = document.createElement("a");
+      anchor.href = url; anchor.download = `ChamberSimReloaded.log${rotated ? ".1" : ""}`; anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (problem) {
+      error.textContent = `Cannot read the browser log: ${problem instanceof Error ? problem.message : String(problem)}`;
+    }
+  };
+  openLog.addEventListener("click", () => { void downloadLog(false); });
+  openRotatedLog.addEventListener("click", () => { void downloadLog(true); });
+  clearLog.addEventListener("click", async () => {
+    try {
+      await logger.clear();
+      error.textContent = "The current and rotated browser logs were cleared.";
+      openRotatedLog.disabled = true;
+    } catch (problem) {
+      error.textContent = `Cannot clear the browser log: ${problem instanceof Error ? problem.message : String(problem)}`;
+    }
+  });
+  void logger.readRotated().then((text) => { if (dialog.isConnected) openRotatedLog.disabled = !text; }).catch(() => undefined);
   dialog.querySelector("form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     appearancePreferences.set(Number(fontSize.value), roundedDialogs.checked);
@@ -954,6 +992,8 @@ function openDatabaseSettings(): void {
     activeProfile = solverProfile.value as CalibrationProfile;
     solverPreferences.setProfile(activeProfile);
     solverPreferences.setOriginalForGrtFiles(originalGrtModel.checked);
+    logger.setConfig({ level: logLevel.value as LogLevel, console: logConsole.checked, file: logFile.checked });
+    logger.info(`Logging set to ${logLevelName(logger.config.level)} console ${logger.config.console} file ${logger.config.file}`, "main.ts");
     status = tr("Settings");
     close();
     render();
@@ -2232,8 +2272,10 @@ function bindEvents(): void {
         loads.push(load);
         activeTab = `load-${loads.length - 1}`;
         status = `Opened ${file.name}`;
+        logger.info(`Load opened: ${file.name}`, "main.ts");
       } catch (error) {
         status = `Cannot read ${file.name}: ${error instanceof Error ? error.message : String(error)}`;
+        logger.warn(status, "main.ts");
       }
     }
     render();
@@ -2331,17 +2373,22 @@ if (sessionPreferences.reopen) {
         sessionEligibleLoads.add(load);
         loads.push(load);
       } catch (problem) {
-        console.warn(`Cannot restore ${saved.fileName}`, problem);
+        logger.warn(`Cannot restore ${saved.fileName}: ${problem instanceof Error ? problem.message : String(problem)}`, "main.ts");
       }
     }
     if (snapshot && snapshot.current >= 0 && snapshot.current < loads.length) activeTab = `load-${snapshot.current}`;
-    if (loads.length) status = `Restored ${loads.length} load${loads.length === 1 ? "" : "s"} from the last session`;
+    if (loads.length) {
+      status = `Restored ${loads.length} load${loads.length === 1 ? "" : "s"} from the last session`;
+      logger.info(`Last session: reopened ${loads.length} load(s)`, "main.ts");
+    }
   } catch (problem) {
     status = `Cannot restore the last session: ${problem instanceof Error ? problem.message : String(problem)}`;
+    logger.warn(status, "main.ts");
   }
 }
 
 sessionReady = true;
+logger.info(`ChamberSim Reloaded ${packageInfo.version} started`, "main.ts");
 render();
 showDisclaimer();
 
@@ -2352,11 +2399,13 @@ void import("./lib/projectdb").then(async (database) => {
     if (status === "Loading project database…") status = databaseStatus();
   } catch (error) {
     ownDatabaseError = error instanceof Error ? error.message : String(error);
+    logger.error(`Cannot open the personal database: ${ownDatabaseError}`, "main.ts");
     if (status === "Loading project database…") status = `Personal database unavailable: ${ownDatabaseError}`;
   }
   render();
 }).catch((error: unknown) => {
   projectDatabaseError = error instanceof Error ? error.message : String(error);
+  logger.error(`Cannot load the project database: ${projectDatabaseError}`, "main.ts");
   if (status === "Loading project database…") status = `Cannot load project database: ${projectDatabaseError}`;
   render();
 });

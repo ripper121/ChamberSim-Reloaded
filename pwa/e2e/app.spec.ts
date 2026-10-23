@@ -1070,6 +1070,52 @@ test("optionally restores browser-held load copies, edits, order, and active tab
   await expect(page.getByRole("button", { name: /8x57is/ })).toHaveCount(0);
 });
 
+test("filters, persists, downloads, and clears the browser log", async ({ page }) => {
+  const consoleLines: string[] = [];
+  page.on("console", (message) => consoleLines.push(message.text()));
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.locator("#settings").click();
+  let settings = page.getByRole("dialog", { name: "Settings" });
+  const logging = settings.getByRole("group", { name: "Logging" });
+  await expect(logging.getByLabel("Log level:")).toHaveValue("warning");
+  await expect(logging.getByLabel("Write to the console (stderr)")).toBeChecked();
+  await expect(logging.getByLabel("Write to the log file")).not.toBeChecked();
+  await logging.getByLabel("Log level:").selectOption("debug");
+  await logging.getByLabel("Write to the log file").check();
+  await settings.getByRole("button", { name: "OK", exact: true }).click();
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await expect(page.getByText(`Opened ${referenceLoad.split(/[\\/]/).pop()}`)).toBeVisible();
+
+  await page.locator("#settings").click();
+  settings = page.getByRole("dialog", { name: "Settings" });
+  const firstDownload = page.waitForEvent("download");
+  await settings.getByRole("button", { name: "Open log file", exact: true }).click();
+  const firstPath = await (await firstDownload).path();
+  expect(firstPath).not.toBeNull();
+  const contents = readFileSync(firstPath!, "utf8");
+  expect(contents).toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} \[INFO \] main\.ts  Logging set to Debug console true file true/);
+  expect(contents).toContain("[INFO ] main.ts  Load opened: 223Rem_D0735_RWS.csrload");
+  expect(consoleLines.some((line) => line.includes("Logging set to Debug console true file true"))).toBe(true);
+
+  await settings.getByRole("button", { name: "Clear log file", exact: true }).click();
+  await expect(settings.getByText("The current and rotated browser logs were cleared.", { exact: true })).toBeVisible();
+  const emptyDownload = page.waitForEvent("download");
+  await settings.getByRole("button", { name: "Open log file", exact: true }).click();
+  const emptyPath = await (await emptyDownload).path();
+  expect(emptyPath).not.toBeNull();
+  expect(readFileSync(emptyPath!, "utf8")).toBe("");
+  await settings.locator("[data-settings-close]").click();
+
+  expect(await page.evaluate(() => localStorage.getItem("csr-log-level"))).toBe("debug");
+  expect(await page.evaluate(() => localStorage.getItem("csr-log-file"))).toBe("true");
+  await page.reload();
+  await page.locator("#settings").click();
+  settings = page.getByRole("dialog", { name: "Settings" });
+  await expect(settings.getByLabel("Log level:")).toHaveValue("debug");
+  await expect(settings.getByLabel("Write to the log file")).toBeChecked();
+});
+
 test("applies and persists font size and rounded-dialog appearance", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
@@ -1274,6 +1320,12 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(settings.getByText("Originaldatenbank:", { exact: true })).toBeVisible();
   await expect(settings.getByRole("button", { name: "Durchsuchen", exact: true })).toBeVisible();
   await expect(settings).toContainText("Die entschlüsselte Datenbank von Gordon's Reloading Tool.");
+  await expect(settings.getByRole("group", { name: "Protokollierung" })).toBeVisible();
+  await expect(settings.getByLabel("Protokollstufe:")).toContainText("Warning");
+  await expect(settings.getByLabel("In die Konsole schreiben (stderr)")).toBeChecked();
+  await expect(settings.getByLabel("In die Protokolldatei schreiben")).not.toBeChecked();
+  await expect(settings.getByRole("button", { name: "Protokolldatei öffnen", exact: true })).toBeVisible();
+  await expect(settings.getByRole("button", { name: "Protokolldatei leeren", exact: true })).toBeVisible();
   await settings.locator("[data-settings-close]").click();
   await page.locator("#new-load").click();
   const newLoad = page.getByRole("dialog", { name: "Neue Ladung" });
