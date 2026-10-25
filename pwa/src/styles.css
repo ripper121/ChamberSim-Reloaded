@@ -33,10 +33,15 @@ select { background: #202020; border: 1px solid #555; border-radius: 2px; paddin
 .menu-submenu > summary[aria-disabled="true"] { color: #858585; pointer-events: none; }
 .menu-submenu > .submenu-popup { top: -4px; left: 100%; }
 .file-menu > .menu-popup { min-width: 285px; }
-.about-dialog { width: min(680px, calc(100% - 32px)); max-height: calc(100% - 32px); }
-.about-layout { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; max-height: 70vh; overflow: auto; }
+.about-dialog { width: min(890px, calc(100% - 32px)); max-height: 85vh; }
+.about-dialog form { display: grid; grid-template-rows: minmax(0, 1fr) auto; max-height: calc(85vh - 2rem); }
+.about-layout { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; min-height: 0; overflow: auto; padding-right: 6px; }
 .about-layout img { width: 64px; height: 64px; }
 .about-layout h2 { margin-top: 0; }
+.about-content { min-width: 0; overflow-wrap: anywhere; }
+.about-content table { width: 100% !important; max-width: 100%; table-layout: fixed; border-collapse: collapse; }
+.about-content td { white-space: normal; overflow-wrap: anywhere; }
+.about-content a { color: #63b5e8; }
 .save-as-dialog { width: min(520px, calc(100% - 32px)); }
 .save-as-dialog label { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: center; }
 .tabs, .subtabs { display: flex; align-items: end; gap: 1px; background: #2c2c2c; border-bottom: 1px solid #4b4b4b; padding: 3px 4px 0; overflow-x: auto; }

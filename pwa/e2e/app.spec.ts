@@ -150,7 +150,23 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   await page.locator("#about").click();
   const about = page.getByRole("dialog", { name: "About ChamberSim Reloaded" });
   await expect(about).toContainText("Interior ballistics for handloaders");
-  await about.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(about).toContainText("Version 0.10");
+  await expect(about.getByRole("heading", { name: "Features" })).toBeVisible();
+  await expect(about.getByRole("heading", { name: "Accuracy" })).toBeVisible();
+  await expect(about.getByRole("heading", { name: "Disclaimer" })).toBeVisible();
+  await expect(about.getByRole("heading", { name: "Copyright and license" })).toBeVisible();
+  await expect(about).toContainText("no responsibility or liability");
+  await expect(about).toContainText("Project records: 484 calibers, 3,010 projectiles, 245 propellants");
+  await expect(about).toContainText("Original program's database: none chosen");
+  await expect(about.getByRole("link", { name: "GNU General Public License" })).toHaveAttribute("target", "_blank");
+  const aboutSize = await about.evaluate((element) => {
+    const scroller = element.querySelector<HTMLElement>(".about-layout")!;
+    return { width: element.getBoundingClientRect().width, scrollWidth: scroller.scrollWidth, clientWidth: scroller.clientWidth };
+  });
+  expect(aboutSize.width).toBeGreaterThanOrEqual(700);
+  expect(aboutSize.scrollWidth).toBeLessThanOrEqual(aboutSize.clientWidth);
+  if (process.env.PARITY_ABOUT_SCREENSHOT) await page.screenshot({ path: process.env.PARITY_ABOUT_SCREENSHOT });
+  await about.getByRole("button", { name: "OK", exact: true }).click();
 });
 
 test("sorts and filters the native burn-rate table and converts every unit group", async ({ page }) => {
@@ -476,6 +492,11 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
   await expect(settings.getByText("Original database imported.", { exact: true })).toBeVisible();
   await settings.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByText(/Database: 1062 calibers, 8669 projectiles, 928 propellants.*GordonsReloadingTool\.plain\.db/)).toBeVisible();
+  await openMenu(page, "Help");
+  await page.locator("#about").click();
+  const importedAbout = page.getByRole("dialog", { name: "About ChamberSim Reloaded" });
+  await expect(importedAbout).toContainText("Original program's database (GordonsReloadingTool.plain.db): 578 calibers, 5,659 projectiles, 683 propellants");
+  await importedAbout.getByRole("button", { name: "OK", exact: true }).click();
 
   await page.getByRole("tab", { name: "Propellants" }).click();
   await page.getByLabel("Filter all columns").fill("Original GRT original-photo");

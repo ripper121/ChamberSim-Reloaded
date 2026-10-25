@@ -49,13 +49,15 @@ export function parseQtCatalog(xml: string): Catalog {
 }
 
 function withoutMnemonic(value: string): string {
-  return value.replaceAll("&&", "\u0000").replace(/&(.)/gu, "$1").replaceAll("\u0000", "&");
+  return value.replaceAll("&&", "\u0000")
+    .replace(/&(?!#(?:\d+|x[\da-f]+);|[a-z][\da-z]+;)(.)/giu, "$1")
+    .replaceAll("\u0000", "&");
 }
 
 function substitute(value: string, args: readonly (string | number)[], n?: string | number): string {
   let result = value;
   args.forEach((arg, index) => { result = result.replaceAll(`%${index + 1}`, String(arg)); });
-  if (n !== undefined) result = result.replaceAll("%n", String(n));
+  if (n !== undefined) result = result.replaceAll("%Ln", String(n)).replaceAll("%n", String(n));
   return withoutMnemonic(result);
 }
 

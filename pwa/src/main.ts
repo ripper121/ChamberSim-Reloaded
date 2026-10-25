@@ -1,7 +1,7 @@
 import { registerSW } from "virtual:pwa-register";
 import "./styles.css";
-import packageInfo from "../package.json";
 import manualUrl from "../../docs/manual/manual.pdf?url";
+import { aboutHtml } from "./lib/about";
 import { parseLoadXml, readLoadFile, serializeLoadXml, type Entry, type FileFormat, type LoadFile, type MeasurementSeries } from "./lib/loadfile";
 import { LoadHistory, type LoadSection } from "./lib/loadedit";
 import shotPartData from "../../data/shotshell/parts.json";
@@ -612,7 +612,7 @@ function reportDataFor(load: LoadFile): ReportData {
     if (measurementMarkup) images["measurement.chart.png"] = reportSvg(measurementMarkup, "measurement-chart", 1100, 480);
   }
   return buildReportData(load, input, result, {
-    appVersion: packageInfo.version, fileName: load.fileName, measurement: result.status === "ok" ? measurement : undefined, measurementPredictions: reportPredictions,
+    appVersion: __CSR_VERSION__, fileName: load.fileName, measurement: result.status === "ok" ? measurement : undefined, measurementPredictions: reportPredictions,
     measurementChart: images["measurement.chart.png"], images,
     unitFor: (quantity) => unitPreferences.unitFor(quantity)
   });
@@ -908,7 +908,23 @@ function openAboutDialog(): void {
   const title = i18n.text("about", "About ChamberSim Reloaded");
   dialog.className = "about-dialog";
   dialog.setAttribute("aria-label", title);
-  dialog.innerHTML = `<form method="dialog"><div class="about-layout"><img src="${escapeHtml(`${import.meta.env.BASE_URL}chambersimreloaded-64.png`)}" alt=""><div><h2>ChamberSim Reloaded</h2><p><b>Version ${escapeHtml(packageInfo.version)}</b><br>Interior ballistics for handloaders</p><p>A Qt 6 re-creation of the workflow of Gordon's Reloading Tool. It is an independent project and is not affiliated with or supported by the original program or its author.</p><p>${escapeHtml(i18n.text("about", "Source code and issue tracker:"))} <a href="https://github.com/Schildkroet/ChamberSim-Reloaded" target="_blank" rel="noopener">github.com/Schildkroet/ChamberSim-Reloaded</a></p><h3>Safety</h3><p>The results are calculated and can differ considerably from reality. Compare every load with current manufacturer data and start low.</p><p><small>Project database: ${projectDatabase ? "484 calibers, 3,010 projectiles, 245 propellants" : "loading"}<br>Personal records: ${ownRecords.caliber.length} calibers, ${ownRecords.projectile.length} projectiles, ${ownRecords.propellant.length} propellants</small></p></div></div><div class="dialog-buttons"><button>${standardButton("Close")}</button></div></form>`;
+  const counts = (records: Record<ProjectTable, readonly unknown[]>): { caliber: number; projectile: number; propellant: number } => ({
+    caliber: records.caliber.length, projectile: records.projectile.length, propellant: records.propellant.length
+  });
+  const database = projectDatabase ? {
+    project: projectDatabase.projectCounts,
+    own: counts(ownRecords),
+    original: originalDatabaseInfo?.counts ?? counts(originalRecords),
+    originalFileName: originalDatabaseInfo?.fileName
+  } : undefined;
+  const html = aboutHtml(i18n, {
+    version: __CSR_VERSION__, buildDate: __CSR_BUILD_DATE__, platform: navigator.userAgent, language: languagePreference.active
+  }, database);
+  dialog.innerHTML = `<form method="dialog"><div class="about-layout"><img src="${escapeHtml(`${import.meta.env.BASE_URL}chambersimreloaded-64.png`)}" alt=""><div class="about-content">${html}</div></div><div class="dialog-buttons"><button>${standardButton("OK")}</button></div></form>`;
+  dialog.querySelectorAll<HTMLAnchorElement>("a[href]").forEach((anchor) => {
+    anchor.target = "_blank";
+    anchor.rel = "noopener";
+  });
   document.body.append(dialog);
   dialog.addEventListener("close", () => dialog.remove(), { once: true });
   dialog.showModal();
@@ -2528,7 +2544,7 @@ if (sessionPreferences.reopen) {
 }
 
 sessionReady = true;
-logger.info(`ChamberSim Reloaded ${packageInfo.version} started`, "main.ts");
+logger.info(`ChamberSim Reloaded ${__CSR_VERSION__} started`, "main.ts");
 render();
 showDisclaimer();
 
