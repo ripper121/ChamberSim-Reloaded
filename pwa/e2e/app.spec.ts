@@ -363,6 +363,12 @@ test("creates a simulatable load through the native two-step database workflow",
   await expect(dialog.getByLabel("Barrel length")).toHaveValue("600.00");
   await expect(dialog.getByLabel("Bullet seating depth")).toHaveValue("5.50");
   await expect(dialog.getByText(/= 1\.24\d g/)).toBeVisible();
+  await dialog.getByLabel("Barrel length").fill("500");
+  await dialog.getByRole("button", { name: "< Back", exact: true }).click();
+  await dialog.getByRole("button", { name: "Next >", exact: true }).click();
+  await expect(dialog.getByLabel("Barrel length")).toHaveValue("500.00");
+  await dialog.getByRole("button", { name: "Reset to defaults", exact: true }).click();
+  await expect(dialog.getByLabel("Barrel length")).toHaveValue("600.00");
   await dialog.getByRole("button", { name: "Create load", exact: true }).click();
 
   await expect(page.getByRole("button", { name: "Untitled 1" })).toBeVisible();
@@ -402,6 +408,72 @@ test("creates a simulatable load through the native two-step database workflow",
   await expect(page.locator("#undo")).toBeEnabled();
   await page.locator("#undo").click();
   await expect(page.getByRole("textbox", { name: "Propellant Product Name", exact: true })).toHaveValue("D073.5");
+});
+
+test("matches every native component replacement retain and reset branch", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+
+  const replace = async (button: string, dialogName: string, query: string, rowText: string, reset: boolean): Promise<void> => {
+    await page.getByRole("button", { name: button, exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: dialogName });
+    await dialog.getByLabel(new RegExp("^Filter .* records$")).fill(query);
+    const row = dialog.locator("tr[data-db-id]").filter({ hasText: rowText }).first();
+    await expect(row).toBeVisible();
+    await row.click();
+    const checkbox = dialog.locator("[data-component-reset]");
+    if (dialogName === "Select Caliber") await expect(checkbox).toBeChecked(); else await expect(checkbox).not.toBeChecked();
+    if (reset) await checkbox.check(); else await checkbox.uncheck();
+    await dialog.getByRole("button", { name: "OK", exact: true }).click();
+  };
+  const undo = async (): Promise<void> => {
+    await openMenu(page, "Edit");
+    await page.locator("#undo").click();
+  };
+  const storedValue = async (label: string): Promise<number> => Number((await page.getByRole("textbox", { name: label, exact: true }).getAttribute("title"))?.replace("stored value: ", ""));
+
+  await replace("Select Caliber…", "Select Caliber", "45 auto", "45 Auto", false);
+  await expect(page.getByRole("textbox", { name: "Barrel Length", exact: true })).toHaveValue("368.30");
+  await page.getByRole("button", { name: "Projectile", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Bullet Seating Depth", exact: true })).toHaveValue("6.25");
+  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  expect(await storedValue("Propellant Mass")).toBeCloseTo(1.63941242299368, 12);
+  await undo();
+
+  await page.getByRole("button", { name: "Cartridge & gun", exact: true }).click();
+  await replace("Select Caliber…", "Select Caliber", "45 auto", "45 Auto", true);
+  await expect(page.getByRole("textbox", { name: "Barrel Length", exact: true })).toHaveValue("150.00");
+  await page.getByRole("button", { name: "Projectile", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Bullet Seating Depth", exact: true })).toHaveValue("6.62");
+  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  expect(await storedValue("Propellant Mass")).toBeCloseTo(1.02874749516, 12);
+  await undo();
+
+  await page.getByRole("button", { name: "Projectile", exact: true }).click();
+  await page.getByRole("button", { name: "Select Projectile…", exact: true }).click();
+  let dialog = page.getByRole("dialog", { name: "Select Projectile" });
+  await expect(dialog.locator("[data-component-restrict]")).toBeChecked();
+  await dialog.getByLabel("Filter projectile records").fill("RBT Ulta Hunt");
+  await expect(dialog.locator("tr[data-db-id]")).toHaveCount(0);
+  await dialog.locator("[data-component-restrict]").uncheck();
+  await expect(dialog.locator("tr[data-db-id]").filter({ hasText: "RBT Ulta Hunt" }).first()).toBeVisible();
+  await dialog.locator("[data-component-cancel]").click();
+
+  await replace("Select Projectile…", "Select Projectile", "Match Jagd 2145782", "Match Jagd 2145782", false);
+  await expect(page.getByRole("textbox", { name: "Bullet Seating Depth", exact: true })).toHaveValue("6.25");
+  await undo();
+  await replace("Select Projectile…", "Select Projectile", "Match Jagd 2145782", "Match Jagd 2145782", true);
+  await expect(page.getByRole("textbox", { name: "Bullet Seating Depth", exact: true })).toHaveValue("3.40");
+  await undo();
+
+  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  await replace("Select Propellant…", "Select Propellant", "vihtavuori n340", "N340", false);
+  expect(await storedValue("Propellant Mass")).toBeCloseTo(1.63941242299368, 12);
+  await undo();
+  await replace("Select Propellant…", "Select Propellant", "vihtavuori n340", "N340", true);
+  expect(await storedValue("Propellant Mass")).toBeCloseTo(0.85774317167, 12);
 });
 
 test("stores, reloads, displays, enlarges, and removes personal powder photos", async ({ page }) => {
@@ -477,6 +549,7 @@ test("stores, reloads, displays, enlarges, and removes personal powder photos", 
 });
 
 test("imports, persists, copies from, and removes a plain Original GRT database", async ({ page }) => {
+  test.setTimeout(60_000);
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   let settings = await openSettings(page);

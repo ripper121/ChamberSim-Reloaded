@@ -41,22 +41,39 @@ describe("native load builder", () => {
   });
 
   it("replaces components while retaining or resetting the native dependent values", () => {
-    const load = buildLoad(caliber, projectile, propellant, { chargeG: 2.7, barrelLengthMm: 650, seatingDepthMm: 9, powderTemperatureC: 15 });
     const otherProjectile = projectRecords.projectile.find((record) => record.id !== projectile.id && Math.abs(Number(record.gdia) - Number(projectile.gdia)) < 0.1)!;
     const otherPropellant = projectRecords.propellant.find((record) => record.pname === "N340")!;
     const auto45 = projectRecords.caliber.find((record) => record.cipname === "45 Auto")!;
-    const value = (section: "caliber" | "gun" | "projectile" | "propellant", name: string): string => load[section].find((item) => item.name === name)?.value ?? "";
+    const fresh = () => buildLoad(caliber, projectile, propellant, { chargeG: 2.7, barrelLengthMm: 650, seatingDepthMm: 9, powderTemperatureC: 15 });
+    const value = (load: ReturnType<typeof fresh>, section: "caliber" | "gun" | "projectile" | "propellant", name: string): string => load[section].find((item) => item.name === name)?.value ?? "";
 
-    applyPropellant(load, otherPropellant);
-    expect(value("propellant", "pname")).toBe("N340");
-    expect(Number(value("propellant", "mc"))).toBe(2.7);
-    expect(Number(value("propellant", "pt"))).toBe(15);
-    applyProjectile(load, otherProjectile);
-    expect(Number(value("projectile", "gdepth"))).toBe(9);
-    expect(Number(value("caliber", "oal"))).toBeCloseTo(57 + Number(otherProjectile.glen) - 9, 12);
-    applyCaliber(load, auto45, true);
-    expect(Number(value("gun", "xe"))).toBe(150);
-    expect(Number(value("projectile", "gdepth"))).toBeCloseTo(defaultSeatingDepthMm(auto45, Object.fromEntries(load.projectile.map((item) => [item.name, item.value]))), 12);
-    expect(Number(value("propellant", "mc"))).toBeCloseTo(defaultChargeG(auto45, Object.fromEntries(load.propellant.map((item) => [item.name, item.value]))), 12);
+    const powderKept = fresh();
+    applyPropellant(powderKept, otherPropellant);
+    expect(value(powderKept, "propellant", "pname")).toBe("N340");
+    expect(Number(value(powderKept, "propellant", "mc"))).toBe(2.7);
+    expect(Number(value(powderKept, "propellant", "pt"))).toBe(15);
+    const powderReset = fresh();
+    applyPropellant(powderReset, otherPropellant, true);
+    expect(Number(value(powderReset, "propellant", "mc"))).toBeCloseTo(defaultChargeG(caliber, otherPropellant), 12);
+    expect(Number(value(powderReset, "propellant", "pt"))).toBe(15);
+
+    const projectileKept = fresh();
+    applyProjectile(projectileKept, otherProjectile);
+    expect(Number(value(projectileKept, "projectile", "gdepth"))).toBe(9);
+    expect(Number(value(projectileKept, "caliber", "oal"))).toBeCloseTo(57 + Number(otherProjectile.glen) - 9, 12);
+    const projectileReset = fresh();
+    applyProjectile(projectileReset, otherProjectile, true);
+    expect(Number(value(projectileReset, "projectile", "gdepth"))).toBeCloseTo(defaultSeatingDepthMm(caliber, otherProjectile), 12);
+
+    const caliberKept = fresh();
+    applyCaliber(caliberKept, auto45);
+    expect(Number(value(caliberKept, "gun", "xe"))).toBe(650);
+    expect(Number(value(caliberKept, "projectile", "gdepth"))).toBe(9);
+    expect(Number(value(caliberKept, "propellant", "mc"))).toBe(2.7);
+    const caliberReset = fresh();
+    applyCaliber(caliberReset, auto45, true);
+    expect(Number(value(caliberReset, "gun", "xe"))).toBe(150);
+    expect(Number(value(caliberReset, "projectile", "gdepth"))).toBeCloseTo(defaultSeatingDepthMm(auto45, Object.fromEntries(caliberReset.projectile.map((item) => [item.name, item.value]))), 12);
+    expect(Number(value(caliberReset, "propellant", "mc"))).toBeCloseTo(defaultChargeG(auto45, Object.fromEntries(caliberReset.propellant.map((item) => [item.name, item.value]))), 12);
   });
 });
