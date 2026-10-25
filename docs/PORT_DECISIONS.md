@@ -1,6 +1,6 @@
 # PWA Port Decisions
 
-Last updated: 2026-10-23
+Last updated: 2026-10-25
 
 ## D-001 — Keep the PWA isolated under `pwa/`
 
@@ -233,3 +233,9 @@ Last updated: 2026-10-23
 **Decision:** Keep ChamberSim application wording sourced from the repository's `ChamberSimReloaded_<locale>` catalogs, but centralize OK, Save, Close, Cancel and Apply using the exact Qt 6.5.3 `QPlatformTheme` translations for German, French and Italian. Treat browser-owned update/session/print statuses and ARIA descriptions as explicit PWA wording when no desktop-catalog source exists.
 
 **Rationale:** `src/app/translation.cpp` installs both the application translator and a separate `qtbase_<locale>.qm` translator. The repository `.ts` files therefore correctly omit labels supplied by `QDialogButtonBox`; falling back to English in the PWA would not reproduce the released localized UI. Keeping the small platform map separate preserves that two-catalog ownership model and avoids falsely attributing browser-only accessibility or service-worker text to the desktop application.
+
+## D-038 — Preserve the native menu hierarchy and expose browser constraints in place
+
+**Decision:** Reproduce `MainWindow::createActions` as the five top-level File, Edit, View, Tools and Help menus, including nested Theme/Language choices, action grouping, shortcuts and load/history-dependent enablement. Keep Save and Save as as explicit browser downloads, with Save as choosing between the two native formats. Bundle the native PDF manual for Help/F1. Represent Open recent and Quit in their native positions but disable them with truthful browser-limitation explanations; retain Sync as the one PWA-owned control at the right edge.
+
+**Rationale:** Flat Save/Undo/reference buttons and title-bar unit selectors changed both the visible desktop workflow and menu semantics. The browser can reproduce the hierarchy and most actions directly, but ordinary file selection does not expose reusable local paths and a document cannot reliably close its browser-owned window. Keeping those two actions visible and disabled makes the deviation auditable without inventing authority, while the existing Start-up snapshot option provides the secure browser equivalent for session restoration.
