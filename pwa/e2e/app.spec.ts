@@ -468,10 +468,13 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
   await settings.locator("[data-original-file]").setInputFiles({
     name: "GordonsReloadingTool.plain.db", mimeType: "application/vnd.sqlite3", buffer: await originalDatabaseFixture(true)
   });
-  await expect(settings.getByText("Original database imported.", { exact: true })).toBeVisible();
+  await expect(settings.getByText("Original database ready to apply.", { exact: true })).toBeVisible();
   await expect(settings.getByText("578 calibers, 5659 projectiles, 683 propellants. New records are stored in the Personal database.", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Database: 484 calibers, 3010 projectiles, 245 propellants.*no original database/)).toBeVisible();
   if (process.env.PARITY_ORIGINAL_SCREENSHOT) await page.screenshot({ path: process.env.PARITY_ORIGINAL_SCREENSHOT });
-  await settings.getByRole("button", { name: "Close", exact: true }).click();
+  await settings.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(settings.getByText("Original database imported.", { exact: true })).toBeVisible();
+  await settings.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByText(/Database: 1062 calibers, 8669 projectiles, 928 propellants.*GordonsReloadingTool\.plain\.db/)).toBeVisible();
 
   await page.getByRole("tab", { name: "Propellants" }).click();
@@ -501,8 +504,15 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
   await expect(settings.getByRole("alert")).toContainText("not a readable plain Original GRT SQLite database");
   await expect(settings.getByText("GordonsReloadingTool.plain.db", { exact: true })).toBeVisible();
   await settings.getByRole("button", { name: "Remove imported copy", exact: true }).click();
+  await expect(settings.getByText("Original database removal ready to apply.", { exact: true })).toBeVisible();
+  await settings.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("cell", { name: "Original GRT", exact: true })).toBeVisible();
+  settings = await openSettings(page);
+  await expect(settings.getByText("GordonsReloadingTool.plain.db", { exact: true })).toBeVisible();
+  await settings.getByRole("button", { name: "Remove imported copy", exact: true }).click();
+  await settings.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(settings.getByText("The browser's imported copy was removed. The original file was not changed.", { exact: true })).toBeVisible();
-  await settings.getByRole("button", { name: "Close", exact: true }).click();
+  await settings.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByText(/Database: 484 calibers, 3010 projectiles, 246 propellants.*no original database/)).toBeVisible();
 
   await page.reload();
@@ -528,7 +538,7 @@ test("opens the release CSR load and exposes its native panels", async ({ page }
   await expect(page.getByText("Case Volume", { exact: true })).toBeVisible();
   const settings = await openSettings(page);
   await expect(settings.locator("#settings-unit-system")).toHaveValue("original");
-  await settings.locator("[data-settings-close]").click();
+  await settings.locator("[data-settings-cancel]").click();
   await expect(page.getByLabel("Case Volume unit")).toHaveValue("grh2o");
   await expect(page.getByRole("textbox", { name: "Case Volume", exact: true })).toHaveValue("30.34");
   await expect(page.getByRole("img", { name: "Loaded cartridge technical drawing" })).toBeVisible();
@@ -1115,7 +1125,7 @@ test("persists unit systems and per-field overrides without dirtying the load", 
   await page.reload();
   let settings = await openSettings(page);
   await expect(settings.locator("#settings-unit-system")).toHaveValue("metric");
-  await settings.locator("[data-settings-close]").click();
+  await settings.locator("[data-settings-cancel]").click();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await expect(page.getByLabel("Case Length unit")).toHaveValue("cm");
   settings = await openSettings(page);
@@ -1168,7 +1178,7 @@ test("persists solver settings and applies the original-file override", async ({
   settings = await openSettings(page);
   await expect(settings.locator("#settings-solver-profile")).toHaveValue("published");
   await expect(settings.locator("[data-original-grt-model]")).toBeChecked();
-  await settings.locator("[data-settings-close]").click();
+  await settings.locator("[data-settings-cancel]").click();
   await page.locator("#file-picker").setInputFiles(originalLoad);
   await expect(page.locator("#solver-profile")).toHaveValue("published");
   await expect(page.getByText(/Model: GRT Original \(original GRT file, see Settings > Solver\)/)).toBeVisible();
@@ -1257,7 +1267,7 @@ test("filters, persists, downloads, and clears the browser log", async ({ page }
   const emptyPath = await (await emptyDownload).path();
   expect(emptyPath).not.toBeNull();
   expect(readFileSync(emptyPath!, "utf8")).toBe("");
-  await settings.locator("[data-settings-close]").click();
+  await settings.locator("[data-settings-cancel]").click();
 
   expect(await page.evaluate(() => localStorage.getItem("csr-log-level"))).toBe("debug");
   expect(await page.evaluate(() => localStorage.getItem("csr-log-file"))).toBe("true");
@@ -1291,8 +1301,45 @@ test("applies and persists font size and rounded-dialog appearance", async ({ pa
   await expect(settings.getByLabel("Rounded Dialog Corners:")).not.toBeChecked();
   await settings.getByRole("button", { name: "Default (10 pt)", exact: true }).click();
   await expect(settings.getByLabel("Font size:")).toHaveValue("10");
-  await settings.locator("[data-settings-close]").click();
+  await settings.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(settings).toBeVisible();
+  await expect.poll(() => page.locator("html").evaluate((root) => getComputedStyle(root).fontSize)).toBe("13px");
+  await settings.locator("[data-settings-cancel]").click();
+  await expect.poll(() => page.locator("html").evaluate((root) => getComputedStyle(root).fontSize)).toBe("18.2px");
   expect(await page.evaluate(() => localStorage.getItem("csr-ui-font-size"))).toBe("14");
+});
+
+test("matches native Settings Apply and asymmetric Cancel rollback", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  const settings = await openSettings(page);
+  await settings.getByLabel("Font size:").fill("14");
+  await settings.getByLabel("Rounded Dialog Corners:").uncheck();
+  await settings.getByLabel("Open the loads of the last session at start").check();
+  await settings.locator("#settings-unit-system").selectOption("metric");
+  await settings.locator("#settings-solver-profile").selectOption("published");
+  await settings.locator("[data-original-grt-model]").check();
+  await settings.getByLabel("Log level:").selectOption("debug");
+  await settings.getByLabel("Write to the log file").check();
+  await settings.getByRole("button", { name: "Apply", exact: true }).click();
+
+  await expect(settings).toBeVisible();
+  await expect.poll(() => page.locator("html").evaluate((root) => getComputedStyle(root).fontSize)).toBe("18.2px");
+  expect(await page.evaluate(() => ({
+    reopen: localStorage.getItem("csr-session-reopen"), units: localStorage.getItem("csr-units-system"),
+    solver: localStorage.getItem("csr-solver-profile"), grt: localStorage.getItem("csr-solver-original-for-grt-files"),
+    log: localStorage.getItem("csr-log-level"), logFile: localStorage.getItem("csr-log-file")
+  }))).toEqual({ reopen: "true", units: "metric", solver: "published", grt: "true", log: "debug", logFile: "true" });
+
+  await settings.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(settings).toHaveCount(0);
+  await expect.poll(() => page.locator("html").evaluate((root) => getComputedStyle(root).fontSize)).toBe("13px");
+  expect(await page.evaluate(() => ({
+    font: localStorage.getItem("csr-ui-font-size"), rounded: localStorage.getItem("csr-ui-rounded-dialogs"),
+    reopen: localStorage.getItem("csr-session-reopen"), units: localStorage.getItem("csr-units-system"),
+    solver: localStorage.getItem("csr-solver-profile"), grt: localStorage.getItem("csr-solver-original-for-grt-files"),
+    log: localStorage.getItem("csr-log-level"), logFile: localStorage.getItem("csr-log-file")
+  }))).toEqual({ font: null, rounded: null, reopen: null, units: "original", solver: "published", grt: "true", log: null, logFile: null });
 });
 
 test("keeps both load panes reachable at a narrow viewport", async ({ page }) => {
@@ -1357,6 +1404,8 @@ test("serves a valid manifest and reloads the app shell offline", async ({ page,
   await settings.locator("[data-original-file]").setInputFiles({
     name: "offline.plain.db", mimeType: "application/vnd.sqlite3", buffer: await originalDatabaseFixture()
   });
+  await expect(settings.getByText("Original database ready to apply.", { exact: true })).toBeVisible();
+  await settings.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(settings.getByText("Original database imported.", { exact: true })).toBeVisible();
   await context.setOffline(false);
 });
@@ -1476,8 +1525,9 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(settings.getByLabel("In die Protokolldatei schreiben")).not.toBeChecked();
   await expect(settings.getByRole("button", { name: "Protokolldatei öffnen", exact: true })).toBeVisible();
   await expect(settings.getByRole("button", { name: "Protokolldatei leeren", exact: true })).toBeVisible();
-  await expect(settings.locator("[data-settings-close]")).toHaveText("Schließen");
-  await settings.locator("[data-settings-close]").click();
+  await expect(settings.locator("[data-settings-apply]")).toHaveText("Anwenden");
+  await expect(settings.locator("[data-settings-cancel]")).toHaveText("Abbrechen");
+  await settings.locator("[data-settings-cancel]").click();
   await page.locator("#new-load").click();
   const newLoad = page.getByRole("dialog", { name: "Neue Ladung" });
   await expect(newLoad.getByRole("tab", { name: "1. Kaliber", exact: true })).toBeVisible();
@@ -1619,7 +1669,7 @@ test("renders representative French and Italian database and load surfaces", asy
     await expect(settings.getByRole("group", { name: sample.units })).toBeVisible();
     await expect(settings.locator("#settings-unit-system")).toContainText(sample.metric);
     await expect(settings.locator("[data-reset-units]")).toHaveText(sample.resetUnits);
-    await settings.locator("[data-settings-close]").click();
+    await settings.locator("[data-settings-cancel]").click();
     await expect(page.locator("#edit-record")).toHaveAttribute("title", sample.changeRecord);
     await sourceCell.click();
     await expect(page.locator("#edit-record")).toHaveAttribute("title", sample.lockedRecord);

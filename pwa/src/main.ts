@@ -13,7 +13,7 @@ import { OwnDatabase, projectValidationProblems, recordFileName, recordJson, rec
 import { readBulletFile, sameBullet } from "./lib/bulletfile";
 import { applyCaliber, applyProjectile, applyPropellant, buildLoad, defaultBarrelLengthMm, defaultChargeG, defaultSeatingDepthMm } from "./lib/loadbuilder";
 import { preparePhoto, scaleBarMm, type StoredImage } from "./lib/photos";
-import type { OriginalDatabaseInfo } from "./lib/originaldb";
+import type { OriginalDatabaseImport, OriginalDatabaseInfo } from "./lib/originaldb";
 import { technicalDrawingView } from "./lib/drawingview";
 import { buildReportData } from "./lib/reportdata";
 import { defaultReportTemplate, renderReport, reportImage, reportUnitForSystem, type ReportData, type ReportValue } from "./lib/report";
@@ -981,7 +981,7 @@ function openDatabaseSettings(): void {
     <fieldset><legend>${escapeHtml(tr("Solver"))}</legend><div class="settings-form-row"><label for="settings-solver-profile">${escapeHtml(tr("Model:"))}</label><select id="settings-solver-profile"><option value="physical">${escapeHtml(profileName("physical"))}</option><option value="published">${escapeHtml(profileName("published"))}</option><option value="original">${escapeHtml(profileName("original"))}</option></select></div><p class="setting-note" data-solver-description></p><div class="settings-form-row"><span>${escapeHtml(tr("GRT files:"))}</span><label title="${escapeHtml(tr("A load whose file is a *.grtload of Gordon's Reloading Tool is simulated with GRT Original and the burn values in the file, whatever model is chosen above: the results are close to those of the original program. Loads saved as *.csrload use the chosen model."))}"><input type="checkbox" data-original-grt-model> ${escapeHtml(tr("Always use GRT Original for original GRT files (*.grtload)"))}</label></div></fieldset>
     <fieldset><legend>${escapeHtml(tr("Database"))}</legend><div class="database-setting-row"><span>${escapeHtml(tr("Original database:"))}</span><output data-original-name></output><button type="button" data-original-browse>${escapeHtml(tr("Browse"))}</button></div><p data-original-summary></p><p class="setting-note">${escapeHtml(tr("The decrypted database of Gordon's Reloading Tool. It is only read; new records go into the program's own database, and both appear as one database."))}</p><input type="file" accept=".db,.sqlite,application/vnd.sqlite3" data-original-file hidden><p class="record-error" role="alert"></p></fieldset>
     <fieldset><legend>${escapeHtml(tr("Logging"))}</legend><div class="settings-form-row"><label for="settings-log-level">${escapeHtml(tr("Log level:"))}</label><select id="settings-log-level" title="${escapeHtml(tr("Messages of this level and above are logged: Debug (everything), Info, Warning, Error"))}">${(["debug", "info", "warning", "error", "off"] as const).map((level) => `<option value="${level}">${escapeHtml(level === "off" ? tr("Off") : logLevelName(level))}</option>`).join("")}</select></div><div class="settings-form-row"><span></span><label><input type="checkbox" data-log-console> ${escapeHtml(tr("Write to the console (stderr)"))}</label></div><div class="settings-form-row"><span></span><label><input type="checkbox" data-log-file> ${escapeHtml(tr("Write to the log file"))}</label><button type="button" data-open-log>${escapeHtml(tr("Open log file"))}</button></div><div class="settings-form-row"><span></span><small>Browser storage: ChamberSimReloaded.log; Open downloads a local copy.</small><button type="button" data-clear-log>${escapeHtml(tr("Clear log file"))}</button></div><div class="settings-form-row"><span></span><small>At 1 MB the current log rotates to ChamberSimReloaded.log.1.</small><button type="button" data-open-rotated-log disabled>Download .log.1</button></div></fieldset>
-    <div class="dialog-buttons"><button type="button" data-original-remove>Remove imported copy</button><button type="submit">${standardButton("OK")}</button><button type="button" data-settings-close>${standardButton("Close")}</button></div></form>`;
+    <div class="dialog-buttons"><button type="button" data-original-remove>Remove imported copy</button><button type="submit">${standardButton("OK")}</button><button type="button" data-settings-apply>${standardButton("Apply")}</button><button type="button" data-settings-cancel>${standardButton("Cancel")}</button></div></form>`;
   document.body.append(dialog);
   const name = dialog.querySelector<HTMLOutputElement>("[data-original-name]")!;
   const summary = dialog.querySelector<HTMLElement>("[data-original-summary]")!;
@@ -1002,6 +1002,14 @@ function openDatabaseSettings(): void {
   const openRotatedLog = dialog.querySelector<HTMLButtonElement>("[data-open-rotated-log]")!;
   const clearLog = dialog.querySelector<HTMLButtonElement>("[data-clear-log]")!;
   const solverDescription = dialog.querySelector<HTMLElement>("[data-solver-description]")!;
+  const applyButton = dialog.querySelector<HTMLButtonElement>("[data-settings-apply]")!;
+  const cancelButton = dialog.querySelector<HTMLButtonElement>("[data-settings-cancel]")!;
+  const okButton = dialog.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+  const originalAppearance = { fontSize: appearancePreferences.fontSize, roundedDialogs: appearancePreferences.roundedDialogs };
+  const originalReopen = sessionPreferences.reopen;
+  const originalUnitSystem = unitPreferences.system;
+  const originalLogConfig = logger.config;
+  let pendingDatabase: { action: "replace"; imported: OriginalDatabaseImport } | { action: "remove" } | undefined;
   fontSize.value = String(appearancePreferences.fontSize);
   roundedDialogs.checked = appearancePreferences.roundedDialogs;
   reopenLoads.checked = sessionPreferences.reopen;
@@ -1022,15 +1030,25 @@ function openDatabaseSettings(): void {
   solverProfile.addEventListener("change", updateSolverDescription);
   updateSolverDescription();
   const update = (): void => {
-    name.textContent = originalDatabaseInfo?.fileName ?? "None chosen";
-    summary.textContent = originalDatabaseInfo
-      ? `${originalDatabaseInfo.counts.caliber} calibers, ${originalDatabaseInfo.counts.projectile} projectiles, ${originalDatabaseInfo.counts.propellant} propellants. New records are stored in the Personal database.`
+    const info = pendingDatabase?.action === "replace" ? pendingDatabase.imported.info
+      : pendingDatabase?.action === "remove" ? undefined : originalDatabaseInfo;
+    name.textContent = info?.fileName ?? "None chosen";
+    summary.textContent = info
+      ? `${info.counts.caliber} calibers, ${info.counts.projectile} projectiles, ${info.counts.propellant} propellants. New records are stored in the Personal database.`
       : "No original database. Project and Personal records remain available.";
-    remove.disabled = !originalDatabaseInfo;
+    remove.disabled = !info;
   };
   const close = (): void => { dialog.close(); dialog.remove(); };
-  dialog.querySelector("[data-settings-close]")?.addEventListener("click", close);
-  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  const cancel = (): void => {
+    appearancePreferences.set(originalAppearance.fontSize, originalAppearance.roundedDialogs);
+    sessionPreferences.setReopen(originalReopen);
+    unitPreferences.setSystem(originalUnitSystem);
+    logger.setConfig(originalLogConfig);
+    close();
+    render();
+  };
+  cancelButton.addEventListener("click", cancel);
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); cancel(); });
   dialog.querySelector("[data-default-font]")?.addEventListener("click", () => { fontSize.value = String(defaultFontSize); });
   dialog.querySelector("[data-reset-units]")?.addEventListener("click", () => unitPreferences.resetFieldUnits());
   const downloadLog = async (rotated: boolean): Promise<void> => {
@@ -1056,8 +1074,15 @@ function openDatabaseSettings(): void {
     }
   });
   void logger.readRotated().then((text) => { if (dialog.isConnected) openRotatedLog.disabled = !text; }).catch(() => undefined);
-  dialog.querySelector("form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
+  const setBusy = (busy: boolean): void => {
+    okButton.disabled = busy;
+    applyButton.disabled = busy;
+    cancelButton.disabled = busy;
+    browse.disabled = busy;
+    remove.disabled = busy || !(pendingDatabase?.action === "replace" ? pendingDatabase.imported.info : pendingDatabase?.action === "remove" ? undefined : originalDatabaseInfo);
+  };
+  const apply = async (): Promise<boolean> => {
+    const databaseChanged = Boolean(pendingDatabase);
     appearancePreferences.set(Number(fontSize.value), roundedDialogs.checked);
     sessionPreferences.setReopen(reopenLoads.checked);
     unitPreferences.setSystem(unitSystem.value as UnitSystem);
@@ -1066,51 +1091,59 @@ function openDatabaseSettings(): void {
     solverPreferences.setOriginalForGrtFiles(originalGrtModel.checked);
     logger.setConfig({ level: logLevel.value as LogLevel, console: logConsole.checked, file: logFile.checked });
     logger.info(`Logging set to ${logLevelName(logger.config.level)} console ${logger.config.console} file ${logger.config.file}`, "main.ts");
-    status = tr("Settings");
-    close();
+    setBusy(true);
+    try {
+      if (pendingDatabase?.action === "replace") await ownDatabase.replaceOriginal(pendingDatabase.imported);
+      else if (pendingDatabase?.action === "remove") await ownDatabase.clearOriginal();
+      if (pendingDatabase) {
+        const removed = pendingDatabase.action === "remove";
+        imageCache.clear();
+        databaseSelections.caliber = undefined; databaseSelections.projectile = undefined; databaseSelections.propellant = undefined;
+        await refreshOwnDatabase();
+        pendingDatabase = undefined;
+        error.textContent = removed
+          ? "The browser's imported copy was removed. The original file was not changed."
+          : "Original database imported.";
+        update();
+      }
+    } catch (problem) {
+      error.textContent = problem instanceof Error ? problem.message : String(problem);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+    status = databaseChanged ? databaseStatus() : tr("Settings");
     render();
+    return true;
+  };
+  dialog.querySelector("form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void apply().then((applied) => { if (applied) close(); });
   });
+  applyButton.addEventListener("click", () => { void apply(); });
   browse.addEventListener("click", () => picker.click());
   picker.addEventListener("change", async () => {
     const file = picker.files?.[0];
     if (!file) return;
-    browse.disabled = true; remove.disabled = true; error.textContent = "Reading the databaseâ€¦";
+    browse.disabled = true; remove.disabled = true; error.textContent = "Reading the database…";
     try {
       const { readOriginalDatabase } = await import("./lib/originaldb");
       const imported = await readOriginalDatabase(file);
-      await ownDatabase.replaceOriginal(imported);
-      imageCache.clear();
-      databaseSelections.caliber = undefined; databaseSelections.projectile = undefined; databaseSelections.propellant = undefined;
-      await refreshOwnDatabase();
-      status = databaseStatus();
-      error.textContent = "Original database imported.";
+      pendingDatabase = { action: "replace", imported };
+      error.textContent = "Original database ready to apply.";
       update();
-      render();
     } catch (problem) {
       error.textContent = problem instanceof Error ? problem.message : String(problem);
     } finally {
       picker.value = "";
       browse.disabled = false;
-      remove.disabled = !originalDatabaseInfo;
+      update();
     }
   });
-  remove.addEventListener("click", async () => {
-    browse.disabled = true; remove.disabled = true; error.textContent = "Removing the imported copyâ€¦";
-    try {
-      await ownDatabase.clearOriginal();
-      imageCache.clear();
-      databaseSelections.caliber = undefined; databaseSelections.projectile = undefined; databaseSelections.propellant = undefined;
-      await refreshOwnDatabase();
-      status = databaseStatus();
-      error.textContent = "The browser's imported copy was removed. The original file was not changed.";
-      update();
-      render();
-    } catch (problem) {
-      error.textContent = problem instanceof Error ? problem.message : String(problem);
-    } finally {
-      browse.disabled = false;
-      remove.disabled = !originalDatabaseInfo;
-    }
+  remove.addEventListener("click", () => {
+    pendingDatabase = { action: "remove" };
+    error.textContent = "Original database removal ready to apply.";
+    update();
   });
   update();
   dialog.showModal();
