@@ -224,14 +224,13 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .vivacity-chart .marker { stroke: #90a0b0; stroke-width: 1; stroke-dasharray: 4 3; }
 .vivacity-chart .axis { stroke: #666; stroke-dasharray: none; }
 .vivacity-chart text { fill: #ddd; font-size: 10px; }
-.chart-legend { display: flex; justify-content: center; gap: 22px; padding: 3px; border-bottom: 1px solid #444; }
-.chart-legend span::before { content: ""; display: inline-block; width: 16px; height: 2px; margin: 0 6px 3px 0; background: currentColor; }
+.chart-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; padding: 4px; background: #202020; }
+.chart-legend span::before { content: ""; display: inline-block; width: 7px; height: 7px; margin: 0 5px 1px 0; background: currentColor; border: 1px solid #ddd; }
 .pressure-key { color: #e06a6a; }
 .permitted-key { color: #c060b0; }
 .energy-key { color: #3fc1b0; }
 .velocity-key { color: #7a86e8; }
-.reference-key { color: #bbb; }
-.chart-legend .reference-key::before { height: 2px; background: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 10px); }
+.reference-key { opacity: .67; }
 .output > .button-row { padding: 6px 8px; }
 .measurement-charge-scroll { border-block: 1px solid #444; }
 .measurement-table { width: max-content; min-width: 100%; font-variant-numeric: tabular-nums; }
@@ -474,7 +473,7 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 :root[data-theme="light"] .component-title,
 :root[data-theme="light"] .measurement-toolbar,
 :root[data-theme="light"] .report-toolbar,
-:root[data-theme="light"] .chart-legend { border-color: #aaa; }
+:root[data-theme="light"] .chart-legend { background: #fff; }
 :root[data-theme="light"] .component-title,
 :root[data-theme="light"] .results-placeholder h2 { color: #202020; }
 :root[data-theme="light"] .property-table input:hover,
@@ -504,6 +503,12 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 :root[data-theme="light"] .measurement-chart .axis-label,
 :root[data-theme="light"] .measurement-chart .axis-title,
 :root[data-theme="light"] .measurement-chart .measurement-legend { fill: #333; }
+:root[data-theme="light"] .axis-label.pressure,
+:root[data-theme="light"] .axis-title.pressure { fill: #e06a6a; }
+:root[data-theme="light"] .axis-label.energy,
+:root[data-theme="light"] .axis-title.energy { fill: #3fc1b0; }
+:root[data-theme="light"] .axis-label.velocity,
+:root[data-theme="light"] .axis-title.velocity { fill: #7a86e8; }
 :root[data-theme="light"] .cursor-dot { stroke: #fff; }
 :root[data-theme="light"] .chart-tooltip,
 :root[data-theme="light"] .measurement-chart-tooltip { color: #202020; background: rgb(255 255 255 / .96); border-color: #999; box-shadow: 0 3px 12px #0003; }

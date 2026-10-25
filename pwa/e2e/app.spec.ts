@@ -950,6 +950,23 @@ test("runs verified Physical and Original simulations in the results view", asyn
   const chart = page.getByRole("img", { name: "Pressure, energy and velocity over bullet travel" });
   const box = await chart.boundingBox();
   expect(box).not.toBeNull();
+  await expect(chart).toHaveAttribute("viewBox", "0 0 1000 320");
+  const plotWidthRatio = await chart.evaluate((svg) => {
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return 0;
+    const left = new DOMPoint(58, 0).matrixTransform(matrix).x;
+    const right = new DOMPoint(916, 0).matrixTransform(matrix).x;
+    return (right - left) / svg.getBoundingClientRect().width;
+  });
+  expect(plotWidthRatio).toBeGreaterThan(0.84);
+  await expect(page.locator(".axis-label.pressure").first()).toHaveCSS("fill", "rgb(224, 106, 106)");
+  await expect(page.locator(".axis-label.energy").first()).toHaveCSS("fill", "rgb(63, 193, 176)");
+  await expect(page.locator(".axis-label.velocity").first()).toHaveCSS("fill", "rgb(122, 134, 232)");
+  const legendMarker = page.locator(".chart-legend .pressure-key").first();
+  expect(Math.round((await legendMarker.evaluate((node) => {
+    const style = getComputedStyle(node, "::before");
+    return Number.parseFloat(style.width);
+  })))).toBe(7);
   await page.mouse.move(box!.x + box!.width * 0.5, box!.y + box!.height * 0.5);
   await expect(page.locator(".chart-tooltip")).toContainText("Burnt propellant:");
 
@@ -992,7 +1009,7 @@ test("overlays, warns about, switches axes for, and clears original reference re
   });
   await expect(page.getByText("Reference overlay: browser-reference.json (3 points)", { exact: true })).toBeVisible();
   await expect(page.locator(".reference-curve")).toHaveCount(3);
-  await expect(page.locator(".chart-legend")).toContainText("Original reference");
+  await expect(page.locator(".chart-legend .reference-key")).toHaveText(["Pressure (original)", "Energy (original)", "Velocity (original)"]);
   await expect(page.locator(".reference-comparison tbody tr")).toHaveCount(6);
   await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("3,000");
   await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("20.5 %");

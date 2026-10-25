@@ -263,3 +263,9 @@ Last updated: 2026-10-25
 **Decision:** Match `LoadView` by showing only the effective model as a status line in Results. The chosen global solver remains editable through File > Settings > Solver, including the original-GRT override; the Results axis selector keeps an accessible name without adding a visible label absent from the Qt toolbar.
 
 **Rationale:** The previous PWA toolbar duplicated Settings and displayed a file-source badge that the native Results view does not own. Removing both restores the source layout and avoids two competing controls for one global preference while preserving keyboard and screen-reader access to the native unlabeled axis combo.
+
+## D-043 — Scale Results chart geometry to the native wide pane
+
+**Decision:** Use a 1000×320 SVG coordinate system with source-like fixed gutters for the three value axes, and let the plot occupy the remaining wide Results pane. Keep seven X ticks, six aligned value ticks, independent nice-ceiling ranges and source colors. Render legend entries in native series-add order with compact Qt-like square markers, including one translated entry for each original-reference curve.
+
+**Rationale:** The previous 770×320 viewBox preserved its aspect ratio inside a roughly 3.1:1 pane, letterboxing the plot and wasting about one third of the available width. `QChart` lays out axis gutters around a plot that expands with its widget. The wider coordinate system reproduces that behavior without stretching text, retains invertible SVG coordinates for pointer interpolation, and makes report rendering use the same verified chart. Separate reference legend entries follow the actual `QLineSeries` names instead of inventing a generic browser-only label.
