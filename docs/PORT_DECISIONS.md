@@ -257,3 +257,9 @@ Last updated: 2026-10-25
 **Decision:** Render each native `PropertyPanel::Section` as a bold spanning row, keep the current component's source-defined name above the table, and use the native dense three-column geometry with 96 px Value and 60 px Unit defaults. Expose the Property and Value borders as accessible pointer/keyboard resize handles. Persist their two widths under one browser setting shared by every component tab; after user sizing, keep those widths fixed and let Unit absorb later panel growth. Double-click restores responsive defaults.
 
 **Rationale:** Flattening sections and repeating the load title erased the native hierarchy, while equal browser table distribution made values and units visually unlike the desktop reference. `PropertyPanel::rememberColumns("properties")` intentionally shares two user-selected widths across all three panels and leaves the final Unit column stretched. Matching that model preserves both the initial responsive layout and restart persistence. Native stored-value, unit-choice and shot-part member tooltips plus unknown coded values are retained so browser controls do not silently discard or disguise file information.
+
+## D-042 — Keep solver selection out of the Results toolbar
+
+**Decision:** Match `LoadView` by showing only the effective model as a status line in Results. The chosen global solver remains editable through File > Settings > Solver, including the original-GRT override; the Results axis selector keeps an accessible name without adding a visible label absent from the Qt toolbar.
+
+**Rationale:** The previous PWA toolbar duplicated Settings and displayed a file-source badge that the native Results view does not own. Removing both restores the source layout and avoids two competing controls for one global preference while preserving keyboard and screen-reader access to the native unlabeled axis combo.

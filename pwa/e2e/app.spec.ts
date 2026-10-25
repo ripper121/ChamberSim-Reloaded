@@ -29,6 +29,12 @@ async function setUnitSystem(page: Page, system: "metric" | "imperial" | "origin
   await settings.getByRole("button", { name: "OK", exact: true }).click();
 }
 
+async function setSolverProfile(page: Page, profile: "physical" | "published" | "original"): Promise<void> {
+  const settings = await openSettings(page);
+  await settings.locator("#settings-solver-profile").selectOption(profile);
+  await settings.getByRole("button", { name: "OK", exact: true }).click();
+}
+
 async function originalDatabaseFixture(fullSize = false): Promise<Buffer> {
   const wasmBinary = Uint8Array.from(readFileSync(resolve(pwaRoot, "node_modules/sql.js/dist/sql-wasm.wasm"))).buffer;
   const sql = await initSqlJs({ wasmBinary });
@@ -932,7 +938,13 @@ test("runs verified Physical and Original simulations in the results view", asyn
   await expect(page.getByText("3,614 bar", { exact: true })).toBeVisible();
   await expect(page.getByText("903.2 m/s", { exact: true })).toBeVisible();
   await expect(page.getByText("Model: Physical Model", { exact: true })).toBeVisible();
-  await expect(page.getByRole("img", { name: "Burn rate Ba times phi of z" })).toBeVisible();
+  await expect(page.locator("#solver-profile")).toHaveCount(0);
+  const vivacity = page.getByRole("img", { name: "Burn rate Ba times phi of z" });
+  await expect(vivacity).toBeVisible();
+  await expect(vivacity.locator(".vivacity-x-tick")).toHaveCount(6);
+  await expect(vivacity.locator(".vivacity-y-tick")).toHaveCount(5);
+  expect(Math.round((await vivacity.boundingBox())!.width)).toBe(260);
+  expect(await page.locator(".result-summary dd").first().evaluate((node) => getComputedStyle(node).fontWeight)).toBe("700");
   await expect(page.locator(".event-marker")).toHaveCount(4);
 
   const chart = page.getByRole("img", { name: "Pressure, energy and velocity over bullet travel" });
@@ -944,10 +956,10 @@ test("runs verified Physical and Original simulations in the results view", asyn
   await page.getByLabel("Horizontal axis").selectOption("position");
   await expect(page.locator(".axis-title").filter({ hasText: "Bullet base position [mm]" })).toBeVisible();
 
-  await page.getByLabel("Model").selectOption("original");
+  await setSolverProfile(page, "original");
   await expect(page.getByText("3,546 bar", { exact: true })).toBeVisible();
   await expect(page.getByText("872.6 m/s", { exact: true })).toBeVisible();
-  await expect(page.getByText("Using original simulation model", { exact: true })).toBeVisible();
+  await expect(page.getByText("Model: GRT Original", { exact: true })).toBeVisible();
 });
 
 test("overlays, warns about, switches axes for, and clears original reference results", async ({ page }) => {
@@ -1068,9 +1080,7 @@ test("shows native invalid, capacity, stuck-bullet, ladder, and overpressure sta
     await charge.fill(value);
     await charge.press("Tab");
   };
-  const selectProfile = async (profile: "physical" | "published" | "original"): Promise<void> => {
-    await page.locator("#solver-profile").selectOption(profile);
-  };
+  const selectProfile = async (profile: "physical" | "published" | "original"): Promise<void> => setSolverProfile(page, profile);
   const expectClearedSummary = async (): Promise<void> => {
     const values = page.locator(".result-summary dd");
     await expect(values).toHaveCount(14);
@@ -1297,7 +1307,7 @@ test("opens the original GRT format and identifies its source", async ({ page })
   await page.getByRole("button", { name: "I understand" }).click();
   await page.locator("#file-picker").setInputFiles(originalLoad);
   await expect(page.getByRole("button", { name: /8x57is/ })).toBeVisible();
-  await expect(page.getByText("Original GRT", { exact: true })).toBeVisible();
+  await expect(page.getByText("Model: Physical Model", { exact: true })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Barrel Length", exact: true })).toHaveValue("600.00");
   await page.getByRole("tab", { name: "Chamber", exact: true }).click();
   await expect(page.getByRole("img", { name: "Chamber section with loaded cartridge" })).toBeVisible();
@@ -1322,7 +1332,7 @@ test("persists solver settings and applies the original-file override", async ({
   await expect(settings.locator("[data-original-grt-model]")).toBeChecked();
   await settings.locator("[data-settings-cancel]").click();
   await page.locator("#file-picker").setInputFiles(originalLoad);
-  await expect(page.locator("#solver-profile")).toHaveValue("published");
+  await expect(page.locator("#solver-profile")).toHaveCount(0);
   await expect(page.getByText(/Model: GRT Original \(original GRT file, see Settings > Solver\)/)).toBeVisible();
 
   settings = await openSettings(page);
@@ -1363,7 +1373,7 @@ test("optionally restores browser-held load copies, edits, order, and active tab
   await page.reload();
   await expect(page.getByRole("button", { name: /223Rem_D0735_RWS/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /8x57is/ })).toHaveClass(/active/);
-  await expect(page.getByText("Original GRT", { exact: true })).toBeVisible();
+  await expect(page.getByText("Model: Physical Model", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /223Rem_D0735_RWS/ }).click();
   await expect(page.getByRole("textbox", { name: "Barrel Length", exact: true })).toHaveValue("511.00");
 
@@ -1708,7 +1718,6 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(page.getByRole("tab", { name: "Patronenlager", exact: true })).toBeVisible();
   await expect(page.getByText("Maximaldruck", { exact: true })).toBeVisible();
   await expect(page.getByText("Mündungsgeschwindigkeit", { exact: true })).toBeVisible();
-  await expect(page.locator("#solver-profile")).toContainText("Physikalisches Modell");
   await expect(page.getByText("Modell: Physikalisches Modell", { exact: true })).toBeVisible();
   await expect(page.locator("#chart-axis")).toContainText("Zeitachse");
   await expect(page.locator("#chart-axis")).toContainText("Wegachse");

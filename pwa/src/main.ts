@@ -428,11 +428,21 @@ function chartView(result: SimResult, otherResults: readonly SimResult[], input:
 function vivacityView(input: SimInput, profile: CalibrationProfile): string {
   const values = vivacityCurve(input, calibrationFor(profile));
   if (values.length === 0) return "";
-  const maximum = Math.max(...values) * 1.1;
-  const left = 36, right = 250, top = 26, bottom = 150;
+  const maximum = Math.max(Math.max(...values) * 1.1, 0.1);
+  const left = 36, right = 250, top = 26, bottom = 148;
   const path = values.map((value, index) => `${index === 0 ? "M" : "L"}${(left + index / (values.length - 1) * (right - left)).toFixed(2)} ${(bottom - value / maximum * (bottom - top)).toFixed(2)}`).join(" ");
-  const marker = (value: number): string => `<line x1="${left + value * (right - left)}" y1="${top}" x2="${left + value * (right - left)}" y2="${bottom}"/>`;
-  return `<svg class="vivacity-chart" viewBox="0 0 270 175" role="img" aria-label="Burn rate Ba times phi of z"><text x="135" y="15" text-anchor="middle">${escapeHtml(i18n.text("VivacityChart", "Burn rate Ba·φ(z)"))}</text><line class="axis" x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}"/><line class="axis" x1="${left}" y1="${top}" x2="${left}" y2="${bottom}"/>${marker(input.z1)}${marker(input.z2)}<path d="${path}"/><text x="143" y="170" text-anchor="middle">${escapeHtml(i18n.text("VivacityChart", "burnt propellant z"))}</text></svg>`;
+  const xTicks = Array.from({ length: 6 }, (_, index) => {
+    const value = index / 5;
+    const x = left + value * (right - left);
+    return `<line class="grid vivacity-x-grid" x1="${x}" y1="${top}" x2="${x}" y2="${bottom}"/><text class="tick vivacity-x-tick" x="${x}" y="160" text-anchor="middle">${escapeHtml(formatNumber(value, 1))}</text>`;
+  }).join("");
+  const yTicks = Array.from({ length: 5 }, (_, index) => {
+    const value = maximum * index / 4;
+    const y = bottom - index / 4 * (bottom - top);
+    return `<line class="grid vivacity-y-grid" x1="${left}" y1="${y}" x2="${right}" y2="${y}"/><text class="tick vivacity-y-tick" x="31" y="${y + 3}" text-anchor="end">${escapeHtml(formatNumber(value, 1))}</text>`;
+  }).join("");
+  const marker = (value: number): string => `<line class="marker" x1="${left + value * (right - left)}" y1="${top}" x2="${left + value * (right - left)}" y2="${bottom}"/>`;
+  return `<svg class="vivacity-chart" viewBox="0 0 270 180" role="img" aria-label="Burn rate Ba times phi of z"><text x="135" y="15" text-anchor="middle">${escapeHtml(i18n.text("VivacityChart", "Burn rate Ba·φ(z)"))}</text>${xTicks}${yTicks}<line class="axis" x1="${left}" y1="${bottom}" x2="${right}" y2="${bottom}"/><line class="axis" x1="${left}" y1="${top}" x2="${left}" y2="${bottom}"/>${marker(input.z1)}${marker(input.z2)}<path d="${path}"/><text x="143" y="175" text-anchor="middle">${escapeHtml(i18n.text("VivacityChart", "burnt propellant z"))}</text></svg>`;
 }
 
 function simulationFor(load: LoadFile): LadderResult[] {
@@ -483,7 +493,6 @@ function resultView(load: LoadFile): string {
   }
   const focus = clampInteger(ladderFocus.get(load) ?? 0, 0, ladder.length - 1);
   const focused = ladder[focus]!;
-  const sourceFormat = load.source === "reload" ? "ChamberSim Reloaded" : "Original GRT";
   const loadText = (source: string, ...args: readonly (string | number)[]): string => i18n.text("LoadView", source, ...args);
   const loadLabel = (source: string): string => escapeHtml(loadText(source));
   const profileNames: Record<CalibrationProfile, string> = {
@@ -491,8 +500,6 @@ function resultView(load: LoadFile): string {
     original: i18n.text("SolverPreferences", "GRT Original"),
     published: i18n.text("SolverPreferences", "GRT Tuned")
   };
-  const modelLabel = loadText("Model: %1", "").trim().replace(/:$/u, "");
-  const profile = `<label class="profile-choice">${escapeHtml(modelLabel)} <select id="solver-profile"><option value="physical" ${activeProfile === "physical" ? "selected" : ""}>${escapeHtml(profileNames.physical)}</option><option value="original" ${activeProfile === "original" ? "selected" : ""}>${escapeHtml(profileNames.original)}</option><option value="published" ${activeProfile === "published" ? "selected" : ""}>${escapeHtml(profileNames.published)}</option></select></label>`;
   const overrideNote = effectiveProfile !== activeProfile ? loadText(" (original GRT file, see Settings > Solver)") : "";
   const modelStatus = escapeHtml(loadText("Model: %1", profileNames[effectiveProfile]) + overrideNote);
   const result = focused.result;
@@ -517,10 +524,10 @@ function resultView(load: LoadFile): string {
   const dash = "—";
   const value = (html: string): string => resultOk ? html : dash;
   const summary = `<div class="result-summary"><dl><dt>${loadLabel("Maximum pressure")}</dt><dd class="${overpressure ? "overpressure-value" : ""}">${value(shown(result.maxPressureBar, "pressure"))}</dd><dt>${loadLabel("Muzzle pressure")}</dt><dd>${value(shown(result.muzzlePressureBar, "pressure"))}</dd><dt>${loadLabel("Projectile energy")}</dt><dd>${value(shown(result.muzzleEnergyJ, "energy"))}</dd><dt>${loadLabel("Muzzle velocity")}</dt><dd>${value(shown(result.muzzleVelocityMs, "velocity"))}</dd><dt>${loadLabel("Barrel time (BT)")}</dt><dd>${value(escapeHtml(loadText("%1 ms", formatNumber(result.muzzleTimeMs, 4))))}</dd></dl><dl><dt>${loadLabel("Burnout pressure")}</dt><dd>${value(result.burnoutInBarrel ? shown(result.burnoutPressureBar, "pressure") : loadLabel("not burnt out"))}</dd><dt>${loadLabel("Gas outflow velocity")}</dt><dd>${value(shown(gasVelocity, "velocity"))}</dd><dt>${loadLabel("Projectile speed")}</dt><dd>${value(result.muzzleRpm > 0 ? escapeHtml(loadText("%1 k/min", formatNumber(result.muzzleRpm / 1000, 1))) : dash)}</dd><dt>${loadLabel("Recoil energy")}</dt><dd>${value(result.recoilEnergyJ > 0 ? shown(result.recoilEnergyJ, "energy") : loadLabel("– (gun weight 0)"))}</dd><dt>${loadLabel("IPSC / MIP factor")}</dt><dd>${value(`${formatNumber(result.ipscFactor, 0)}, ${formatNumber(result.mipFactor, 0)}`)}</dd></dl><dl><dt>${loadLabel("Load ratio")}</dt><dd>${value(`${formatNumber(result.loadRatio * 100, 1)} %`)}</dd><dt>${loadLabel("Burnt propellant")}</dt><dd>${value(`${formatNumber(result.burntFraction * 100, 1)} %`)}</dd><dt>${loadLabel("Effective efficiency")}</dt><dd>${value(`${formatNumber(result.efficiency * 100, 1)} %`)}</dd><dt>${loadLabel("Heat / friction loss")}</dt><dd>${value(`${result.heatLossJ > 0 ? shown(result.heatLossJ, "energy") : dash}, ${shown(result.muzzleFrictionEnergyJ, "energy")}`)}</dd></dl></div>`;
-  const failure = resultOk ? "" : `<p class="simulation-failure">${resultStatus}</p>`;
-  return `<div class="result-view"${splitStyle("results")}><div class="result-toolbar">${profile}<span>${modelStatus}</span><span>${sourceFormat}</span></div>
-    <div class="result-top"><section>${resultHeading(load, input, focused.chargeG)}${failure}${overpressure}${burnNotice}${summary}${resultOk && reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>${loadLabel("Charge")}</th><th>${loadLabel("Max. pressure")}</th><th>${loadLabel("Velocity")}</th><th>${loadLabel("Energy")}</th><th>${loadLabel("Load ratio")}</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input, effectiveProfile)}</div>
-    ${splitter("results", "horizontal", "Resize result summary and chart", 150, 250)}<div class="result-chart-pane"><div class="chart-controls">${tabs}<label>Horizontal axis <select id="chart-axis"><option value="time" ${chartAxis === "time" ? "selected" : ""}>${loadLabel("Time axis")}</option><option value="position" ${chartAxis === "position" ? "selected" : ""}>${loadLabel("Position axis")}</option></select></label></div>
+  const statusClass = resultOk ? "result-status" : "result-status simulation-failure";
+  return `<div class="result-view"${splitStyle("results")}>
+    <div class="result-top"><section>${resultHeading(load, input, focused.chargeG)}${overpressure}${burnNotice}<p class="${statusClass}">${resultStatus}</p>${summary}${resultOk && reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>${loadLabel("Charge")}</th><th>${loadLabel("Max. pressure")}</th><th>${loadLabel("Velocity")}</th><th>${loadLabel("Energy")}</th><th>${loadLabel("Load ratio")}</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input, effectiveProfile)}</div>
+    ${splitter("results", "horizontal", "Resize result summary and chart", 150, 250)}<div class="result-chart-pane"><div class="chart-controls">${tabs}<select id="chart-axis" aria-label="Horizontal axis"><option value="time" ${chartAxis === "time" ? "selected" : ""}>${loadLabel("Time axis")}</option><option value="position" ${chartAxis === "position" ? "selected" : ""}>${loadLabel("Position axis")}</option></select></div>
     ${chartView(result, ladder.filter((_, index) => index !== focus).map((entry) => entry.result), input, reference)}
     <div class="chart-legend"><span class="pressure-key">${escapeHtml(i18n.text("CurveChart", "Pressure"))}</span><span class="permitted-key">${escapeHtml(i18n.text("CurveChart", "Pmax permitted"))}</span><span class="energy-key">${escapeHtml(i18n.text("CurveChart", "Energy"))}</span><span class="velocity-key">${escapeHtml(i18n.text("CurveChart", "Velocity"))}</span>${reference?.points.length ? `<span class="reference-key">Original reference</span>` : ""}</div></div></div>`;
 }
@@ -2408,12 +2415,6 @@ function bindEvents(): void {
     status = `Edited ${label}`;
     render();
   }));
-  app.querySelector<HTMLSelectElement>("#solver-profile")?.addEventListener("change", (event) => {
-    activeProfile = (event.currentTarget as HTMLSelectElement).value as CalibrationProfile;
-    solverPreferences.setProfile(activeProfile);
-    status = `Using ${activeProfile} simulation model`;
-    render();
-  });
   app.querySelector<HTMLSelectElement>("#chart-axis")?.addEventListener("change", (event) => {
     chartAxis = (event.currentTarget as HTMLSelectElement).value as typeof chartAxis;
     render();

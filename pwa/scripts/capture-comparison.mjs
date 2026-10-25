@@ -23,13 +23,13 @@ try {
   await page.getByRole("button", { name: "I understand" }).click();
   await page.getByText("484 entries", { exact: true }).waitFor();
   await page.screenshot({ path: resolve(outputDirectory, "database-current.png") });
-  await page.locator(".menu-dropdown summary").click();
-  await page.getByRole("button", { name: "Burn rate table…", exact: true }).click();
+  await page.locator(".tools-menu > summary").click();
+  await page.locator("#burn-rate-table").click();
   await page.getByRole("dialog", { name: "Burn rate table" }).waitFor();
   await page.screenshot({ path: resolve(outputDirectory, "burn-rate-current.png") });
   await page.getByRole("dialog", { name: "Burn rate table" }).getByRole("button", { name: "Close", exact: true }).click();
-  await page.locator(".menu-dropdown summary").click();
-  await page.getByRole("button", { name: "Unit converter…", exact: true }).click();
+  await page.locator(".tools-menu > summary").click();
+  await page.locator("#unit-converter").click();
   await page.getByRole("dialog", { name: "Unit converter" }).waitFor();
   await page.screenshot({ path: resolve(outputDirectory, "unit-converter-current.png") });
   await page.getByRole("dialog", { name: "Unit converter" }).getByRole("button", { name: "Close", exact: true }).click();
