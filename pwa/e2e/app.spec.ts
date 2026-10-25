@@ -556,12 +556,25 @@ test("opens the release CSR load and exposes its native panels", async ({ page }
   await page.locator("#file-picker").setInputFiles(referenceLoad);
 
   await expect(page.getByRole("button", { name: /223Rem_D0735_RWS/ })).toBeVisible();
+  await expect(page.locator(".component-title span")).toHaveText("223 Rem. (.223 Rem.)");
+  await expect(page.locator(".property-section th")).toHaveText(["Caliber / cartridge", "Gun"]);
+  const propertyColumns = await page.locator(".property-table").evaluate((table) => [...table.querySelectorAll("thead th")].map((cell) => Math.round(cell.getBoundingClientRect().width)));
+  expect(propertyColumns.slice(1)).toEqual([96, 60]);
   await expect(page.getByText("Case Volume", { exact: true })).toBeVisible();
   const settings = await openSettings(page);
   await expect(settings.locator("#settings-unit-system")).toHaveValue("original");
   await settings.locator("[data-settings-cancel]").click();
   await expect(page.getByLabel("Case Volume unit")).toHaveValue("grh2o");
+  await expect(page.getByLabel("Case Volume unit")).toHaveAttribute("title", "Click to choose another unit for this field");
   await expect(page.getByRole("textbox", { name: "Case Volume", exact: true })).toHaveValue("30.34");
+  await expect(page.getByRole("textbox", { name: "Case Volume", exact: true })).toHaveAttribute("title", /stored value: /);
+  await page.locator('[data-input="projectile"]').click();
+  await expect(page.locator(".component-title span")).toHaveText("RWS, Scorion Hpbt-Match 2313343, 0.224, 52.00 grain");
+  await expect(page.locator(".property-section th")).toHaveText(["Projectile"]);
+  await page.locator('[data-input="propellant"]').click();
+  await expect(page.locator(".component-title span")).toHaveText("Lovex D073.4");
+  await expect(page.locator(".property-section th")).toHaveText(["Propellant"]);
+  await page.locator('[data-input="cartridge"]').click();
   await expect(page.getByRole("img", { name: "Loaded cartridge technical drawing" })).toBeVisible();
   await expect(page.locator(".technical-svg .case-outline")).toBeVisible();
   await expect(page.locator(".technical-svg .powder-fill")).toBeVisible();
@@ -584,6 +597,23 @@ test("resizes and remembers native-style workspace splitters", async ({ page }) 
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
+
+  const propertyColumn = page.getByRole("separator", { name: "Resize Property column" });
+  const propertyHeading = page.locator(".property-table thead th").first();
+  await expect(propertyHeading).toBeVisible();
+  const originalColumnWidth = (await propertyHeading.boundingBox())!.width;
+  await propertyColumn.focus();
+  await propertyColumn.press("ArrowRight");
+  await expect.poll(async () => (await propertyHeading.boundingBox())!.width).toBeCloseTo(originalColumnWidth + 10, 0);
+  const columnHandleBox = await propertyColumn.boundingBox();
+  await page.mouse.move(columnHandleBox!.x + columnHandleBox!.width / 2, columnHandleBox!.y + columnHandleBox!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(columnHandleBox!.x + columnHandleBox!.width / 2 + 20, columnHandleBox!.y + columnHandleBox!.height / 2, { steps: 3 });
+  await page.mouse.up();
+  await expect.poll(async () => (await propertyHeading.boundingBox())!.width).toBeCloseTo(originalColumnWidth + 30, 0);
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem("csr-layout-property-columns")))!)[0]).toBeCloseTo(originalColumnWidth + 30, 0);
+  await page.locator('[data-input="projectile"]').click();
+  await expect.poll(async () => (await page.locator(".property-table thead th").first().boundingBox())!.width).toBeCloseTo(originalColumnWidth + 30, 0);
 
   const main = page.getByRole("separator", { name: "Resize input and output workspaces" });
   const input = page.locator(".inputs");
@@ -633,6 +663,9 @@ test("resizes and remembers native-style workspace splitters", async ({ page }) 
   await page.reload();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await expect.poll(async () => (await input.boundingBox())?.width ?? 0).toBeCloseTo(draggedWidth, 0);
+  await expect.poll(async () => (await page.locator(".property-table thead th").first().boundingBox())!.width).toBeCloseTo(originalColumnWidth + 30, 0);
+  await page.getByRole("separator", { name: "Resize Property column" }).dblclick();
+  expect(await page.evaluate(() => localStorage.getItem("csr-layout-property-columns"))).toBeNull();
   await main.dblclick();
   expect(await page.evaluate(() => localStorage.getItem("csr-layout-main"))).toBeNull();
 });
@@ -1165,10 +1198,25 @@ test("adds and edits native shotshell pressure groups", async ({ page }) => {
   await expect(page.getByLabel("Shotshell Primer")).toBeVisible();
   await page.getByLabel("Shotshell Hull").selectOption("group-high");
   await expect(page.getByLabel("Shotshell Hull")).toHaveValue("group-high");
+  await expect(page.getByLabel("Shotshell Hull")).toHaveAttribute("title", /Winchester AA \/ HS/);
   await expect(page.locator(".technical-svg .shotshell-hull")).toBeVisible();
   await expect(page.locator(".technical-svg .wad-shape")).toBeVisible();
   await expect(page.locator(".technical-svg .shot-column")).toBeVisible();
+  await page.locator('[data-input="propellant"]').click();
+  await expect(page.getByLabel("Shotshell Hull")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /223Rem_D0735_RWS\*/ })).toBeVisible();
+});
+
+test("keeps unknown native property choice codes visible", async ({ page }) => {
+  const xml = readFileSync(referenceLoad, "utf8").replace(/name="gTailType" value="[^"]*"/, 'name="gTailType" value="3"');
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.locator("#file-picker").setInputFiles({ name: "unknown-choice.csrload", mimeType: "application/xml", buffer: Buffer.from(xml) });
+  await page.locator('[data-input="projectile"]').click();
+  const base = page.getByLabel("Projectile Base Type");
+  await expect(base).toHaveValue("3");
+  await expect(base.locator("option:checked")).toHaveText("type 3");
+  await expect(base).toHaveAttribute("title", "stored value: 3");
 });
 
 test("opens the original GRT format and identifies its source", async ({ page }) => {

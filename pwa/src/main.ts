@@ -170,9 +170,21 @@ interface Choice { value: string; label: string; title?: string }
 
 function choices(entry: Entry): Choice[] | undefined {
   const propertyText = (source: string): string => i18n.text("PropertyPanel", source);
-  if (entry.name === "gTailType") return [{ value: "0", label: propertyText("flat base") }, { value: "1", label: propertyText("hollow base") }, { value: "2", label: propertyText("boat tail") }];
-  if (entry.name === "shotshell") return [{ value: "false", label: propertyText("no") }, { value: "true", label: propertyText("yes") }];
-  if (entry.name === "laddercnt") return Array.from({ length: 10 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) }));
+  if (entry.name === "gTailType") {
+    const options = [{ value: "0", label: propertyText("flat base") }, { value: "1", label: propertyText("hollow base") }, { value: "2", label: propertyText("boat tail") }];
+    if (!options.some((option) => option.value === entry.value)) options.push({ value: entry.value, label: i18n.text("PropertyPanel", "type %1", entry.value) });
+    return options;
+  }
+  if (entry.name === "shotshell") {
+    const options = [{ value: "false", label: propertyText("no") }, { value: "true", label: propertyText("yes") }];
+    if (!options.some((option) => option.value === entry.value)) options.push({ value: entry.value, label: i18n.text("PropertyPanel", "type %1", entry.value) });
+    return options;
+  }
+  if (entry.name === "laddercnt") {
+    const options = Array.from({ length: 10 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) }));
+    if (!options.some((option) => option.value === entry.value)) options.push({ value: entry.value, label: entry.value });
+    return options;
+  }
   const groupKey = entry.name === "shothull" ? "shell_groups" : entry.name === "shotwad" ? "wad_groups" : entry.name === "shotprimer" ? "primer_groups" : undefined;
   if (groupKey) {
     const groups = shotPartData[groupKey] as Array<{ id: string; rank: string; members: string[] }>;
@@ -189,13 +201,20 @@ function choices(entry: Entry): Choice[] | undefined {
 function editor(section: LoadSection, entry: Entry, label: string): string {
   const list = choices(entry);
   const attributes = `data-property data-section="${section}" data-entry="${escapeHtml(entry.name)}" aria-label="${escapeHtml(label)}"`;
-  if (list) return `<select ${attributes}>${list.map((choice) => `<option value="${choice.value}" ${entry.value === choice.value ? "selected" : ""} ${choice.title ? `title="${escapeHtml(choice.title)}"` : ""}>${choice.label}</option>`).join("")}</select>`;
+  if (list) {
+    const shotPart = entry.name === "shothull" || entry.name === "shotwad" || entry.name === "shotprimer";
+    const selectedTitle = shotPart ? list.find((choice) => choice.value === entry.value)?.title ?? ""
+      : i18n.text("PropertyPanel", "stored value: %1", entry.value);
+    return `<select ${attributes} ${selectedTitle ? `title="${escapeHtml(selectedTitle)}"` : ""}>${list.map((choice) => `<option value="${escapeHtml(choice.value)}" ${entry.value === choice.value ? "selected" : ""} ${choice.title ? `title="${escapeHtml(choice.title)}"` : ""}>${escapeHtml(choice.label)}</option>`).join("")}</select>`;
+  }
   const quantity = quantityOfFileUnit(entry.unit);
   const field = `${section}/${entry.name}`;
   const displayUnit = quantity === "none" ? undefined : unitPreferences.unitForField(field, quantity);
   const numeric = entry.type === "decimal" || entry.type === "integer";
   const value = numeric && displayUnit && Number.isFinite(Number(entry.value)) ? formatUnit(Number(entry.value), displayUnit) : entry.value;
-  return `<input ${attributes} value="${escapeHtml(value)}" ${numeric ? 'inputmode="decimal"' : ""} ${displayUnit ? `data-unit-id="${displayUnit.id}" data-quantity="${quantity}"` : ""}/>`;
+  const title = numeric && displayUnit && entry.value !== "" && Number.isFinite(Number(entry.value))
+    ? i18n.text("PropertyPanel", "stored value: %1", entry.value) : "";
+  return `<input ${attributes} value="${escapeHtml(value)}" ${title ? `title="${escapeHtml(title)}"` : ""} ${numeric ? 'inputmode="decimal"' : ""} ${displayUnit ? `data-unit-id="${displayUnit.id}" data-quantity="${quantity}"` : ""}/>`;
 }
 
 function unitEditor(section: LoadSection, entry: Entry, label: string): string {
@@ -203,7 +222,7 @@ function unitEditor(section: LoadSection, entry: Entry, label: string): string {
   if (quantity === "none") return escapeHtml(entry.unit);
   const field = `${section}/${entry.name}`;
   const selected = unitPreferences.unitForField(field, quantity);
-  return `<select data-field-unit data-field="${field}" data-quantity="${quantity}" aria-label="${escapeHtml(label)} unit">${unitsOf(quantity).map((candidate) => `<option value="${candidate.id}" ${candidate.id === selected.id ? "selected" : ""}>${candidate.symbol}</option>`).join("")}</select>`;
+  return `<select data-field-unit data-field="${field}" data-quantity="${quantity}" aria-label="${escapeHtml(label)} unit" title="${escapeHtml(i18n.text("PropertyPanel", "Click to choose another unit for this field"))}">${unitsOf(quantity).map((candidate) => `<option value="${candidate.id}" ${candidate.id === selected.id ? "selected" : ""}>${candidate.symbol}</option>`).join("")}</select>`;
 }
 
 function entryPresentation(entry: Entry): { label: string; hint: string } {
@@ -218,13 +237,29 @@ function entryPresentation(entry: Entry): { label: string; hint: string } {
   return { label, hint };
 }
 
-function table(sections: ReadonlyArray<{ section: LoadSection; entries: readonly Entry[] }>): string {
-  return `<table class="property-table"><thead><tr><th>${escapeHtml(i18n.text("PropertyPanel", "Property"))}</th><th>${escapeHtml(i18n.text("PropertyPanel", "Value"))}</th><th>${escapeHtml(i18n.text("PropertyPanel", "Unit"))}</th></tr></thead><tbody>${sections.flatMap(({ section, entries }) => entries
-    .filter((entry) => !entry.name.endsWith("Unlock") && entry.name !== "mode" && entry.name !== "physRef" && !entry.name.startsWith("image"))
-    .map((entry) => {
-      const { label, hint } = entryPresentation(entry);
-      return `<tr title="${escapeHtml(hint)}"><td><label>${escapeHtml(label)}</label></td><td>${editor(section, entry, label)}</td><td>${unitEditor(section, entry, label)}</td></tr>`;
-    })).join("")}</tbody></table>`;
+interface PropertySection { title: string; groups: ReadonlyArray<{ section: LoadSection; entries: readonly Entry[] }> }
+
+function propertyColumnStyle(): string {
+  try {
+    const widths = JSON.parse(localStorage.getItem("csr-layout-property-columns") ?? "null") as unknown;
+    if (Array.isArray(widths) && widths.length === 2 && widths.every((width) => Number.isFinite(width) && width >= 30))
+      return ` style="--property-name-width:${Math.round(Number(widths[0]))}px;--property-value-width:${Math.round(Number(widths[1]))}px;--property-unit-width:auto"`;
+  } catch { /* damaged layout state falls back to the source defaults */ }
+  return "";
+}
+
+function table(sections: readonly PropertySection[]): string {
+  const propertyHeading = i18n.text("PropertyPanel", "Property"), valueHeading = i18n.text("PropertyPanel", "Value"), unitHeading = i18n.text("PropertyPanel", "Unit");
+  const rows = sections.map(({ title, groups }) => {
+    const entries = groups.flatMap(({ section, entries }) => entries
+      .filter((entry) => !entry.name.endsWith("Unlock") && entry.name !== "physRef" && !entry.name.startsWith("image"))
+      .map((entry) => {
+        const { label, hint } = entryPresentation(entry);
+        return `<tr><td title="${escapeHtml(hint)}"><label>${escapeHtml(label)}</label></td><td>${editor(section, entry, label)}</td><td>${unitEditor(section, entry, label)}</td></tr>`;
+      })).join("");
+    return `<tr class="property-section"><th colspan="3" scope="rowgroup">${escapeHtml(title)}</th></tr>${entries}`;
+  }).join("");
+  return `<table class="property-table"${propertyColumnStyle()}><colgroup><col class="property-name-column"><col class="property-value-column"><col class="property-unit-column"></colgroup><thead><tr><th aria-label="${escapeHtml(propertyHeading)}">${escapeHtml(propertyHeading)}<span class="property-column-resizer" data-property-column="0" role="separator" aria-label="Resize Property column" aria-orientation="vertical" aria-valuemin="80" tabindex="0"></span></th><th aria-label="${escapeHtml(valueHeading)}">${escapeHtml(valueHeading)}<span class="property-column-resizer" data-property-column="1" role="separator" aria-label="Resize Value column" aria-orientation="vertical" aria-valuemin="30" tabindex="0"></span></th><th aria-label="${escapeHtml(unitHeading)}">${escapeHtml(unitHeading)}</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function historyFor(load: LoadFile): LoadHistory {
@@ -633,10 +668,14 @@ function reportView(load: LoadFile): string {
 }
 
 function loadWorkspace(load: LoadFile): string {
-  const inputSections: Array<{ section: LoadSection; entries: readonly Entry[] }> = activeInput === "cartridge"
-    ? [{ section: "caliber", entries: load.caliber }, { section: "shotshell", entries: load.shotshell }, { section: "gun", entries: load.gun }]
-    : activeInput === "projectile" ? [{ section: "projectile", entries: load.projectile }]
-      : [{ section: "propellant", entries: load.propellant }, { section: "physical", entries: load.physical }, { section: "shotshell", entries: load.shotshell }];
+  const loadText = (source: string): string => i18n.text("LoadView", source);
+  const inputSections: PropertySection[] = activeInput === "cartridge"
+    ? [
+        { title: loadText("Caliber / cartridge"), groups: [{ section: "caliber", entries: load.caliber }, { section: "shotshell", entries: load.shotshell }] },
+        { title: loadText("Gun"), groups: [{ section: "gun", entries: load.gun }] }
+      ]
+    : activeInput === "projectile" ? [{ title: loadText("Projectile"), groups: [{ section: "projectile", entries: load.projectile }] }]
+      : [{ title: loadText("Propellant"), groups: [{ section: "propellant", entries: load.propellant }, { section: "physical", entries: load.physical }] }];
   const resultContent = activeResult === "measurements" ? measurementView(load) : activeResult === "report"
     ? reportView(load)
     : resultView(load);
@@ -644,7 +683,10 @@ function loadWorkspace(load: LoadFile): string {
   const selectLabel = component === "caliber" ? "Select Caliber" : component === "projectile" ? "Select Projectile" : "Select Propellant";
   const loadLabel = (source: string): string => escapeHtml(i18n.text("LoadView", source));
   const replaceTitle = loadLabel("Replace this component by another record of the database");
-  return `<main class="workspace"${splitStyle("main")}><aside class="inputs"${splitStyle("left")}><div class="subtabs"><button data-input="cartridge" class="${activeInput === "cartridge" ? "active" : ""}">${loadLabel("Cartridge && gun")}</button><button data-input="projectile" class="${activeInput === "projectile" ? "active" : ""}">${loadLabel("Projectile")}</button><button data-input="propellant" class="${activeInput === "propellant" ? "active" : ""}">${loadLabel("Propellant")}</button></div><div class="component-title"><span>${escapeHtml(load.title)}</span><button data-select-component="${component}" ${projectDatabase && ownDatabaseReady ? "" : "disabled"} title="${replaceTitle}">${loadLabel(selectLabel)}…</button></div><div class="property-scroll">${table(inputSections)}</div>${splitter("left", "horizontal", "Resize input fields and technical drawing", 120, 120)}${drawingView(load)}</aside>${splitter("main", "vertical", "Resize input and output workspaces", 310, 320)}<section class="output"><div class="subtabs"><button data-result="results" class="${activeResult === "results" ? "active" : ""}">${loadLabel("Results")}</button><button data-result="measurements" class="${activeResult === "measurements" ? "active" : ""}">${loadLabel("Measurements")}</button><button data-result="report" class="${activeResult === "report" ? "active" : ""}">${loadLabel("Report")}</button></div>${resultContent}</section></main>`;
+  const componentTitle = activeInput === "cartridge" ? entryValue(load.caliber, "CaliberName")
+    : activeInput === "projectile" ? entryValue(load.projectile, "ProjectileName")
+      : `${entryValue(load.propellant, "mname")} ${entryValue(load.propellant, "pname")}${entryValue(load.propellant, "lotid") ? ` (${entryValue(load.propellant, "lotid")})` : ""}`.trim();
+  return `<main class="workspace"${splitStyle("main")}><aside class="inputs"${splitStyle("left")}><div class="subtabs"><button data-input="cartridge" class="${activeInput === "cartridge" ? "active" : ""}">${loadLabel("Cartridge && gun")}</button><button data-input="projectile" class="${activeInput === "projectile" ? "active" : ""}">${loadLabel("Projectile")}</button><button data-input="propellant" class="${activeInput === "propellant" ? "active" : ""}">${loadLabel("Propellant")}</button></div><div class="component-title"><span>${escapeHtml(componentTitle)}</span><button data-select-component="${component}" ${projectDatabase && ownDatabaseReady ? "" : "disabled"} title="${replaceTitle}">${loadLabel(selectLabel)}…</button></div><div class="property-scroll">${table(inputSections)}</div>${splitter("left", "horizontal", "Resize input fields and technical drawing", 120, 120)}${drawingView(load)}</aside>${splitter("main", "vertical", "Resize input and output workspaces", 310, 320)}<section class="output"><div class="subtabs"><button data-result="results" class="${activeResult === "results" ? "active" : ""}">${loadLabel("Results")}</button><button data-result="measurements" class="${activeResult === "measurements" ? "active" : ""}">${loadLabel("Measurements")}</button><button data-result="report" class="${activeResult === "report" ? "active" : ""}">${loadLabel("Report")}</button></div>${resultContent}</section></main>`;
 }
 
 function combinedDatabaseRecords(table: ProjectTable): ProjectRecord[] {
@@ -2128,8 +2170,56 @@ function bindSplitters(root: ParentNode = app): void {
   });
 }
 
+function bindPropertyColumns(root: ParentNode = app): void {
+  root.querySelectorAll<HTMLElement>("[data-property-column]").forEach((handle) => {
+    const table = handle.closest<HTMLTableElement>(".property-table");
+    const headings = table?.querySelectorAll<HTMLElement>("thead th");
+    const index = Number(handle.dataset.propertyColumn);
+    if (!table || !headings || (index !== 0 && index !== 1)) return;
+    const widths = (): [number, number] => [headings[0]!.getBoundingClientRect().width, headings[1]!.getBoundingClientRect().width];
+    const apply = (requested: number, persist = true): void => {
+      const current = widths(), minimum = index === 0 ? 80 : 30;
+      current[index] = Math.max(minimum, Math.min(table.getBoundingClientRect().width - current[1 - index] - 30, requested));
+      table.style.setProperty("--property-name-width", `${Math.round(current[0])}px`);
+      table.style.setProperty("--property-value-width", `${Math.round(current[1])}px`);
+      table.style.setProperty("--property-unit-width", "auto");
+      handle.setAttribute("aria-valuemax", String(Math.round(table.getBoundingClientRect().width - current[1 - index] - 30)));
+      handle.setAttribute("aria-valuenow", String(Math.round(current[index])));
+      if (persist) localStorage.setItem("csr-layout-property-columns", JSON.stringify(current.map(Math.round)));
+    };
+    apply(widths()[index], false);
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      const startX = event.clientX, startWidth = widths()[index];
+      handle.setPointerCapture(event.pointerId); handle.classList.add("dragging");
+      document.body.classList.add("resizing", "resize-columns");
+      const move = (moveEvent: PointerEvent): void => apply(startWidth + moveEvent.clientX - startX);
+      const finish = (): void => {
+        handle.classList.remove("dragging"); document.body.classList.remove("resizing", "resize-columns");
+        handle.removeEventListener("pointermove", move);
+      };
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", finish, { once: true });
+      handle.addEventListener("pointercancel", finish, { once: true });
+    });
+    handle.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight" && event.key !== "Home" && event.key !== "End") return;
+      event.preventDefault();
+      const current = widths()[index];
+      apply(event.key === "Home" ? Number(handle.getAttribute("aria-valuemin")) : event.key === "End" ? Number.MAX_SAFE_INTEGER : current + (event.key === "ArrowRight" ? 10 : -10));
+    });
+    handle.addEventListener("dblclick", () => {
+      localStorage.removeItem("csr-layout-property-columns");
+      table.style.removeProperty("--property-name-width"); table.style.removeProperty("--property-value-width"); table.style.removeProperty("--property-unit-width");
+      requestAnimationFrame(() => handle.setAttribute("aria-valuenow", String(Math.round(widths()[index]))));
+    });
+  });
+}
+
 function bindEvents(): void {
   bindSplitters();
+  bindPropertyColumns();
   const closeMenus = (): void => app.querySelectorAll<HTMLDetailsElement>(".menubar details[open]").forEach((menu) => menu.removeAttribute("open"));
   app.querySelectorAll<HTMLDetailsElement>(".menubar > .menu-dropdown").forEach((menu) => menu.addEventListener("toggle", () => {
     if (!menu.open) return;

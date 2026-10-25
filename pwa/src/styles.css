@@ -93,8 +93,18 @@ table { width: 100%; border-collapse: collapse; }
 th { position: sticky; top: 0; background: #3a3a3a; color: #ddd; font-weight: 500; }
 th, td { border: 1px solid #3f3f3f; padding: 4px 6px; text-align: left; white-space: nowrap; }
 tbody tr:nth-child(even) { background: #2d2d2d; }
-.property-table td:nth-child(2), .property-table td:nth-child(3) { text-align: right; }
-.property-table input, .property-table select { width: 100%; min-width: 72px; border: 1px solid transparent; background: transparent; padding: 2px 4px; text-align: right; }
+.property-table { table-layout: fixed; }
+.property-table .property-name-column { width: var(--property-name-width); }
+.property-table .property-value-column { width: var(--property-value-width, 96px); }
+.property-table .property-unit-column { width: var(--property-unit-width, 60px); }
+.property-table thead th { position: sticky; overflow: visible; }
+.property-column-resizer { position: absolute; z-index: 2; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; touch-action: none; }
+.property-column-resizer:hover, .property-column-resizer.dragging, .property-column-resizer:focus-visible { background: #4da9e966; outline: 1px solid #4da9e9; }
+.property-table th, .property-table td { height: 24px; padding: 1px 5px; border: 0; border-bottom: 1px solid #383838; overflow: hidden; text-overflow: ellipsis; }
+.property-table thead th { border-bottom-color: #555; }
+.property-table .property-section th { position: static; height: 24px; background: #2d2d2d; color: inherit; font-weight: 700; text-align: left; }
+.property-table td:nth-child(2), .property-table td:nth-child(3) { padding: 0; text-align: right; }
+.property-table input, .property-table select { width: 100%; min-width: 0; height: 23px; border: 1px solid transparent; background: transparent; padding: 0 4px; text-align: right; }
 .property-table input:hover, .property-table select:hover { border-color: #555; background: #222; }
 .property-table input:focus, .property-table select:focus { border-color: #4da9e9; background: #202020; outline: 1px solid #4da9e9; }
 .drawing-placeholder { display: grid; place-content: center; color: #7f878c; border-top: 5px solid #444; }
@@ -475,6 +485,9 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 :root[data-theme="light"] .property-table select:hover,
 :root[data-theme="light"] .property-table input:focus,
 :root[data-theme="light"] .property-table select:focus { background: #fff; }
+:root[data-theme="light"] .property-table th,
+:root[data-theme="light"] .property-table td { border-bottom-color: #ddd; }
+:root[data-theme="light"] .property-table .property-section th { color: #202020; background: #f4f4f4; }
 :root[data-theme="light"] .technical-drawing,
 :root[data-theme="light"] .chart-wrap,
 :root[data-theme="light"] .result-chart,
