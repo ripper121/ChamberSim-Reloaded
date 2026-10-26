@@ -24,7 +24,7 @@ Last updated: 2026-10-26
 
 **Rationale:** Generated precache manifests reliably include hashed production assets and avoid an incomplete hand-maintained cache list. Offline claims remain pending until browser verification.
 
-**Implementation note:** The manifest declares deterministic 192/256/512 px derivatives of the original icon. Edge E2E loads the manifest icons and verifies their natural dimensions; install-prompt UI remains environment-dependent.
+**Implementation note:** The manifest declares deterministic 192/256/512 px derivatives of the original icon. Edge E2E loads the manifest icons and verifies their natural dimensions; persistent-profile install promotion and app-window launch are verified separately under D-050.
 
 ## D-004 — Parse native files in-browser and retain source XML
 
@@ -305,3 +305,9 @@ Last updated: 2026-10-26
 **Decision:** Preserve the default report template text and its explicit `.` decimal / `,` grouping format syntax exactly as defined by `src/core/report.cpp`, independent of the selected UI language. Continue translating the surrounding Report controls/editor and catalog-owned runtime diagnostics, including chart tooltips, reference comparisons and generated technical-drawing labels.
 
 **Rationale:** The native report template is core-owned source text rather than a Qt catalog message, and its format parser defines portable punctuation explicitly. Localizing either the template source or its formatting grammar would make saved templates behave differently across locales and break file-level compatibility. Catalog-owned widget text remains locale-sensitive, so generated drawing images correctly follow the active application language without changing the report language contract.
+
+## D-050 — Verify install promotion and app-window launch with persistent Edge profiles
+
+**Decision:** Treat browser installability as verified only when a fresh non-incognito Edge profile emits the native `beforeinstallprompt` event, the browser's processed manifest has no errors, CDP reports no installability errors and computes an app id. Separately launch the same production URL through Edge's app-window mode and require the service worker, correct title and `display-mode: standalone`. Keep this as the repeatable `npm run test:install` gate; do not add an in-document imitation of browser installation UI.
+
+**Rationale:** Ordinary Playwright test contexts are incognito and CDP correctly reports `in-incognito`, so they cannot prove that Edge would promote installation. A persistent profile exercises the real browser decision while remaining isolated from the user's profile. Browser-owned modal buttons are outside the document automation surface, but the promotion event plus zero browser errors proves eligibility, and the separate app-window launch proves the runtime behavior controlled by the manifest's standalone display contract.
