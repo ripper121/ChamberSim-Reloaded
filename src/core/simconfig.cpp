@@ -19,6 +19,7 @@
 
 #include "simconfig.h"
 
+#include "loadbuilder.h"
 #include "numeric.h"
 #include "shotparts.h"
 
@@ -40,7 +41,8 @@ SimInput SimInput::fromLoad(const LoadFile &lf)
     in.boreArea_mm2 = c.number(u"Aeff");
     in.grooveDiameter_mm = c.number(u"Dz");
     in.sebert = c.number(u"sebert", in.sebert);
-    in.startPressure_bar = c.number(u"ps", in.startPressure_bar);
+    in.startPressure_bar = loadStartPressure_bar(c);
+    in.primerOffset_bar = csr::primerOffset_bar(c);  // physical model only
     in.maxPressure_bar = c.number(u"pMaxZul");
     in.handgun = lf.caliberFile.text(u"cippdf").contains(u"/tab-iv/") || lf.caliberFile.text(u"ciptype").contains(u"pistol");
     in.shotshell = c.flag(u"shotshell");

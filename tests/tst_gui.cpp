@@ -66,6 +66,7 @@
 #include "about.h"
 #include "burnratedialog.h"
 #include "recordviewdialog.h"
+#include "primer.h"
 #include "shotparts.h"
 #include "unitconverterdialog.h"
 #include "theme.h"
@@ -91,6 +92,7 @@
 #include "propertypanel.h"
 #include "recentfiles.h"
 #include "searchfilter.h"
+#include <QStandardItemModel>
 #include "reportview.h"
 #include "qualityrow.h"
 #include "screenfit.h"
@@ -636,7 +638,7 @@ void GuiTest::editsCanBeUndoneAndRedone()
     };
     const double v0 = view.result().muzzleVelocity_ms;
 
-    edit(u"ps"_s, u"300"_s);
+    edit(u"psadd"_s, u"50"_s);
     edit(u"oal"_s, u"78.5"_s);
     QVERIFY(view.canUndo());
     QVERIFY(view.isModified());
@@ -665,7 +667,7 @@ void GuiTest::editsCanBeUndoneAndRedone()
     view.redo();
     QVERIFY(!view.isModified());
     view.undo();
-    edit(u"ps"_s, u"350"_s);
+    edit(u"psadd"_s, u"100"_s);
     QVERIFY(!view.canRedo());
     view.undo();
     view.undo();
@@ -720,15 +722,50 @@ void GuiTest::overallLengthAndSeatingDepthStayInStep()
     QVERIFY(std::abs(lf->projectile.number(u"gdepth"_s) - 8.4) < 1e-6);
     QVERIFY(lf->caliber.number(u"casevol"_s) < volume);
 
-    // the initial gas pressure exists in two sections; the solver uses the caliber's
+    // the initial gas pressure exists in two sections; the solver uses the caliber's. With a primer it is 250 bar plus the additional
+    // one (the primer's offset is the physical model's): editing the total sets the additional one, editing that one the total.
     edit(u"gpressure"_s, u"400"_s);
     lf = saved();
     QVERIFY(lf);
     QCOMPARE(lf->caliber.number(u"ps"_s), 400.0);
-    edit(u"ps"_s, u"300"_s);
+    const auto savedOwn = [&]  // the own format keeps primer and psadd (the export leaves them out)
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath(u"x.csrload"_s);
+        QString err;
+        if (!view.save(path, &err)) return std::optional<csr::LoadFile>{};
+        return csr::LoadFile::read(path);
+    };
+    lf = savedOwn();
+    QVERIFY(lf);
+    QVERIFY(lf->caliber.find(u"psadd"_s));
+    QVERIFY(std::abs(lf->caliber.number(u"psadd"_s) - 150.0) < 1e-6);
+    edit(u"psadd"_s, u"30"_s);
     lf = saved();
     QVERIFY(lf);
-    QCOMPARE(lf->projectile.number(u"gpressure"_s), 300.0);
+    QVERIFY(std::abs(lf->projectile.number(u"gpressure"_s) - 280.0) < 1e-6);
+    QVERIFY(std::abs(lf->caliber.number(u"ps"_s) - 280.0) < 1e-6);
+    QVERIFY(!lf->caliber.find(u"psadd"_s));  // not in the export
+    // the primer is shown by its name (a drop-down), ps is not shown: it is 250 bar plus the additional one
+    bool primerShown = false;
+    for (PropertyPanel *panel : view.findChildren<PropertyPanel *>())
+    {
+        QTableWidget *t = tableOf(*panel);
+        if (const int row = rowOf(t, u"primer"_s); row > 0)
+        {
+            QVERIFY(t->item(row, 1)->text().startsWith(csr::primerName(u"LR"_s) + u" ("_s));  // with its start pressure
+            QVERIFY(t->item(row, 1)->text().contains(u"bar"_s));
+            QCOMPARE(rowOf(t, u"ps"_s), -1);
+            QVERIFY(rowOf(t, u"psadd"_s) > 0);
+            primerShown = true;
+        }
+    }
+    QVERIFY(primerShown);
+    edit(u"psadd"_s, u"900"_s);  // not limited
+    lf = savedOwn();
+    QVERIFY(lf);
+    QCOMPARE(lf->caliber.number(u"psadd"_s), 900.0);
+    QCOMPARE(lf->caliber.number(u"ps"_s), 1150.0);
 }
 
 void GuiTest::panelShowsAndEditsInTheChosenUnit()
@@ -832,7 +869,7 @@ void GuiTest::resultsFollowTheUnitSystem()
     QVERIFY2(imperial.contains(u" psi"_s), qPrintable(imperial));
     QVERIFY(imperial.contains(u" ft/s"_s));
     QVERIFY(imperial.contains(u" ft·lbf"_s));
-    QVERIFY(!imperial.contains(u" bar"_s));
+    QVERIFY(!imperial.contains(QRegularExpression(u"\\bbar\\b"_s)));  // not "barrel"
     UnitPreferences::instance().setSystem(System::Original);
 }
 
@@ -1235,6 +1272,37 @@ void GuiTest::searchToleratesSpellings()
     QVERIFY(searchfilter::matches(u"9mm"_s, {u"9 mm Luger"_s}));
     QVERIFY(searchfilter::matches(u"nobel"_s, {u"Nöbel Sport"_s}));
     QVERIFY(searchfilter::matches({}, irs));
+    // ranking: the name that is the query, then one that starts with it, then one that contains it, numbers last
+    using searchfilter::cellScore;
+    QVERIFY(cellScore(u".458"_s, u".458 SOCOM"_s, true) > cellScore(u".458"_s, u"9.458 Magnum"_s, true));
+    QVERIFY(cellScore(u".458"_s, u"458"_s, true) > cellScore(u".458"_s, u".458 SOCOM"_s, true));
+    QVERIFY(cellScore(u".458"_s, u"9.458 Magnum"_s, true) > cellScore(u".458"_s, u"11.458"_s, false));
+    QCOMPARE(cellScore(u".458"_s, u"6.5 Creedmoor"_s, true), 0);
+    // the proxy lists the best fit first while sorted by the ranked column, in either order; another column sorts as usual
+    QStandardItemModel model;
+    const std::vector<std::pair<int, QString>> rows{
+        {1, u"9.3 x 62 (diameter .458)"_s}, {2, u".458 Winchester Magnum"_s}, {3, u".458 SOCOM"_s}, {4, u"7 x 57"_s}, {5, u"458"_s}};
+    for (const auto &[id, name] : rows) model.appendRow({new QStandardItem(QString::number(id)), new QStandardItem(name)});
+    SearchFilterProxy proxy;
+    proxy.setSourceModel(&model);
+    proxy.setFilterKeyColumn(-1);
+    proxy.setRankedColumn(0);
+    proxy.setQuery(u".458"_s);
+    const auto order = [&]
+    {
+        QList<int> ids;
+        for (int r = 0; r < proxy.rowCount(); ++r) ids << proxy.index(r, 0).data().toInt();
+        return ids;
+    };
+    proxy.sort(0, Qt::AscendingOrder);
+    QCOMPARE(order(), (QList<int>{5, 3, 2, 1}));
+    proxy.sort(0, Qt::DescendingOrder);
+    QCOMPARE(order(), (QList<int>{5, 3, 2, 1}));
+    proxy.sort(1, Qt::AscendingOrder);
+    QCOMPARE(order(), (QList<int>{3, 2, 5, 1}));
+    proxy.setQuery({});
+    proxy.sort(0, Qt::AscendingOrder);
+    QCOMPARE(order(), (QList<int>{1, 2, 3, 4, 5}));
     QVERIFY(!searchfilter::matches(u"8x58"_s, irs));
     QVERIFY(!searchfilter::matches(u"7x57"_s, irs));
     QVERIFY(!searchfilter::matches(u"lapua 8x57"_s, irs));
@@ -1419,7 +1487,7 @@ void GuiTest::reportTabRendersTheLoad()
     // the unit system applies to the report too
     UnitPreferences::instance().setSystem(csr::units::System::Imperial);
     QVERIFY(report->html().contains(u" psi"_s) && report->html().contains(u" ft/s"_s));
-    QVERIFY(!report->html().contains(u" bar"_s));
+    QVERIFY(!report->html().contains(QRegularExpression(u"\\bbar\\b"_s)));
     UnitPreferences::instance().setSystem(csr::units::System::Original);
 
     // editing the load changes the report
@@ -1649,6 +1717,9 @@ void GuiTest::reportExportsAPdf()
     QTemporaryDir dir;
     const QString pdf = dir.filePath(u"report.pdf"_s);
     QVERIFY(view.report()->exportPdf(pdf));
+    QCOMPARE(ReportView::withPdfSuffix(u"/tmp/report"_s), u"/tmp/report.pdf"_s);  // a name typed without the suffix
+    QCOMPARE(ReportView::withPdfSuffix(u"/tmp/report.PDF"_s), u"/tmp/report.PDF"_s);
+    QCOMPARE(ReportView::withPdfSuffix(u"/tmp/8x57.v2"_s), u"/tmp/8x57.v2.pdf"_s);
     QFile f(pdf);
     QVERIFY(f.open(QIODevice::ReadOnly));
     const QByteArray data = f.readAll();

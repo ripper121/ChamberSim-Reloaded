@@ -53,6 +53,7 @@
 #include "solver.h"
 
 #include "numeric.h"
+#include "obt.h"
 
 #include <algorithm>
 #include <cmath>
@@ -340,6 +341,38 @@ void summarize(SimResult &res, const SimInput &in, const Calibration &cal, doubl
     res.muzzleVelocity_ms = last.v_ms;
     res.muzzleEnergy_J = last.e_J;
     res.muzzleTime_ms = last.t_ms;
+    // first rise through 10 % of the maximum pressure (linear between the two points around it)
+    const double p10 = 0.1 * res.maxPressure_bar;
+    const auto rise = std::ranges::find_if(pts, [p10](const SimPoint &q) { return q.p_bar >= p10; });
+    if (rise != pts.end())
+    {
+        res.pmax10Time_ms = rise->t_ms;
+        if (rise == pts.begin() && !res.restPhase.empty())
+        {
+            // already above 10 % when the bullet starts to move: the crossing lies in the time before
+            const auto before = std::ranges::find_if(res.restPhase, [p10](const RestPoint &q) { return q.p_bar >= p10; });
+            if (before != res.restPhase.end())
+            {
+                res.pmax10Time_ms = before->t_ms;
+                if (before != res.restPhase.begin() && before->p_bar > (before - 1)->p_bar)
+                {
+                    const RestPoint &lower = *(before - 1);
+                    res.pmax10Time_ms = lower.t_ms + (p10 - lower.p_bar) / (before->p_bar - lower.p_bar) * (before->t_ms - lower.t_ms);
+                }
+            }
+        }
+        else if (rise != pts.begin() && rise->p_bar > (rise - 1)->p_bar)
+        {
+            const SimPoint &before = *(rise - 1);
+            res.pmax10Time_ms = before.t_ms + (p10 - before.p_bar) / (rise->p_bar - before.p_bar) * (rise->t_ms - before.t_ms);
+        }
+    }
+    res.bulletLeadTime_ms = res.muzzleTime_ms - res.pmax10Time_ms;
+    if (const auto obt = nearestObtNode(res.bulletLeadTime_ms, in.barrelLength_mm))
+    {
+        res.optimalBarrelTime_ms = obt->time_ms;
+        res.optimalBarrelNode = obt->node;
+    }
     res.burntFraction = last.z;
     res.efficiency = last.e_J / (in.charge_g * 1e-3 * in.heatQex_kJkg * 1e3);
     const auto burnout = std::ranges::find_if(pts, [](const SimPoint &q) { return q.z >= 1.0; });
@@ -396,9 +429,9 @@ void summarize(SimResult &res, const SimInput &in, const Calibration &cal, doubl
 //   M dv/dt = A p - F,   M = mp (1 + spin inertia) + gasMassShare * mc
 //   p_burn = p + (1/2 - gasMassShare) * mc * a / A      the breech pressure (Lagrange gradient, linear profile)
 //   dQ/dt = h S (T - Tw),   dW/dt = F v
-// The classical Lagrange pair for a linear gas profile is gasMassShare = 1/4: the volume-average pressure then drives the
-// momentum and the breech pressure is p + mc a / (4 A). The powder burns at the breech pressure; the energy balance uses the
-// mean pressure. The Original model keeps the load's Sebert factor instead.
+// For a linear gas gradient the volume-average pressure drives the momentum with gasMassShare = 1/4 and the breech pressure is
+// p + mc a / (4 A). (The gas kinetic energy of a linear velocity profile is a share of 1/3; the energy balance uses the same 1/4
+// anyway: a separate 1/3 changes no fit result.) The powder burns at the breech pressure. The Original model keeps the load's Sebert factor.
 // The bullet stays at x0 until the gas pressure reaches the start pressure ps; until then the powder burns in the closed case, lit by
 // the primer gas (primerEnergy_J, released over primerTime_ms). The resistance F: start resistance (engravingShare * ps * A, or an
 // absolute engravingPressure_bar * A when that is set; once the bullet has crossed the free run gjump, decaying over
@@ -695,6 +728,9 @@ SimResult simulatePhysical(const SimInput &in, const Calibration &cal, int steps
     // time begin when it moves (the last sample at rest).
     std::size_t first = 0;
     while (first + 1 < samples.size() && samples[first + 1].v <= 0.0) ++first;
+    // the pressure rise before that (time before the motion is negative): the bullet lead time starts at 10 % of the maximum pressure
+    for (std::size_t i = 0; i <= first; ++i)
+        res.restPhase.push_back({.t_ms = (samples[i].t - samples[first].t) * 1e3, .p_bar = samples[i].p / kBar});
     if (first > 0)
     {
         samples.erase(samples.begin(), samples.begin() + static_cast<std::ptrdiff_t>(first));
@@ -721,9 +757,7 @@ SimResult simulatePhysical(const SimInput &in, const Calibration &cal, int steps
                               .e_J = 0.5 * mp * v * v,
                               .t_ms = lerp(a.t, b.t) * 1e3});
     }
-    SimInput used = in;  // the derived outputs (propellant impulse, recoil) with the Sebert factor of the dynamics
-    if (used.sebert <= 0.0) used.sebert = 0.5;
-    summarize(res, used, cal, freeVolume_cm3);
+    summarize(res, in, cal, freeVolume_cm3);  // propellant impulse and recoil with the load's Sebert factor (0..1, 0 included)
     res.frictionForce_N = m.slideForce + m.extraForce;
     // The work of that force alone: y[4] also holds the work against the engraving and the air, and the sliding friction only acts once
     // the bullet has crossed the free run, which the reported travel still includes.
@@ -749,6 +783,14 @@ double chamberVolume_m3(const SimInput &in, const Calibration &calibration)
 SimResult simulate(const SimInput &in, const Calibration &calibration, int steps)
 {
     const Calibration &cal = effectiveCalibration(in, calibration);
+    // the primer's start pressure belongs to the physical model (fitted with it); the other models keep the load's start pressure
+    if (in.primerOffset_bar != 0.0)
+    {
+        SimInput adjusted = in;
+        adjusted.primerOffset_bar = 0.0;
+        if (cal.model == SolverModel::Physical && !in.shotshell) adjusted.startPressure_bar += in.primerOffset_bar;
+        return simulate(adjusted, calibration, steps);
+    }
     if (in.handgun && !in.shotshell && in.barrelLength_mm < cal.handgunMaxBarrel_mm &&
         cal.handgunStartFraction * in.maxPressure_bar > in.startPressure_bar)
     {

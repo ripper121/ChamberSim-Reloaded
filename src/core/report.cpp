@@ -157,9 +157,11 @@ Data buildData(const LoadFile &lf, const SimInput &in, const SimResult &r, const
     num(u"work.oal"_s, c.number(u"oal"), Quantity::Length);
     const double effVolume = r.ok() ? r.effectiveCaseVolume_cm3 : in.caseVolume_cm3 - bulletIntrusion_m3(in) * 1e6;
     num(u"work.Vb"_s, effVolume, Quantity::Volume);
-    num(u"work.sebert"_s, c.number(u"sebert"));
+    num(u"work.sebert"_s, in.sebert);  // the load's value (the physical model uses it only for recoil and propellant impulse)
     num(u"work.xe"_s, lf.gun.number(u"xe"), Quantity::Length);
     num(u"work.xeEff"_s, lf.gun.number(u"xe") - in.startPosition_mm(), Quantity::Length);
+    num(u"work.twistlen"_s, lf.gun.number(u"twistlen"), Quantity::Length);
+    num(u"work.gjump"_s, lf.gun.number(u"gjump"), Quantity::Length);  // free run of the bullet to the lands
     num(u"work.ps"_s, c.number(u"ps"), Quantity::Pressure);
 
     txt(u"work.ProjectileName"_s, p.text(u"ProjectileName"));
@@ -202,6 +204,18 @@ Data buildData(const LoadFile &lf, const SimInput &in, const SimResult &r, const
         num(u"result.MuzzleEnergy"_s, r.muzzleEnergy_J, Quantity::Energy);
         num(u"result.MuzzleVelocity"_s, r.muzzleVelocity_ms, Quantity::Velocity);
         num(u"result.MuzzleTime"_s, r.muzzleTime_ms, Quantity::Time);
+        num(u"result.BulletLeadTime"_s, r.bulletLeadTime_ms, Quantity::Time);
+        if (r.optimalBarrelNode >= 0.0)
+        {
+            const int whole = static_cast<int>(r.optimalBarrelNode);
+            num(u"result.OptimalBarrelTime"_s, r.optimalBarrelTime_ms, Quantity::Time);
+            txt(u"result.OptimalBarrelNode"_s, u"#%1%2"_s.arg(whole).arg(r.optimalBarrelNode > whole ? u" ½"_s : QString()));
+        }
+        else
+        {
+            txt(u"result.OptimalBarrelTime"_s, u"–"_s);
+            txt(u"result.OptimalBarrelNode"_s, u"–"_s);
+        }
         d.set(u"result.LoadRatio"_s, Value::ofFraction(r.loadRatio));
         d.set(u"result.BurnRatio"_s, Value::ofFraction(r.burntFraction));
         if (r.burnoutInBarrel)
@@ -248,6 +262,7 @@ QString defaultTemplate()
 | Case volume | ~~work.casevol~~ | Length | ~~work.glen~~ |
 | Combustion chamber | ~~work.Vb~~ | Seating depth | ~~work.gdepth~~ |
 | Barrel length | ~~work.xe~~ | Base type | ~~work.gtailtype~~ |
+| Twist length | ~~work.twistlen~~ | Bullet jump | ~~work.gjump~~ |
 | Sebert factor | ~~work.sebert~~ | Initial pressure | ~~work.ps~~ |
 | Max. allowed pressure | ~~work.pmaxZul~~ | G1 ballistic coefficient | ~~work.g1bc~~ |
 
@@ -264,6 +279,7 @@ QString defaultTemplate()
 | Load ratio | ~~result.LoadRatio~~ | Recoil impulse | ~~result.Impulse~~ |
 | Burnt propellant | ~~result.BurnRatio~~ | Recoil energy | ~~result.RecoilEnergy~~ |
 | Efficiency | ~~result.Efficiency~~ | Gas outflow velocity | ~~result.OutflowVelocity~~ |
+| Bullet lead time (BLT) | ~~result.BulletLeadTime~~ | Optimal barrel time (OBT) | ~~result.OptimalBarrelTime~~, node ~~result.OptimalBarrelNode~~ |
 
 <pagebreak>
 ===== Diagrams =====

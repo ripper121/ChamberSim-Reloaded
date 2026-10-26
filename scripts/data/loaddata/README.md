@@ -69,6 +69,26 @@ Both publish measured pressures with every load, so `csr_fitdata --use-pressure`
   tables, older rows without pressures or start load). 3,092 samples, 14 powders; the web page and the guide overlap in about 760 loads (the
   velocities and pressures agree), the rest is new (calibers such as 45 ACP, 9 mm, 6 BR Norma, 7 x 64). Both files are merged without
   duplicates into `sources/samples/rs_samples.csv` (3,933 samples) and fitted together (2026-10-10).
+- `barnes_pdf_extract.py dir` reads the load data PDFs of barnesbullets.com/load-data (download them first, one per cartridge; `pip install pymupdf
+  opencv-python-headless`): per cartridge case, primer, barrel and twist, per bullet weight, type and cartridge length, per powder the starting and
+  the maximum load with velocity (no pressures; two layouts, the older one with a picture of each bullet). The picture's silhouette gives the bullet
+  length (`barnes_lengths.csv`, the widest section is the diameter). 3,904 samples of 56 cartridges; the muzzleloader PDF and 10 cartridges that are
+  not in the records (22 / 25 Creedmoor, 28 Nosler, 338-06, ...) are skipped. Bullets that share a table get its loads once.
+- `hn_extract.py catalogue.pdf` reads the load tables of the H&N bullet catalogue (H&N Geschossprogramm, 15th edition, lhs-germany.de; pages 10-13 handgun "ideal loads",
+  16-17 reduced rifle loads): one load per row with powder, charge, cartridge length, primer and V0, but **no barrel length** (only the test weapon's name; assumed 120 mm
+  handgun, 600 mm rifle) and no pressures; the rows count as start loads. 139 samples of 35 powders, bullets of H&N (measured lengths from the project records). Too few
+  samples per powder for new records (the largest: N110 24, HP-38 14); they add to the caliber and primer fits.
+- `geco_extract.py rifle.pdf handgun.pdf` reads the reloading data of GECO (geco-ammunition.com > Service > Downloads, `GECO_Reloading-Data_CFR_DE_23.pdf` and `GECO_Reloading-Data_P_R_DE.pdf`):
+  numbered loads with cartridge, GECO bullet, powder (Rottweil, Vihtavuori, Reload Swiss), maximum and minimum charge, primer, case, cartridge length and the velocity v3 at
+  the maximum charge (3 m in front of the muzzle, taken as V0). No barrel length (assumed 120 mm handgun, 600 mm rifle) and no pressures; only the maximum load has a
+  velocity, so every load is one `max` sample. The words are read by their position (`pdftotext -bbox`), the text order of the PDF is scrambled; the rifle table repeats
+  some loads (rows 75-87 = 51-67). 103 samples of 13 powders (83 rifle loads of R901-R907, 20 handgun and rifle loads of N110, N320-N340, RS20-RS30); bullets of GECO
+  (lengths from the project records). The current powder values reproduce the rifle loads with 4.0 % rms (bias +1.8 %, 83 loads), the handgun loads that can be simulated
+  with 6.0 % rms (bias -5.1 %, 7 loads).
+- `by_maker.py` sorts all sample files by the maker of the powder and writes `sources/samples/by_maker/<maker>.csv` (Hodgdon, IMR, Winchester, Accurate, Ramshot, Alliant, ADI,
+  Vectan, Vihtavuori, Lovex, Reload Swiss, RWS-Rottweil, Norma): the loads of every source for the maker's powders, identical loads once, a column `source` names the file.
+  A source that lists powders of many makers (the H&N catalogue, a bullet maker's PDF such as Barnes) is split among the makers' files; run the script again after
+  extracting a new source to `sources/samples/<name>_samples.csv`. 51,788 loads of 37 files.
 - `samples_common.py`: matches cartridges (with the table's spelling variants) to `data/calibers` and bullets to `data/projectiles`,
   else an estimated length (`estimate_length.py`).
 - `published_fit.py samples.csv --maker Lovex --base-from-name --source "..." --write` fits Ba per powder (form function 0 / 0.3 / 0.6)
@@ -107,6 +127,8 @@ powder numbers. R906 (1 load) is not written.
 - `hodgdon_extract.py manual.pdf` reads the rifle tables of the Hodgdon Reloading Manual 2024 (two columns per page; the right column starts
   at the page's second "Powder" heading): per cartridge barrel, twist, per bullet maker code, weight, type, cartridge length, per powder start
   and maximum load with velocity and pressure. Pressures in CUP are not comparable to PSI: those rows keep only their velocities.
+  The primer of the test cartridge is the column `primer` (the table's text, e.g. "WIN LR Magnum"; `scripts/data/primers.py` gives the
+  type), used by `analysis/fit_primers.py`.
   14,000 samples of about 100 powders.
 - `west_extract.py guide.pdf` reads the Western Powders Handloading Guide 8.0 (Accurate and Ramshot powders). Its text layer has a space
   between all characters of a data row, so a row is read with all spaces removed. 5,500 samples.
@@ -317,3 +339,22 @@ mean error):
 
 Open: heavy, large-bore bullets (.45 Auto / Colt / GAP, 10 mm, 38 Special) still come out 9-25 % too fast; .44 Rem. Mag. (-40 % velocity) and 9 mm Makarov
 (-20 %) look like record problems.
+
+## Refit with the new sources (2026-10-23)
+
+Barnes (3,904 loads) and H&N (139) were added to the samples (`by_maker.py`, files per powder maker). Refit of the physical burn values of all powders with the
+current solver, judged on all published loads of the cleaned samples (`filter_published_outliers.py`; 81 new loads dropped), rifle / pistol, with the bullet
+start pressures of the records:
+
+| Values | Rifle v / p rms | Pistol v / p rms |
+|---|---|---|
+| shipped | 3.64 % / 11.76 % | 7.20 % / 16.66 % |
+| Ba refitted, forms kept (167 of 197 powders, mean -1.9 %) | 3.60 % / 11.40 % | 7.28 % / 16.63 % |
+| shipped + 4 powders from the multi-start form search (adopted) | 3.63 % / 11.76 % | 7.20 % / 16.66 % |
+
+A free refit of Ba, a0, z1, z2 of the powders with pressures is clearly worse (rifle velocity 10 %). The Ba refit is neutral (rifle +-0.05, pistol +0.08 points): not adopted.
+`analysis/fit_physical_multistart.py` (8 starts: current, 6 k-medoid form shapes of the pressure-fitted powders, H4198) found a start with at least 1 % lower cost for 13 of
+the 52 powders without pressures; adopted where the velocity error of their own loads fell by 0.1 point or more: Alliant 4000-MR (3.17 -> 1.90 %), Reloder 26 (4.70 -> 3.28 %),
+TS 15.5 (3.18 -> 2.60 %), IMR 7977 (7.03 -> 3.77 %). Not adopted: N120 (the 458 SOCOM pressure goes from 1703 to 2384 bar, measured 1840) and N340 (DEVA 9 mm 1826 -> 1928 bar, measured ~1800)
+and the others, which fit their cost better but not their velocities.
+Pitfall: `csr_eval --physical X.json` needs `calibers.json` next to X.json (see above); without it every comparison is biased (rifle +0.3, pistol +0.9 points).

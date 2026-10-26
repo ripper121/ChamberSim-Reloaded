@@ -11,7 +11,9 @@ rebuilt and checked. Records made from estimates say so in their `descr` field.
   from Wikipedia's cartridge infoboxes (`wiki_calibers.py`); they lack body and shoulder lengths and tolerances. `cipname` is the
   C.I.P. name, `altname` other names. Shotshells are not included. `Pmax` is the C.I.P. maximum pressure; `PmaxSAAMI` (a column the
   project added, shown next to it) the SAAMI maximum average pressure of 97 cartridges, from Wikipedia's infoboxes
-  (`scripts/data/cipdata/saami_pressures.py`). Load data makers use the lower of the two.
+  (`scripts/data/cipdata/saami_pressures.py`). Load data makers use the lower of the two. `primer` (also a column the project added) is the usual primer
+  type a new load starts with: for 142 cartridges the most frequent primer of the Hodgdon, Alliant and Vihtavuori test cartridges, for the
+  others from the case (base diameter, case type; `scripts/data/cipdata/caliber_primers.py`).
 - **Projectiles (2470)**: the product pages of 16 manufacturers (Berger, Nosler, Speer, Hornady, Sierra, Barnes, Sellier & Bellot,
   Lapua, Norma, RWS, PPU, Federal, Winchester, Remington, H&N, Sako) and, from the listing of the reloading shop grauwolf.net (`grauwolf_fetch.py`, title only: maker, type,
   diameter, weight), 709 bullets of Fox, Sax, Degol, DK Bullets, LOS, Brenneke, GECO, Magtech, CopperBear, Frontier, GPA, Cutting Edge, Ballistix Academy,
@@ -21,7 +23,10 @@ rebuilt and checked. Records made from estimates say so in their `descr` field.
   The lengths of the 64 H&N bullets (hn-sport.de) are measured on the product photo of the single standing bullet (`hn_photos_fetch.py`,
   `measure_standing_bullet.py`: camera elevation 10 degrees, scale fixed with the caliper-measured 20.0 mm of the TC .458 300 gr HS, about 4 % uncertain; table
   `bullets_hn_photos.csv`), those of LOS bullets on the two-bullet photos of hunting-sport.com (`hunting_sport_fetch.py`, table `bullets_hunting_sport.csv`);
-  `apply_hunting_sport_lengths.py` writes them into the records. Fiocchi's site refuses
+  `apply_hunting_sport_lengths.py` writes them into the records. Federal publishes the length and BC of its component bullets (`federal_fetch.py`,
+  `apply_csv_lengths.py`); Berger's bullet reference chart gives the length of 111 bullets (`berger_chart.py`, all marked validated); the 195 estimated Hornady lengths were
+  replaced by 167 measured on the side-view illustrations of hornady.com (`hornady_images.py`, `measure_side_photos.py`, `apply_hornady_images.py`: 1 % too long, 5 % rms against the
+  54 validated records; a picture more than 30 % from the estimate is ignored); the 127 estimated Sierra lengths were replaced by lengths measured on the product photos of sierrabullets.com (`sierra_images.py`; the brand banner is cut off; +1 % and 3 % rms against the 110 validated records) and 51 Norma lengths by measurements on the renderings of norma-ammunition.com (`norma_images.py`; `apply_measured_lengths.py` writes them, `apply_hornady_images.py` was generalised into it); the table of the Brenneke reloading bullets gives the BC (`brenneke_table.py`, no lengths). Fiocchi's site refuses
   automated requests and is not included.
   The initial gas pressure (`gpressure`, the pressure at which the bullet starts and engraves) is an estimate from the construction
   (`start_pressure.py`): lead (cast, plated) 150 bar, jacketed 250 bar, brass monolithic 290 bar, copper monolithic (Barnes TSX/TTSX/LRX,
@@ -48,7 +53,7 @@ rebuilt and checked. Records made from estimates say so in their `descr` field.
   Vihtavuori: explosion heat (the "energy content") and bulk density are taken from its published powder table; the burn rate
   Ba was fitted to its published load data (start and maximum loads, about 4,000 samples), which contain no pressures. Lovex
   (Explosia's Reloading Guide 2019), Reload Swiss (online loading data of Nitrochemie), the Hodgdon Reloading Manual 2024 and the
-  Western Powders Handloading Guide 8.0 publish pressures as well; the fit uses velocities and pressures (velocity error 3-6 % rms,
+  Western Powders Handloading Guide 8.0 publish pressures as well (the Barnes Bullets load data PDFs, 3,904 start and maximum loads of 56 cartridges, give velocities only: H414, Supreme 780, IMR 4007 SSC and IMR 7977 were added from them together with the Hodgdon manual); the fit uses velocities and pressures (velocity error 3-6 % rms,
   pressure error 10-20 % rms; each record's `descr` states its numbers). None of them publishes the explosion heat or the bulk
   density: Qex is a typical value of a single-base (3800 kJ/kg) or double-base (4300 kJ/kg) powder (Lovex: S = single, D = double
   base by name; the others: the type that fits the velocities better), pcd is 900 kg/m3.

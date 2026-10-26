@@ -21,6 +21,8 @@
 #include "log.h"
 #include "dialogframe.h"
 
+#include <array>
+
 #include <QApplication>
 #include <QDialog>
 #include <QEvent>
@@ -31,7 +33,9 @@
 #include <QSettings>
 #include <QStyle>
 #include <QStyleFactory>
+#include <QStyleHints>
 #include <QStyleOption>
+#include <QtGlobal>
 
 namespace theme
 {
@@ -40,10 +44,59 @@ namespace
 {
 constexpr auto kKey = "ui/theme";
 
-QPalette darkPalette()
+// Colors of a dark or light scheme; the palettes of Gruvbox (Pavel Pertsev, MIT), Nord (Sven Greb, MIT) and Dracula (Zeno Rocha, MIT)
+// and Catppuccin (MIT) use their published values
+struct Scheme
 {
-    QPalette p;
-    const QColor window(0x2b, 0x31, 0x3b), base(0x22, 0x27, 0x30), alt(0x2f, 0x36, 0x41), text(0xdd, 0xe3, 0xea);
+    QRgb window, base, alt, text, link, highlight, highlightedText, placeholder, disabled;
+};
+
+// Fusion's classic light colors, fixed: Fusion's standardPalette() follows the system color scheme (dark on a dark desktop)
+constexpr Scheme kLight{0xefefef, 0xffffff, 0xf7f7f7, 0x000000, 0x0000ff, 0x308cc6, 0xffffff, 0x808080, 0xbebebe};
+constexpr Scheme kDark{0x2b313b, 0x222730, 0x2f3641, 0xdde3ea, 0x6cb0f0, 0x3b6ea8, 0xffffff, 0x8a94a0, 0x6a727c};
+constexpr Scheme kGruvboxDark{0x282828, 0x1d2021, 0x3c3836, 0xebdbb2, 0x83a598, 0x458588, 0xebdbb2, 0x928374, 0x7c6f64};
+constexpr Scheme kGruvboxLight{0xebdbb2, 0xfbf1c7, 0xf2e5bc, 0x3c3836, 0x076678, 0x458588, 0xfbf1c7, 0x928374, 0xa89984};
+constexpr Scheme kNord{0x3b4252, 0x2e3440, 0x434c5e, 0xd8dee9, 0x88c0d0, 0x5e81ac, 0xeceff4, 0x616e88, 0x616e88};
+constexpr Scheme kDracula{0x282a36, 0x21222c, 0x343746, 0xf8f8f2, 0x8be9fd, 0x44475a, 0xf8f8f2, 0x6272a4, 0x6272a4};
+constexpr Scheme kCatppuccinLatte{0xe6e9ef, 0xeff1f5, 0xdce0e8, 0x4c4f69, 0x1e66f5, 0x1e66f5, 0xeff1f5, 0x8c8fa1, 0x9ca0b0};
+constexpr Scheme kCatppuccinFrappe{0x303446, 0x292c3c, 0x414559, 0xc6d0f5, 0x8caaee, 0x8caaee, 0x232634, 0x838ba7, 0x737994};
+
+[[nodiscard]] const Scheme *schemeFor(Mode mode)
+{
+    switch (mode)
+    {
+    case Mode::Light: return &kLight;
+    case Mode::Dark: return &kDark;
+    case Mode::GruvboxDark: return &kGruvboxDark;
+    case Mode::GruvboxLight: return &kGruvboxLight;
+    case Mode::Nord: return &kNord;
+    case Mode::Dracula: return &kDracula;
+    case Mode::CatppuccinLatte: return &kCatppuccinLatte;
+    case Mode::CatppuccinFrappe: return &kCatppuccinFrappe;
+    case Mode::System: break;
+    }
+    return nullptr;
+}
+
+// `part` (0..1) of the way from color `from` to color `to`
+QColor mixed(const QColor &from, const QColor &to, double part)
+{
+    return QColor::fromRgbF(from.redF() + (to.redF() - from.redF()) * part, from.greenF() + (to.greenF() - from.greenF()) * part,
+                            from.blueF() + (to.blueF() - from.blueF()) * part);
+}
+
+QPalette schemePalette(const Scheme &c)
+{
+    // every role from the scheme: a default QPalette would carry the bevel roles (Light, Mid, Dark, Shadow) of the palette before
+    const QColor window(c.window), base(c.base), alt(c.alt), text(c.text);
+    QPalette p(window, window);
+    const auto mix = [&](double part) { return mixed(window, text, part); };
+    const bool dark = window.lightness() < 128;
+    p.setColor(QPalette::Light, dark ? mix(0.25) : window.lighter(150));
+    p.setColor(QPalette::Midlight, dark ? mix(0.15) : window.lighter(125));
+    p.setColor(QPalette::Mid, mix(0.3));
+    p.setColor(QPalette::Dark, dark ? window.darker(150) : mix(0.45));
+    p.setColor(QPalette::Shadow, dark ? QColor(0, 0, 0) : mix(0.7));
     p.setColor(QPalette::Window, window);
     p.setColor(QPalette::WindowText, text);
     p.setColor(QPalette::Base, base);
@@ -54,18 +107,25 @@ QPalette darkPalette()
     p.setColor(QPalette::Button, window);
     p.setColor(QPalette::ButtonText, text);
     p.setColor(QPalette::BrightText, Qt::red);
-    p.setColor(QPalette::Link, QColor(0x6c, 0xb0, 0xf0));
-    p.setColor(QPalette::Highlight, QColor(0x3b, 0x6e, 0xa8));
-    p.setColor(QPalette::HighlightedText, Qt::white);
-    p.setColor(QPalette::PlaceholderText, QColor(0x8a, 0x94, 0xa0));
+    p.setColor(QPalette::Link, QColor(c.link));
+    p.setColor(QPalette::Highlight, QColor(c.highlight));
+    p.setColor(QPalette::HighlightedText, QColor(c.highlightedText));
+    p.setColor(QPalette::PlaceholderText, QColor(c.placeholder));
     // disabled: clearly dimmer for every text role (menus and labels use WindowText), no etched shadow
-    const QColor disabled(0x6a, 0x72, 0x7c);
+    const QColor disabled(c.disabled);
     for (const QPalette::ColorRole role : {QPalette::WindowText, QPalette::Text, QPalette::ButtonText, QPalette::HighlightedText})
         p.setColor(QPalette::Disabled, role, disabled);
     p.setColor(QPalette::Disabled, QPalette::Light, window);
     p.setColor(QPalette::Disabled, QPalette::Highlight, alt);
     return p;
 }
+
+// `part` (0..1) of the way from the window color to the text color
+QColor towardsText(const QPalette &palette, double part)
+{
+    return mixed(palette.color(QPalette::Window), palette.color(QPalette::WindowText), part);
+}
+
 // Combo boxes open as a list below the field (at most maxVisibleItems rows, with a scroll bar) instead of the
 // Fusion/GTK popup that covers the field and tries to show every item. A long list (e.g. the countries) does not
 // fit on the screen and gets moved; on Wayland the mouse release then lands outside and closes it at once.
@@ -111,7 +171,7 @@ public:
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(!enabled ? QColor(0x45, 0x4c, 0x57) : active ? QColor(0x8a, 0x94, 0xa0) : QColor(0x6a, 0x73, 0x80));
+        painter->setBrush(towardsText(option->palette, !enabled ? 0.15 : active ? 0.55 : 0.38));
         const QRectF r = bar->orientation == Qt::Horizontal ? QRectF(handle).adjusted(1, 2, -1, -2) : QRectF(handle).adjusted(2, 1, -2, -1);
         painter->drawRoundedRect(r, 3, 3);
         painter->restore();
@@ -148,7 +208,7 @@ public:
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, radio);
         const bool enabled = option->state & State_Enabled;
-        painter->setPen(QPen(enabled ? QColor(0x9a, 0xa4, 0xb0) : QColor(0x5a, 0x62, 0x6c), 1.0));
+        painter->setPen(QPen(towardsText(option->palette, enabled ? 0.65 : 0.3), 1.0));
         painter->setBrush(Qt::NoBrush);
         const QRectF r = QRectF(option->rect).adjusted(0.5, 0.5, -0.5, -0.5);
         if (radio) painter->drawEllipse(r.adjusted(0.5, 0.5, -0.5, -0.5));
@@ -163,18 +223,49 @@ void setStyle(QApplication &app, const QString &name)
 }
 }  // namespace
 
+namespace
+{
+struct ModeKey
+{
+    Mode mode;
+    const char *key;
+};
+constexpr std::array<ModeKey, 9> kKeys{{{Mode::System, "system"},
+                                        {Mode::Light, "light"},
+                                        {Mode::Dark, "dark"},
+                                        {Mode::GruvboxLight, "gruvbox-light"},
+                                        {Mode::GruvboxDark, "gruvbox-dark"},
+                                        {Mode::Nord, "nord"},
+                                        {Mode::Dracula, "dracula"},
+                                        {Mode::CatppuccinLatte, "catppuccin-latte"},
+                                        {Mode::CatppuccinFrappe, "catppuccin-frappe"}}};
+}  // namespace
+
+QString modeKey(Mode mode)
+{
+    for (const auto &[m, key] : kKeys)
+        if (m == mode) return QLatin1String(key);
+    return QStringLiteral("system");
+}
+
+Mode modeFromKey(const QString &key)
+{
+    for (const auto &[m, k] : kKeys)
+        if (key == QLatin1String(k)) return m;
+    return Mode::System;
+}
+
 Mode storedMode()
 {
-    const QString v = QSettings().value(QLatin1String(kKey)).toString();
-    return v == u"dark" ? Mode::Dark : v == u"light" ? Mode::Light : Mode::System;
+    return modeFromKey(QSettings().value(QLatin1String(kKey)).toString());
 }
 
 void storeMode(Mode mode)
 {
-    LOG_Info() << "Theme set to" << (mode == Mode::System ? "system" : mode == Mode::Dark ? "dark" : "light");
+    LOG_Info() << "Theme set to" << modeKey(mode);
     QSettings s;
     if (mode == Mode::System) s.remove(QLatin1String(kKey));
-    else s.setValue(QLatin1String(kKey), mode == Mode::Dark ? QStringLiteral("dark") : QStringLiteral("light"));
+    else s.setValue(QLatin1String(kKey), modeKey(mode));
 }
 
 void apply(QApplication &app, Mode mode)
@@ -184,16 +275,26 @@ void apply(QApplication &app, Mode mode)
     switch (mode)
     {
     case Mode::System:
+    {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+        // Some platform styles ignore the OS dark/light setting (e.g. the Windows styles of older Qt 6 versions): then the
+        // palette disagrees with the reported color scheme and the matching built-in scheme is used instead
+        const Qt::ColorScheme scheme = app.styleHints()->colorScheme();
+        const bool paletteDark = systemPalette.color(QPalette::Window).lightness() < 128;
+        if (scheme != Qt::ColorScheme::Unknown && paletteDark != (scheme == Qt::ColorScheme::Dark))
+        {
+            setStyle(app, QStringLiteral("Fusion"));
+            app.setPalette(schemePalette(scheme == Qt::ColorScheme::Dark ? kDark : kLight));
+            break;
+        }
+#endif
         setStyle(app, systemStyle);
         app.setPalette(systemPalette);
         break;
-    case Mode::Light:
+    }
+    default:
         setStyle(app, QStringLiteral("Fusion"));
-        app.setPalette(app.style()->standardPalette());
-        break;
-    case Mode::Dark:
-        setStyle(app, QStringLiteral("Fusion"));
-        app.setPalette(darkPalette());
+        app.setPalette(schemePalette(*schemeFor(mode)));
         break;
     }
 }

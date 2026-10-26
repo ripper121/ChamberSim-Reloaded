@@ -313,50 +313,50 @@
 <context>
     <name>LoadView</name>
     <message>
-        <location filename="../src/app/loadview.cpp" line="+205"/>
-        <location line="+955"/>
+        <location filename="../src/app/loadview.cpp" line="+228"/>
+        <location line="+1055"/>
         <source>Maximum pressure</source>
         <translation>Maximaldruck</translation>
     </message>
     <message>
-        <location line="-955"/>
-        <location line="+956"/>
+        <location line="-1047"/>
+        <location line="+1048"/>
         <source>Muzzle pressure</source>
         <translation>Mündungsdruck</translation>
     </message>
     <message>
-        <location line="-956"/>
+        <location line="-1055"/>
         <source>Projectile energy</source>
         <translation>Geschossenergie</translation>
     </message>
     <message>
-        <location line="+0"/>
-        <location line="+957"/>
+        <location line="-1"/>
+        <location line="+1057"/>
         <source>Muzzle velocity</source>
         <translation>Mündungsgeschwindigkeit</translation>
     </message>
     <message>
-        <location line="-956"/>
+        <location line="-1056"/>
         <source>Barrel time (BT)</source>
         <translation>Laufzeit (BT)</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+7"/>
         <source>Burnout pressure</source>
         <translation>Druck bei Brennschluss</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+4"/>
         <source>Gas outflow velocity</source>
         <translation>Gasausströmgeschwindigkeit</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="-3"/>
         <source>Projectile speed</source>
         <translation>Geschossdrehzahl</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+0"/>
         <source>Recoil energy</source>
         <translation>Rückstoßenergie</translation>
     </message>
@@ -366,18 +366,18 @@
         <translation>IPSC- / MIP-Faktor</translation>
     </message>
     <message>
-        <location line="+0"/>
-        <location line="+40"/>
+        <location line="+2"/>
+        <location line="+89"/>
         <source>Load ratio</source>
         <translation>Füllgrad</translation>
     </message>
     <message>
-        <location line="-40"/>
+        <location line="-89"/>
         <source>Burnt propellant</source>
         <translation>Verbranntes Pulver</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+0"/>
         <source>Effective efficiency</source>
         <translation>Wirkungsgrad</translation>
     </message>
@@ -387,13 +387,13 @@
         <translation>Wärme-/Reibungsverlust</translation>
     </message>
     <message>
-        <location line="+39"/>
-        <location line="+799"/>
+        <location line="+89"/>
+        <location line="+825"/>
         <source>Charge</source>
         <translation>Ladung</translation>
     </message>
     <message>
-        <location line="-799"/>
+        <location line="-825"/>
         <source>Max. pressure</source>
         <translation>Max. Druck</translation>
     </message>
@@ -428,45 +428,47 @@
         <translation>Patrone &amp;&amp; Waffe</translation>
     </message>
     <message>
-        <location line="+0"/>
-        <location line="+173"/>
-        <location line="+577"/>
+        <location line="-139"/>
+        <location line="+139"/>
+        <location line="+188"/>
+        <location line="+588"/>
         <source>Projectile</source>
         <translation>Geschoss</translation>
     </message>
     <message>
-        <location line="-750"/>
-        <location line="+174"/>
-        <location line="+577"/>
+        <location line="-914"/>
+        <location line="+138"/>
+        <location line="+189"/>
+        <location line="+588"/>
         <source>Propellant</source>
         <translation>Pulver</translation>
     </message>
     <message>
-        <location line="-890"/>
-        <location line="+140"/>
+        <location line="-979"/>
+        <location line="+203"/>
         <source>Select Caliber</source>
         <translation>Kaliber wählen</translation>
     </message>
     <message>
-        <location line="-140"/>
-        <location line="+140"/>
+        <location line="-203"/>
+        <location line="+203"/>
         <source>Select Projectile</source>
         <translation>Geschoss wählen</translation>
     </message>
     <message>
-        <location line="-140"/>
-        <location line="+140"/>
+        <location line="-203"/>
+        <location line="+203"/>
         <source>Select Propellant</source>
         <translation>Pulver wählen</translation>
     </message>
     <message>
         <location line="+14"/>
-        <location line="+191"/>
+        <location line="+206"/>
         <source>No database available</source>
         <translation>Keine Datenbank verfügbar</translation>
     </message>
     <message>
-        <location line="-175"/>
+        <location line="-190"/>
         <source>Cartridge</source>
         <translation>Patrone</translation>
     </message>
@@ -487,17 +489,17 @@
     </message>
     <message>
         <location line="+1"/>
-        <location line="+614"/>
+        <location line="+640"/>
         <source>Measurements</source>
         <translation>Messungen</translation>
     </message>
     <message>
-        <location line="-613"/>
+        <location line="-639"/>
         <source>Report</source>
         <translation>Bericht</translation>
     </message>
     <message>
-        <location line="+125"/>
+        <location line="+140"/>
         <source>Caliber / cartridge</source>
         <translation>Kaliber / Patrone</translation>
     </message>
@@ -512,7 +514,7 @@
         <translation>Diese Komponente durch einen anderen Datensatz der Datenbank ersetzen</translation>
     </message>
     <message>
-        <location line="+546"/>
+        <location line="+557"/>
         <source>Case volume</source>
         <translation></translation>
     </message>
@@ -534,15 +536,30 @@
     <message>
         <location line="+1"/>
         <source>Projectile length</source>
-        <translation></translation>
+        <translation>Geschosslänge</translation>
     </message>
     <message>
-        <location line="-476"/>
+        <location line="-487"/>
         <source>Also set barrel length, seating depth and charge to the defaults of the new caliber</source>
         <translation>Auch Lauflänge, Setztiefe und Ladung auf die Vorgaben des neuen Kalibers setzen</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="-435"/>
+        <source>Bullet lead time (BLT)</source>
+        <translation>Geschossvorlaufzeit (BLT)</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Optimal barrel time (OBT)</source>
+        <translation>Optimale Laufzeit (OBT)</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Barrel</source>
+        <translation>Lauf</translation>
+    </message>
+    <message>
+        <location line="+440"/>
         <source>Show only bullets that fit the caliber</source>
         <translation>Nur Geschosse anzeigen, die zum Kaliber passen</translation>
     </message>
@@ -572,7 +589,7 @@
         <translation>Wert ändern</translation>
     </message>
     <message>
-        <location line="+92"/>
+        <location line="+103"/>
         <location line="+18"/>
         <source>Fit to measurements</source>
         <translation>An Messungen anpassen</translation>
@@ -643,7 +660,7 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
         <translation>^ Ladung ^ Name ^ Schüsse ^ Geschwindigkeit ^ SD ^ ES ^ Simuliert ^ Δ ^ Druck ^ Simuliert ^ Δ ^</translation>
     </message>
     <message>
-        <location line="+154"/>
+        <location line="+153"/>
         <source>&lt;b&gt;Charge too high:&lt;/b&gt; the propellant charge does not fit into the case behind the bullet.</source>
         <translation>&lt;b&gt;Ladung zu hoch:&lt;/b&gt; die Pulverladung passt nicht hinter dem Geschoss in die Hülse.</translation>
     </message>
@@ -683,17 +700,18 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
         <translation>&lt;b&gt;Schrotpatrone:&lt;/b&gt; Pfropfen und Schrotsäule als Geschoss (Masse Schrot + Pfropfen, Säulenlänge, in der Hülse sitzend, Anfangsdruck = Öffnen der Bördelung etwa 20 bar). An veröffentlichte Schrotladungen angepasst: Geschwindigkeit typisch 5-7 % zu niedrig; Druck im Mittel richtig, je nach Pulver aber bis zu 30 % daneben - mit den Daten des Pulverherstellers vergleichen.</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+21"/>
         <source>&lt;b&gt;Overpressure!&lt;/b&gt; The maximum pressure %1 is %2 % above the permitted %3. Do not load this charge.</source>
         <translation>&lt;b&gt;Überdruck!&lt;/b&gt; Der Maximaldruck %1 liegt %2 % über dem zulässigen Wert %3. Diese Ladung nicht laden.</translation>
     </message>
     <message>
         <location line="+10"/>
+        <location line="+14"/>
         <source>%1 ms</source>
         <translation>%1 ms</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-13"/>
         <source>not burnt out</source>
         <translation>nicht ausgebrannt</translation>
     </message>
@@ -713,7 +731,22 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
         <translation>–, %1</translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+5"/>
+        <source>#%1 ½</source>
+        <translation>#%1 ½</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>#%1</source>
+        <translation>#%1</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>%1 ms, node %2</source>
+        <translation>%1 ms, Knoten %2</translation>
+    </message>
+    <message>
+        <location line="+18"/>
         <source>Muzzle energy</source>
         <translation>Mündungsenergie</translation>
     </message>
@@ -724,8 +757,20 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
     </message>
     <message>
         <location line="+0"/>
+        <location line="+1"/>
+        <location line="+1"/>
         <source>ms</source>
         <translation>ms</translation>
+    </message>
+    <message>
+        <location line="-1"/>
+        <source>Bullet lead time</source>
+        <translation>Geschossvorlaufzeit</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Optimal barrel time</source>
+        <translation>Optimale Laufzeit</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -742,12 +787,12 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
     <name>MainWindow</name>
     <message>
         <location filename="../src/app/mainwindow.ui" line="+14"/>
-        <location filename="../src/app/mainwindow.cpp" line="+413"/>
+        <location filename="../src/app/mainwindow.cpp" line="+425"/>
         <source>ChamberSim Reloaded</source>
         <translation>ChamberSim Reloaded</translation>
     </message>
     <message>
-        <location filename="../src/app/mainwindow.cpp" line="-329"/>
+        <location filename="../src/app/mainwindow.cpp" line="-338"/>
         <source>Calibers</source>
         <translation>Kaliber</translation>
     </message>
@@ -803,7 +848,7 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
     </message>
     <message>
         <location line="+41"/>
-        <location line="+336"/>
+        <location line="+346"/>
         <location line="+179"/>
         <location line="+14"/>
         <location line="+26"/>
@@ -811,7 +856,7 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
         <translation>Datenbank</translation>
     </message>
     <message>
-        <location line="-516"/>
+        <location line="-526"/>
         <source>&amp;File</source>
         <translation>&amp;Datei</translation>
     </message>
@@ -827,44 +872,59 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
     </message>
     <message>
         <location line="-70"/>
-        <location line="+342"/>
-        <location line="+404"/>
+        <location line="+352"/>
+        <location line="+430"/>
         <source>Open load</source>
         <translation>Ladung öffnen</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="-77"/>
+        <source>A bullet could not be stored, none were imported:
+%1</source>
+        <translation>Ein Geschoss konnte nicht gespeichert werden, keines wurde importiert:
+%1</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>The bullets could not be stored:
+%1</source>
+        <translation>Die Geschosse konnten nicht gespeichert werden:
+%1</translation>
+    </message>
+    <message>
+        <location line="+72"/>
         <source>Loads (*.csrload *.grtload);;ChamberSim Reloaded loads (*.csrload);;Original GRT loads (*.grtload);;All files (*)</source>
         <translation>Ladungen (*.csrload *.grtload);;ChamberSim-Reloaded-Ladungen (*.csrload);;Original-GRT-Ladungen (*.grtload);;Alle Dateien (*)</translation>
     </message>
     <message>
-        <location line="-676"/>
+        <location line="-712"/>
         <source>&amp;Save</source>
         <translation>&amp;Speichern</translation>
     </message>
     <message>
         <location line="-93"/>
-        <location line="+651"/>
+        <location line="+663"/>
         <location line="+7"/>
-        <location line="+27"/>
+        <location line="+37"/>
         <location line="+3"/>
-        <location line="+9"/>
+        <location line="+17"/>
+        <location line="+6"/>
         <source>Import bullets</source>
-        <translation type="unfinished"></translation>
+        <translation>Geschosse importieren</translation>
     </message>
     <message>
-        <location line="-696"/>
+        <location line="-732"/>
         <source>Add the bullets of a manufacturer&apos;s bullet file (*.%1) to your own records</source>
-        <translation type="unfinished"></translation>
+        <translation>Die Geschosse aus der Geschossdatei eines Herstellers (*.%1) zu den eigenen Datensätzen hinzufügen</translation>
     </message>
     <message>
         <location line="+16"/>
-        <location line="+760"/>
+        <location line="+796"/>
         <source>New load</source>
         <translation>Neue Ladung</translation>
     </message>
     <message>
-        <location line="-758"/>
+        <location line="-794"/>
         <source>Create a load from a caliber, a projectile and a propellant (%1)</source>
         <translation>Eine Ladung aus Kaliber, Geschoss und Pulver erstellen (%1)</translation>
     </message>
@@ -899,24 +959,24 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
         <translation>Bericht als P&amp;DF exportieren…</translation>
     </message>
     <message>
-        <location line="+6"/>
-        <location line="+9"/>
+        <location line="+5"/>
+        <location line="+10"/>
         <source>Export PDF</source>
         <translation>PDF exportieren</translation>
     </message>
     <message>
-        <location line="-9"/>
+        <location line="-10"/>
         <source>PDF documents (*.pdf)</source>
         <translation>PDF-Dokumente (*.pdf)</translation>
     </message>
     <message>
-        <location line="+9"/>
-        <location line="+487"/>
+        <location line="+10"/>
+        <location line="+499"/>
         <source>Cannot write %1</source>
         <translation>%1 kann nicht geschrieben werden</translation>
     </message>
     <message>
-        <location line="-483"/>
+        <location line="-495"/>
         <source>Overlay &amp;reference result…</source>
         <translation>&amp;Referenzergebnis überlagern…</translation>
     </message>
@@ -952,18 +1012,18 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
     </message>
     <message>
         <location line="+1"/>
-        <location line="+147"/>
+        <location line="+156"/>
         <source>&amp;Undo</source>
         <translation>&amp;Rückgängig</translation>
     </message>
     <message>
-        <location line="-141"/>
-        <location line="+146"/>
+        <location line="-150"/>
+        <location line="+155"/>
         <source>&amp;Redo</source>
         <translation>Wieder&amp;herstellen</translation>
     </message>
     <message>
-        <location line="-138"/>
+        <location line="-147"/>
         <source>&amp;View</source>
         <translation>&amp;Ansicht</translation>
     </message>
@@ -973,20 +1033,50 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
         <translation>&amp;Design</translation>
     </message>
     <message>
-        <location line="+4"/>
-        <location line="+42"/>
+        <location line="+3"/>
+        <location line="+50"/>
         <source>System default</source>
         <translation>Systemvorgabe</translation>
     </message>
     <message>
-        <location line="-42"/>
+        <location line="-49"/>
         <source>Light</source>
         <translation>Hell</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+1"/>
         <source>Dark</source>
         <translation>Dunkel</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Gruvbox Light</source>
+        <translation>Gruvbox Hell</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Gruvbox Dark</source>
+        <translation>Gruvbox Dunkel</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Nord</source>
+        <translation>Nord</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Dracula</source>
+        <translation>Dracula</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Catppuccin Latte</source>
+        <translation>Catppuccin Latte</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Catppuccin Frappé</source>
+        <translation>Catppuccin Frappé</translation>
     </message>
     <message>
         <location line="+16"/>
@@ -1030,6 +1120,11 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
     </message>
     <message>
         <location line="+1"/>
+        <source>&amp;Online documentation</source>
+        <translation>&amp;Online-Dokumentation</translation>
+    </message>
+    <message>
+        <location line="+2"/>
         <source>&amp;About ChamberSim Reloaded…</source>
         <translation>Ü&amp;ber ChamberSim Reloaded…</translation>
     </message>
@@ -1060,15 +1155,15 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
         <translation>Wieder&amp;herstellen: %1</translation>
     </message>
     <message>
-        <location line="+39"/>
-        <location line="+370"/>
+        <location line="+40"/>
+        <location line="+396"/>
         <source>Cannot read %1:
 %2</source>
         <translation>%1 kann nicht gelesen werden:
 %2</translation>
     </message>
     <message>
-        <location line="-353"/>
+        <location line="-379"/>
         <source>Cannot open the database %1:
 %2</source>
         <translation>Die Datenbank %1 kann nicht geöffnet werden:
@@ -1158,12 +1253,12 @@ Ladungsdateien, die ihn verwenden, behalten ihre Werte.</translation>
     <message>
         <location line="+23"/>
         <location line="+7"/>
-        <location line="+6"/>
+        <location line="+8"/>
         <source>Export record</source>
         <translation>Datensatz exportieren</translation>
     </message>
     <message>
-        <location line="-12"/>
+        <location line="-14"/>
         <source>This record is not complete for the project&apos;s database:
 %1
 
@@ -1179,71 +1274,65 @@ Trotzdem exportieren?</translation>
         <translation>Datensatzdateien (*.json)</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+10"/>
         <source>Saved %1: add it to data/%2/ in the project to contribute it.</source>
         <translation>%1 gespeichert: zum Beitragen in data/%2/ des Projekts ablegen.</translation>
     </message>
     <message>
         <location line="+13"/>
         <source>Bullet files (*.%1 *.json);;All files (*)</source>
-        <translation type="unfinished"></translation>
+        <translation>Geschossdateien (*.%1 *.json);;Alle Dateien (*)</translation>
     </message>
     <message>
         <location line="+6"/>
         <source>Cannot read %1</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 kann nicht gelesen werden</translation>
     </message>
     <message numerus="yes">
-        <location line="+17"/>
+        <location line="+27"/>
         <source>%n bullet(s) can be added</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n Geschoss kann hinzugefügt werden</numerusform>
+            <numerusform>%n Geschosse können hinzugefügt werden</numerusform>
         </translation>
     </message>
     <message>
         <location line="+1"/>
         <source> (manufacturer: %1)</source>
-        <translation type="unfinished"></translation>
+        <translation> (Hersteller: %1)</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>Source: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Quelle: %1</translation>
     </message>
     <message numerus="yes">
         <location line="+1"/>
         <source>%n bullet(s) are already in the database and are left out.</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n Geschoss ist bereits in der Datenbank und wird ausgelassen.</numerusform>
+            <numerusform>%n Geschosse sind bereits in der Datenbank und werden ausgelassen.</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <location line="+2"/>
         <source>%n problem(s) in the file, those bullets are left out:</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n Problem in der Datei, diese Geschosse werden ausgelassen:</numerusform>
+            <numerusform>%n Probleme in der Datei, diese Geschosse werden ausgelassen:</numerusform>
         </translation>
     </message>
     <message>
         <location line="+7"/>
         <source>Add them to your own records?</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+9"/>
-        <source>A bullet could not be stored:
-%1</source>
-        <translation type="unfinished"></translation>
+        <translation>Zu den eigenen Datensätzen hinzufügen?</translation>
     </message>
     <message numerus="yes">
-        <location line="+6"/>
+        <location line="+29"/>
         <source>%n bullet(s) imported.</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n Geschoss importiert.</numerusform>
+            <numerusform>%n Geschosse importiert.</numerusform>
         </translation>
     </message>
     <message>
@@ -1967,7 +2056,7 @@ Druck Δ</translation>
 <context>
     <name>PropertyPanel</name>
     <message>
-        <location filename="../src/app/propertypanel.cpp" line="+72"/>
+        <location filename="../src/app/propertypanel.cpp" line="+73"/>
         <source>not specified (average)</source>
         <translation>nicht angegeben (Durchschnitt)</translation>
     </message>
@@ -2012,7 +2101,12 @@ Druck Δ</translation>
         <translation>ja</translation>
     </message>
     <message>
-        <location line="+37"/>
+        <location line="+17"/>
+        <source>not specified</source>
+        <translation>nicht angegeben</translation>
+    </message>
+    <message>
+        <location line="+38"/>
         <source>type %1</source>
         <translation>Typ %1</translation>
     </message>
@@ -2032,7 +2126,7 @@ Druck Δ</translation>
         <translation>Einheit</translation>
     </message>
     <message>
-        <location line="+90"/>
+        <location line="+103"/>
         <source>Click to choose another unit for this field</source>
         <translation>Klicken, um eine andere Einheit für dieses Feld zu wählen</translation>
     </message>
@@ -2324,12 +2418,12 @@ Druck Δ</translation>
     <message>
         <location line="+1"/>
         <location line="+21"/>
-        <location line="+1"/>
+        <location line="+2"/>
         <source>Export PDF</source>
         <translation>PDF exportieren</translation>
     </message>
     <message>
-        <location line="-18"/>
+        <location line="-19"/>
         <source>Scale</source>
         <translation>Maßstab</translation>
     </message>
@@ -2339,7 +2433,7 @@ Druck Δ</translation>
         <translation>PDF-Dokumente (*.pdf)</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+2"/>
         <source>Cannot write %1</source>
         <translation>%1 kann nicht geschrieben werden</translation>
     </message>
@@ -2605,12 +2699,12 @@ Druck Δ</translation>
     <message>
         <location line="+12"/>
         <source>Validated by hand: measured on a bullet or checked against the original database</source>
-        <translation type="unfinished"></translation>
+        <translation>Von Hand geprüft: an einem Geschoss gemessen oder mit der Originaldatenbank verglichen</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Not validated: the length is estimated or taken from a photo</source>
-        <translation type="unfinished"></translation>
+        <translation>Nicht geprüft: Die Länge ist geschätzt oder einem Foto entnommen</translation>
     </message>
     <message>
         <location line="+9"/>
@@ -2620,7 +2714,7 @@ Druck Δ</translation>
     <message>
         <location line="+1"/>
         <source>Validated</source>
-        <translation type="unfinished"></translation>
+        <translation>Geprüft</translation>
     </message>
     <message>
         <location line="+19"/>
@@ -2628,7 +2722,7 @@ Druck Δ</translation>
         <translation>Filter (alle Spalten)…</translation>
     </message>
     <message numerus="yes">
-        <location line="+146"/>
+        <location line="+147"/>
         <source>%n entries</source>
         <translation>
             <numerusform>%n Eintrag</numerusform>
@@ -2837,6 +2931,11 @@ Druck Δ</translation>
     </message>
     <message>
         <location line="+11"/>
+        <source>&lt;p&gt;The color themes use the palettes of &lt;a href=&quot;https://github.com/morhetz/gruvbox&quot;&gt;Gruvbox&lt;/a&gt; (Pavel Pertsev), &lt;a href=&quot;https://www.nordtheme.com&quot;&gt;Nord&lt;/a&gt; (Sven Greb), &lt;a href=&quot;https://draculatheme.com&quot;&gt;Dracula&lt;/a&gt; (Zeno Rocha) and &lt;a href=&quot;https://catppuccin.com&quot;&gt;Catppuccin&lt;/a&gt; (the Catppuccin contributors), all under the MIT license.&lt;/p&gt;</source>
+        <translation>&lt;p&gt;Die Farbthemen verwenden die Paletten von &lt;a href=&quot;https://github.com/morhetz/gruvbox&quot;&gt;Gruvbox&lt;/a&gt; (Pavel Pertsev), &lt;a href=&quot;https://www.nordtheme.com&quot;&gt;Nord&lt;/a&gt; (Sven Greb), &lt;a href=&quot;https://draculatheme.com&quot;&gt;Dracula&lt;/a&gt; (Zeno Rocha) und &lt;a href=&quot;https://catppuccin.com&quot;&gt;Catppuccin&lt;/a&gt; (die Catppuccin-Mitwirkenden), alle unter der MIT-Lizenz.&lt;/p&gt;</translation>
+    </message>
+    <message>
+        <location line="+6"/>
         <source>&lt;hr&gt;&lt;p&gt;&lt;small&gt;Qt %1 (built with %2) · %3 · language %4&lt;/small&gt;&lt;/p&gt;</source>
         <translation>&lt;hr&gt;&lt;p&gt;&lt;small&gt;Qt %1 (erstellt mit %2) · %3 · Sprache %4&lt;/small&gt;&lt;/p&gt;</translation>
     </message>
@@ -2923,7 +3022,7 @@ Druck Δ</translation>
 <context>
     <name>csr::LoadFile</name>
     <message>
-        <location filename="../src/core/loadfile.cpp" line="+212"/>
+        <location filename="../src/core/loadfile.cpp" line="+218"/>
         <source>Not a ChamberSim Reloaded or GRT load file</source>
         <translation>Keine ChamberSim-Reloaded- oder GRT-Ladungsdatei</translation>
     </message>
@@ -2936,16 +3035,21 @@ Druck Δ</translation>
 <context>
     <name>csr::dbfields</name>
     <message>
-        <location filename="../src/core/dbfields.cpp" line="+53"/>
-        <location line="+50"/>
+        <location filename="../src/core/dbfields.cpp" line="+54"/>
+        <location line="+52"/>
         <location line="+21"/>
         <source>Name</source>
         <translation>Name</translation>
     </message>
     <message>
-        <location line="-70"/>
+        <location line="-72"/>
         <source>Case dimensions (CIP)</source>
         <translation>Hülsenmaße (CIP)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>from the case dimensions</source>
+        <translation>aus den Hülsenmaßen</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -3041,6 +3145,11 @@ Druck Δ</translation>
         <location line="+1"/>
         <source>Case type</source>
         <translation>Hülsentyp</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Usual primer</source>
+        <translation>Übliches Zündhütchen</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -3157,7 +3266,7 @@ Druck Δ</translation>
     <message>
         <location line="+1"/>
         <source>Validated</source>
-        <translation type="unfinished"></translation>
+        <translation>Geprüft</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -3549,6 +3658,16 @@ Druck Δ</translation>
     </message>
     <message>
         <location line="+1"/>
+        <source>primer</source>
+        <translation>Zündhütchen</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>additional start pressure (bullet, crimp, case)</source>
+        <translation>Zusätzlicher Startdruck (Geschoss, Crimp, Hülse)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
         <source>shotshell wad</source>
         <translation>Schrotpatronen-Pfropfen</translation>
     </message>
@@ -3616,6 +3735,54 @@ Druck Δ</translation>
         <location line="+1"/>
         <source>physical model: burn-up limit z2</source>
         <translation>Physikalisches Modell: Abbrandgrenze z2</translation>
+    </message>
+</context>
+<context>
+    <name>csr::primer</name>
+    <message>
+        <location filename="../src/core/primer.cpp" line="+45"/>
+        <source>Small Pistol</source>
+        <translation>Pistole klein</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Small Pistol Magnum</source>
+        <translation>Pistole klein Magnum</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Large Pistol</source>
+        <translation>Pistole groß</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Large Pistol Magnum</source>
+        <translation>Pistole groß Magnum</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Small Rifle</source>
+        <translation>Büchse klein</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Small Rifle Magnum</source>
+        <translation>Büchse klein Magnum</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Large Rifle</source>
+        <translation>Büchse groß</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Large Rifle Magnum</source>
+        <translation>Büchse groß Magnum</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>.50 BMG</source>
+        <translation>.50 BMG</translation>
     </message>
 </context>
 <context>

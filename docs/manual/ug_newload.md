@@ -11,18 +11,43 @@ effective area, maximum permitted pressure, barrel length, twist length,
 seating depth and more. Below the table the drawings show the cartridge,
 the chamber and (when available) the powder.
 
+The Sebert factor (0 to 1) is kept as the file has it, 0 included, and
+all models use it as it is (the Physical model no longer replaces 0 by
+0.5 in the propellant impulse and the recoil). A value outside 0 to 1
+becomes 0.5 when the load is opened; the panel accepts only 0 to 1. The
+report shows the value the simulation used.
+
+### Primer and start pressure.
+
+The Primer (a drop-down: small or large, pistol or rifle, standard or
+magnum, .50 BMG) starts with the usual primer of the caliber. The start
+pressure, the gas pressure at which the bullet starts to move, is 250 bar
+plus the Additional Start Pressure for the bullet, the crimp and the case,
+as in the original program; a new load takes it from the bullet record
+(its start pressure minus 250 bar). Only the physical model uses the
+primer: it adds the difference between the primer type's start pressure
+and 250 bar (fitted to Hodgdon's published loads: Large Rifle 250 bar,
+the others 230 to 450 bar). For pistol and revolver cartridges the
+physical model starts at no less than 0.3 times the maximum permitted
+pressure, so there the primer usually has no effect. Loads of earlier
+versions and of the original keep their start pressure exactly.
+
 ### Replacing the caliber.
 
 After you choose another caliber, the program can also set barrel
 length, seating depth and charge to the defaults of the new caliber
-(tick the corresponding option in the selection dialog).
+(tick the corresponding option in the selection dialog). The primer
+becomes the usual primer of the new caliber; the additional start
+pressure stays.
 
 ## Projectile
 
 Mass, diameter, length and the other bullet data. Select Projectile…
 replaces the bullet; tick Show only bullets that fit the caliber to
 narrow the list. The Initial Gas Pressure is the pressure at which the
-bullet starts to move and engraves. The Bullet friction is an extra
+bullet starts to move and engraves. It is the primer’s start pressure plus the
+Additional Start Pressure of the Cartridge & gun tab; editing it changes
+the additional one. The Bullet friction is an extra
 resistance in bar that acts all along the barrel; it is always applied.
 Negative values are possible and describe low-friction bullets (the
 original’s database has values down to $-100$ bar). For 362 rifle

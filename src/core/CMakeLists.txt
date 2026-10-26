@@ -3,6 +3,8 @@ add_library(csrcore STATIC
     loadfile.h
     numeric.h
     loadfile.cpp
+    obt.h
+    obt.cpp
     solver.h
     solver.cpp
     simconfig.h
@@ -46,6 +48,8 @@ add_library(csrcore STATIC
     physicalpowders.cpp
     shotparts.h
     shotparts.cpp
+    primer.h
+    primer.cpp
 )
 
 target_include_directories(csrcore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

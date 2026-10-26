@@ -72,6 +72,9 @@ The sample CSVs are local only (not in the repository); make them again from the
 cd scripts/data/loaddata
 python3 hodgdon_extract.py manual.pdf -o hod_samples.csv [--pressure psi|all]
 python3 west_extract.py guide.pdf -o west_samples.csv
+python3 by_maker.py                                                       # all samples sorted by powder maker -> sources/samples/by_maker/<maker>.csv (the fit inputs)
+python3 hn_extract.py catalogue.pdf -o hn_samples.csv                      # H&N Geschossprogramm (lhs-germany.de), 139 loads
+python3 barnes_pdf_extract.py dir_with_pdfs -o barnes_samples.csv --lengths barnes_lengths.csv --images barnes_images   # PyMuPDF, OpenCV; PDFs of barnesbullets.com/load-data
 python3 lovex_extract.py guide.pdf -o lovex_samples.csv          # needs pdftotext
 python3 rs_extract.py -o rs_samples.csv [--html page.html]
 python3 vv_extract.py N150 -o vv_N150.csv [--cache dir]
@@ -117,10 +120,15 @@ python3 scripts/data/loaddata/vv_to_json.py vv_fits.csv --work vv_work
 # physical burn values of all project powders -> data/physical/propellants.json
 .venv/bin/python analysis/fit_physical_powders.py build/release/csr_eval \
     hod_samples.csv west_samples.csv lovex_samples.csv rs_samples.csv vv_*.csv [--split train] [--fit form|ba]
+# measured pressure loads (data/measurements/*.csv, e.g. deva_loads.csv, beschussamt_loads.csv) may carry a weight column (a row counts as that many rows); the fit prints the cost per powder
 # only new records (Ba only, the other powders of the file stay): add --fit ba --form a0,z1,z2 --only N110,N120 --merge
 # burn rate factor of the pistol / revolver calibers -> data/physical/calibers.json  (--holdout: fit on half of the powders, test on the rest;
 # --rifles --keep-existing --min-samples 60 adds the rifle calibers and keeps the existing entries)
 .venv/bin/python analysis/fit_caliber_scales.py build/release/csr_eval hod_samples.csv west_samples.csv adi_pistol_samples.csv [--holdout] [--shrink 0.75]
+
+# primers: usual primer of the caliber records (Hodgdon / Alliant / Vihtavuori tables, else from the case) and the start pressure per type
+python3 scripts/data/cipdata/caliber_primers.py [--write]
+.venv/bin/python analysis/fit_primers.py build/release/csr_eval hod_samples.csv [--split train] [--size volume] [--write]   # -> data/physical/primers.json
 
 # bullet lengths from product photos (needs opencv-python-headless in the venv)
 python3 scripts/data/bulletdata/hunting_sport_fetch.py [--out DIR]          # hunting-sport.com handgun bullets: photos + manifest.csv

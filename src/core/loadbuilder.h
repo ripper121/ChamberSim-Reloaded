@@ -58,6 +58,25 @@ bool completeTail(EntryList &projectile, double previousDiameter = 0.0);
 // overall length then follows). Returns whether anything changed.
 bool followCaseLength(EntryList &caliber, EntryList &projectile, double previousLength);
 
+// The primer of a load (primer.h): the caliber section's entries primer (type code, empty: none) and psadd (additional start pressure)
+// give the start pressure ps = 250 bar + psadd, which ps and the projectile's gpressure hold (the original's export and the solver read
+// ps); the physical model adds the primer's offset (primerOffset_bar). A load without the entries (an older file, the original's
+// *.grtload) gets them: the usual primer of its caliber record and its ps - 250 bar, so its start pressure stays exactly the same.
+// Returns whether they were added.
+bool ensurePrimer(LoadFile &load);
+// A load without a <caliberfile> block (a *.grtload from another tool) gets the record of the caliber it names (CaliberName), which the
+// cartridge drawing, the primer and the pistol calibration need. Returns whether a record was attached.
+bool attachCaliberRecord(LoadFile &load, const QVariantMap &record);
+// A Sebert factor outside 0..1 (or not a number) is invalid and becomes 0.5; every value in 0..1 is kept. Returns whether it changed.
+bool ensureSebert(LoadFile &load);
+// Sets ps and gpressure from psadd; nothing for a load without psadd.
+void updateStartPressure(LoadFile &load);
+// The start pressure [bar] of a load's caliber section: 250 bar + psadd, or ps for a section without psadd.
+[[nodiscard]] double loadStartPressure_bar(const EntryList &caliber);
+// What the physical model adds to that start pressure: the start pressure of the load's primer type - 250 bar (0 without psadd and for
+// shotshells).
+[[nodiscard]] double primerOffset_bar(const EntryList &caliber);
+
 // Replaces one component of an existing load by a database record. Everything else the user has set
 // (gun data, seating depth, charge, temperature, ...) is kept unless `resetDependent` asks for the
 // defaults that belong to the new record: the charge and seating depth for a caliber change, the

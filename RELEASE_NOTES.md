@@ -3,6 +3,67 @@
 Changes in ChamberSim Reloaded. Pre-built binaries are on the
 [releases page](https://github.com/Schildkroet/ChamberSim-Reloaded/releases).
 
+## 0.12
+
+### Added and changed
+
+- **Bullet lead time (BLT) and optimal barrel time (OBT).** The results, the report (`result.BulletLeadTime`,
+  `result.OptimalBarrelTime`, `result.OptimalBarrelNode`) and `csr_sim` show the time from 10 % of the peak pressure
+  to the muzzle and the nearest node of Chris Long's OBT master model (nodes 0 to 24.5 with the original's half
+  nodes); it reproduces the original program's values.
+- **Result panel.** Maximum pressure, muzzle velocity, projectile energy and barrel time as large cards, the other
+  results in three groups (Barrel, Projectile, Propellant); the overpressure warning stands above the results.
+- **Themes.** New color schemes Gruvbox Light and Dark, Nord, Dracula, Catppuccin Latte and Frappé
+  (*View ▸ Theme*, `--theme`). *Light* is now a fixed light scheme on a dark desktop too, *System default* follows
+  the color scheme of the operating system (Qt 6.5 and later), and the category rows of the property tables follow a
+  theme change.
+- **Start pressure and primer.** The start pressure of a load is again the original's value: 250 bar plus the
+  *Additional Start Pressure*, without the -400 to 400 bar limit of 0.11. Only the Physical Model adds the
+  difference between the primer type's start pressure and 250 bar; the Original and Published models get the
+  load's start pressure unchanged. A `.grtload` keeps its start pressure exactly (0.11 changed it for bullets far
+  from 250 bar, the original's records go from 20 to 950 bar). A load of 0.11 that was converted from an older file
+  can show a different start pressure in the Original model (Small Pistol: 196 bar less).
+- **Loads without a caliber record.** A `.grtload` from another tool that has no `<caliberfile>` block gets the
+  caliber record it names (*CaliberName*) from the database: cartridge drawing, primer and the pistol calibration
+  work for it (issue 6).
+- **Table search.** The records that match the query best are listed first: the whole cell, then its beginning,
+  then somewhere in it.
+- **Projectile data.** 593 validated bullets (was 420): the Berger reference chart (111), Federal's published
+  lengths (29) and Fox's bullet file (33 Classic Hunter, with BC). Lengths measured on the makers' product pictures
+  for Sierra (127), Norma (51), Lapua (30) and Hornady; Federal BCs and a Brenneke BC table. New: Hornady XTP 35571
+  and 5 GECO bullets of the maker's reloading list (Hexagon .357/.431/.451, JHP and FMJ .451).
+- **Propellants.** New records with physical burn values: Hodgdon H414, IMR 4007 SSC, IMR 7977 and Supreme 780. The
+  powder fit now also uses Barnes' load data (3,904 loads) and the H&N load tables; a search over several start
+  shapes changed the burn values of Alliant 4000-MR, Reloder 26, TS 15.5 and IMR 7977, the other powders were
+  already close to their best values.
+- **Caliber.** 375 XLR (9.52 x 70).
+- **Import bullets.** A bullet that is listed twice in a file is imported once, and a file is imported completely or
+  not at all.
+- The record export adds `.json` also to names with a dot (`9.3x62`); the search is faster in large tables.
+
+## 0.11
+
+### Added and changed
+
+- **Primer per load.** The Primer (small or large, pistol or rifle, standard or magnum, .50 BMG) of the
+  *Cartridge & gun* tab gives the start pressure; the old start pressure value is now the *Additional Start Pressure*
+  (-400 to 400 bar) on top. A new load takes the usual primer of the caliber (484 caliber records have one) and its
+  additional start pressure from the bullet record; loads of earlier versions keep their start pressure. Fitted to
+  14,547 Hodgdon loads: Large Rifle 250 bar, the others 230 to 450 bar. Rifle pressure rms over all published loads
+  12.62 to 12.54 %, velocity unchanged; pistol and revolver loads start at 0.3 x Pmax at least, so there is no change.
+  Files exported as `.grtload` contain only the sum.
+- **Measured pressure loads.** Eight DEVA protocols and one Beschussamt Muenchen test (.458 SOCOM) are used in the
+  powder fit. N340 was refitted with its 9 mm Luger loads, N120 with a better starting shape (.458 SOCOM peak pressure
+  +72 % to +17 %), and the form functions of 27 powders without published pressures were refitted from several start
+  shapes. Velocity rms over all published loads: rifle 3.48 to 3.46 %, pistol 7.14 to 7.10 %.
+- **Report: twist length and bullet jump.** New placeholders `work.twistlen` and `work.gjump`, shown next to the
+  barrel length in the default template.
+- **Sebert factor.** Every value from 0 to 1 (0 included) is kept as loaded and used as it is by all models; the
+  Physical Model no longer takes 0.5 for 0 in propellant impulse and recoil. Values outside 0 to 1 become 0.5, the
+  property panel accepts 0 to 1 only.
+- **File names.** *Export report as PDF* adds `.pdf` and the record export `.json` to a name without that suffix.
+- Barnes TTSX 30642 got an estimated boat tail.
+
 ## 0.10
 
 ### Added and changed

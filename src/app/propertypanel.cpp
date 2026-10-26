@@ -20,6 +20,7 @@
 #include "propertypanel.h"
 
 #include "fieldnames.h"
+#include "primer.h"
 
 #include "shotparts.h"
 #include "unitprefs.h"
@@ -95,6 +96,24 @@ const QList<Choice> *choicesFor(const QString &key)
         for (int n = 1; n <= 10; ++n) l.push_back({QString::number(n), QString::number(n)});  // 1: no ladder
         return l;
     }();
+    // the primer type of a metallic cartridge (primer.h): its start pressure plus the additional one is the load's start pressure.
+    // Each entry shows its start pressure in the unit of the additional start pressure (built anew: the unit can change).
+    if (key == u"primer")
+    {
+        static QList<Choice> primer;
+        const csr::units::Unit &u = UnitPreferences::instance().unitForField(u"caliber/psadd"_s, csr::units::Quantity::Pressure);
+        const auto withStart = [&](const QString &name, const QString &code) {
+            return u"%1 (%2 %3)"_s.arg(name, csr::units::format(csr::primerStartPressure_bar(code, 0.0), u, 0),
+                                       QString::fromUtf8(u.symbol));
+        };
+        primer = {{QString(), withStart(PropertyPanel::tr("not specified"), QString()), {}}};
+        for (const csr::PrimerType &t : csr::kPrimerTypes)
+        {
+            const QString code = QString::fromLatin1(t.code);
+            primer.push_back({code, withStart(csr::primerName(code), code), {}});
+        }
+        return &primer;
+    }
     if (key == u"laddercnt") return &ladder;
     if (key == u"gTailType") return &tail;
     if (key == u"shotshell") return &yesNo;
@@ -281,6 +300,16 @@ PropertyPanel::PropertyPanel(QWidget *parent)
     connect(&UnitPreferences::instance(), &UnitPreferences::changed, this, &PropertyPanel::refreshValues);
 }
 
+// the category rows carry a brush of the palette at the time they were built: renew it when the theme changes
+void PropertyPanel::changeEvent(QEvent *event)
+{
+    QWidget::changeEvent(event);
+    if (event->type() != QEvent::PaletteChange || !m_table) return;
+    for (int r = 0; r < m_table->rowCount(); ++r)
+        if (m_table->columnSpan(r, 0) > 1)
+            if (auto *item = m_table->item(r, 0)) item->setBackground(palette().alternateBase());
+}
+
 void PropertyPanel::setSections(const std::vector<Section> &sections)
 {
     m_sections = sections;
@@ -302,6 +331,9 @@ void PropertyPanel::setSections(const std::vector<Section> &sections)
         for (const csr::Entry &e : s.entries->entries())
         {
             if (hiddenField(e.name)) continue;  // kept in the file, written back unchanged
+            // the start pressure of a load with a primer is primer + additional start pressure (shown); a shotshell has its own primer
+            if (e.name == u"ps" && s.entries->find(u"psadd") && !s.entries->flag(u"shotshell")) continue;
+            if ((e.name == u"primer" || e.name == u"psadd") && s.entries->flag(u"shotshell")) continue;
             const int r = m_table->rowCount();
             m_table->insertRow(r);
             // a translated description is the finished label; the English one is tidied up here

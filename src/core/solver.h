@@ -48,18 +48,30 @@ enum class SimStatus
 };
 
 // Curves and summary values of one simulation. Only meaningful when ok().
+// Pressure of the time before the bullet moves (physical model; t <= 0, the bullet starts at 0)
+struct RestPoint
+{
+    double t_ms{};
+    double p_bar{};
+};
+
 struct SimResult
 {
     SimStatus status{SimStatus::InvalidInput};
     std::vector<SimPoint> points;
+    std::vector<RestPoint> restPhase;  // physical model: the pressure rise before the curve starts (the bullet waits at the start)
 
     double maxPressure_bar{};
     double muzzlePressure_bar{};
     double muzzleVelocity_ms{};
     double muzzleEnergy_J{};
     double muzzleTime_ms{};
-    double burntFraction{};  // z at the muzzle
-    double efficiency{};     // muzzle energy / total chemical energy of the charge
+    double pmax10Time_ms{};          // time at which the pressure first reaches 10 % of the maximum
+    double optimalBarrelTime_ms{};   // OBT: time of the nearest node (see obt.h), 0 without one
+    double optimalBarrelNode{-1.0};  // its number (0, 0.5, ... 24.5), -1 without one
+    double bulletLeadTime_ms{};      // BLT: muzzle time minus that (the original's BulletLeadTime10Pmax)
+    double burntFraction{};          // z at the muzzle
+    double efficiency{};             // muzzle energy / total chemical energy of the charge
     std::size_t indexPmax{};
     std::size_t indexBurnout{};  // first point with z == 1, or last point if not burnt out
     bool burnoutInBarrel{};
@@ -205,7 +217,7 @@ struct Calibration
     double heatTransferFactor{0.5};  // x the Dittus-Boelter coefficient of turbulent pipe flow (heat loss to the walls)
     double heatVelocity_ms{0.0};     // gas velocity of the heat transfer on top of v / 2: turbulence of the burning charge
     // Share of the charge that moves with the bullet in the physical model's mean-pressure momentum and kinetic-energy equations
-    // (the classical Lagrange value for a linear gas profile is 1/4). The Original model uses the load's Sebert factor instead.
+    // (1/4 is the Lagrange value for the volume-average pressure of a linear gas gradient). The Original model uses the load's Sebert factor instead.
     double gasMassShare{0.25};
     double bulletInertiaFactor{0.45};   // moment of inertia of the bullet = factor x mass x radius^2 (solid cylinder 0.5)
     double gasConstant_JkgK{340.0};     // specific gas constant of the powder gas (molar mass about 24.5 g/mol): gas temperature

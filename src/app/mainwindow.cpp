@@ -60,7 +60,10 @@
 #include <QWindow>
 #include <QMessageBox>
 #include <QScopeGuard>
+#include <QSet>
 #include <QSettings>
+#include <QSqlDatabase>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QStatusBar>
 #include <QTabBar>
@@ -238,9 +241,9 @@ void MainWindow::createActions()
                                 {
                                     auto *v = currentLoad();
                                     if (!v) return;
-                                    const QString path =
-                                        QFileDialog::getSaveFileName(this, tr("Export PDF"), {}, tr("PDF documents (*.pdf)"));
+                                    QString path = QFileDialog::getSaveFileName(this, tr("Export PDF"), {}, tr("PDF documents (*.pdf)"));
                                     if (path.isEmpty()) return;
+                                    path = ReportView::withPdfSuffix(path);
                                     if (v->report()->exportPdf(path))
                                     {
                                         LOG_Info() << "Report exported:" << path;
@@ -290,8 +293,15 @@ void MainWindow::createActions()
     QMenu *themeMenu = view->addMenu(tr("&Theme"));
     auto *themeGroup = new QActionGroup(this);
     const theme::Mode currentTheme = theme::storedMode();
-    const std::array<std::pair<QString, theme::Mode>, 3> themes{
-        {{tr("System default"), theme::Mode::System}, {tr("Light"), theme::Mode::Light}, {tr("Dark"), theme::Mode::Dark}}};
+    const std::array<std::pair<QString, theme::Mode>, 9> themes{{{tr("System default"), theme::Mode::System},
+                                                                 {tr("Light"), theme::Mode::Light},
+                                                                 {tr("Dark"), theme::Mode::Dark},
+                                                                 {tr("Gruvbox Light"), theme::Mode::GruvboxLight},
+                                                                 {tr("Gruvbox Dark"), theme::Mode::GruvboxDark},
+                                                                 {tr("Nord"), theme::Mode::Nord},
+                                                                 {tr("Dracula"), theme::Mode::Dracula},
+                                                                 {tr("Catppuccin Latte"), theme::Mode::CatppuccinLatte},
+                                                                 {tr("Catppuccin Frappé"), theme::Mode::CatppuccinFrappe}}};
     for (const auto &[label, mode] : themes)
     {
         QAction *a = themeMenu->addAction(label);
@@ -355,6 +365,8 @@ void MainWindow::createActions()
     // Help
     QMenu *help = m_menuBar->addMenu(tr("&Help"));
     help->addAction(tr("&User manual"), QKeySequence::HelpContents, this, [this] { openManual(); });
+    help->addAction(tr("&Online documentation"), this,
+                    [] { QDesktopServices::openUrl(QUrl(u"https://schildkroet.github.io/ChamberSim-Reloaded/"_s)); });
     help->addAction(tr("&About ChamberSim Reloaded…"), this,
                     [this]
                     {
@@ -460,6 +472,7 @@ bool MainWindow::openLoad(const QString &path)
         }
     }
     auto owned = std::make_unique<LoadView>();
+    owned->setDatabase(m_db.isOpen() ? &m_db : nullptr);  // before loading: a load without a caliber record looks it up
     QString error;
     if (!owned->load(path, &error))
     {
@@ -732,6 +745,8 @@ bool MainWindow::exportRecord(const QString &path)
         file = QFileDialog::getSaveFileName(this, tr("Export record"), csr::projectdata::fileName(table, *record),
                                             tr("Record files (*.json)"));
     if (file.isEmpty()) return false;
+    // a name typed without the suffix ("9.3x62" has the suffix "3x62")
+    if (QFileInfo(file).suffix().compare(u"json"_s, Qt::CaseInsensitive) != 0) file += u".json"_s;
     QFile out(file);
     if (!out.open(QIODevice::WriteOnly) || out.write(csr::projectdata::toJson(*record, schema)) < 0)
     {
@@ -761,11 +776,21 @@ int MainWindow::importBullets(const QString &path)
         return 0;
     }
     const csr::projectdata::BulletFile bullets = csr::projectdata::readBulletFile(in.readAll(), m_db.schema(csr::Table::Projectile));
-    // bullets the database has already (same manufacturer, name and lot) are left out
+    // bullets the database has already (same manufacturer, name and lot) are left out, and so are repeats within the file
     std::vector<QVariantMap> fresh;
+    QSet<QString> seen;
     int known = 0;
     for (const QVariantMap &b : bullets.bullets)
     {
+        const QString key = QStringList{b.value(u"mname"_s).toString(), b.value(u"pname"_s).toString(), b.value(u"lotid"_s).toString()}
+                                .join(u'\n')
+                                .toLower();
+        if (seen.contains(key))
+        {
+            ++known;
+            continue;
+        }
+        seen.insert(key);
         QSqlQuery q(m_db.handle());
         q.prepare(u"SELECT count(*) FROM projectile WHERE geloescht = 0 AND mname = ? AND pname = ? AND lotid = ?"_s);
         q.addBindValue(b.value(u"mname"_s));
@@ -789,6 +814,9 @@ int MainWindow::importBullets(const QString &path)
     }
     if (QMessageBox::question(this, tr("Import bullets"), text + u"\n\n"_s + tr("Add them to your own records?")) != QMessageBox::Yes)
         return 0;
+    // all or none: a bullet that cannot be stored leaves the database as it was
+    QSqlDatabase handle = m_db.handle();
+    const bool transaction = handle.transaction();
     int added = 0;
     QString error;
     for (const QVariantMap &b : fresh)
@@ -796,9 +824,20 @@ int MainWindow::importBullets(const QString &path)
         if (m_db.insert(csr::Table::Projectile, b, &error)) ++added;
         else
         {
-            QMessageBox::warning(this, tr("Import bullets"), tr("A bullet could not be stored:\n%1").arg(error));
+            if (transaction)
+            {
+                handle.rollback();
+                added = 0;
+            }
+            QMessageBox::warning(this, tr("Import bullets"), tr("A bullet could not be stored, none were imported:\n%1").arg(error));
             break;
         }
+    }
+    if (transaction && added > 0 && !handle.commit())
+    {
+        QMessageBox::warning(this, tr("Import bullets"), tr("The bullets could not be stored:\n%1").arg(handle.lastError().text()));
+        handle.rollback();
+        added = 0;
     }
     currentBrowser()->refresh();
     updateRecordButtons();
