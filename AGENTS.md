@@ -2,7 +2,7 @@
 
 ## Mission
 
-Port the existing **ChamberSim-Reloaded** application to a **Progressive Web App (PWA)** with the highest practical fidelity to the original. Aim for **1:1 behavior, calculations, workflows, layout, terminology, and results** wherever browser constraints permit.
+Port the existing **ChamberSim-Reloaded** application to a **Progressive Web App (PWA)** with the highest practical fidelity to the original. Aim for **1:1 behavior, calculations, workflows, terminology, and results** first; match the original layout and styling only after functional parity is achieved, wherever browser constraints permit.
 
 **This is a port, not a redesign.** Do not simplify features, change simulation rules, or invent replacement behavior merely because it is easier to implement in a browser.
 
@@ -16,17 +16,34 @@ Port the existing **ChamberSim-Reloaded** application to a **Progressive Web App
 
 Do not assume binary names, launch commands, CLI flags, server ports, framework choices, or existing feature support. Discover and document them from the repository and runtime. If running a binary is not possible, inspect source code and available CLI help, fixtures, tests, and documentation instead; record the limitation.
 
-## Priority order
+## Priority order — functionality first (mandatory)
 
-1. **Correctness and parity** with the source application and observed binary/CLI behavior.
+1. **Implement missing functionality:** prioritize working simulation logic, calculations, commands, screens, controls, validation, imports/exports, and complete end-to-end workflows.
+2. **Verify correctness and parity:** compare implemented behavior with the original source, release application, and CLI using reproducible cases. Fix broken or incorrect functionality before cosmetic issues.
+3. **Make the PWA operational:** ensure necessary navigation, inputs, outputs, file handling, and browser compatibility work. Add essential PWA infrastructure as needed for features to function.
+4. **Improve styling and visual fidelity only after functional work is complete and verified.** Reproduce the original appearance at that stage, without redesigning it.
+5. **Polish maintainability and performance** as needed, without sacrificing functionality or correctness.
 
-2. **Completeness:** port all user-facing features and supported input/output workflows.
+**Hard rule: do not spend implementation time on cosmetic styling while any known original feature or critical workflow is missing, broken, stubbed, or unverified.** If there is a choice between making a function work and making an existing screen look better, **implement and test the function**. A plain but usable UI is acceptable during the functional phase.
 
-3. **Visual and interaction fidelity** to the original desktop UI, to the extent applicable on the web.
+### Two implementation phases
 
-4. **PWA quality:** installability, offline-capable app shell, and robust browser behavior.
+**Phase 1 — Functional parity (default until complete):**
 
-5. **Maintainability and performance**, without compromising parity.
+- Implement missing features and connect all UI controls to real behavior. Prioritize end-to-end usefulness over visual polish.
+- Use minimal, functional styling only when necessary to make controls visible, readable, operable, accessible, and testable. Simple layouts and existing component styles are sufficient.
+- Do not spend time matching colors, spacing, fonts, borders, shadows, icons, animations, decorative details, or pixel-perfect layouts. Do not refactor working styling solely for aesthetics.
+- Fix usability issues only when they actually block a workflow (for example, an inaccessible button or an unreadable result).
+- Complete and verify the feature parity checklist before switching phases. An implemented but untested feature is not considered complete.
+
+**Phase 2 — Styling and visual parity (only after Phase 1):**
+
+- Start only when all discoverable features and critical workflows are implemented, functionally verified, and passing; no known functional `TODO`, `IN PROGRESS`, `DIFF`, or `BLOCKED` item may remain without explicit user approval to defer it.
+- Then match the original UI's layout, grouping, typography, colors, assets, and interactions as closely as browser constraints permit.
+- Continue running functional regression checks during styling so cosmetic changes do not break working behavior.
+- If a functional regression or missing feature is discovered, immediately return to Phase 1 priorities until it is fixed and verified.
+
+Track the active phase in `docs/PORT_PROGRESS.md` and select the next task accordingly. **Never interpret a screen looking finished as evidence that its functionality is complete.**
 
 When sources disagree, investigate before choosing: examine the original implementation, run an isolated comparison against the released application/CLI, and document the observed discrepancy. Treat the release behavior as an important compatibility target, but do not silently reproduce clear defects or make speculative fixes.
 
@@ -66,9 +83,9 @@ Before implementing major features:
 
 - Prefer porting algorithms from source to a browser-compatible language/runtime (or WebAssembly if justified) rather than approximating them.
 
-- Reuse original icons, labels, visual assets, and layouts when licensed and technically feasible.
+- Preserve original labels and terminology now; defer detailed icon, asset, and layout matching to Phase 2 unless needed for functional clarity.
 
-- Keep workflows, terminology, control grouping, and visible state as close to the original as possible. Adapt only what desktop-to-browser constraints require.
+- Keep workflows, terminology, and observable state as close to the original as possible. During Phase 1, use straightforward control grouping sufficient to execute and test workflows; refine visual grouping in Phase 2.
 
 - Preserve data compatibility: users should be able to open/import and save/export the original formats where feasible. Do not silently discard unsupported information.
 
@@ -88,7 +105,7 @@ For each completed feature:
 
 5. Record pass/fail/blocked status and any unavoidable platform differences.
 
-Use browser inspection/screenshots where available to verify actual rendering; do not rely only on static code review. Test keyboard and pointer interactions, navigation, loading states, and refresh persistence. If browser automation is available, add stable end-to-end tests for critical workflows.
+Use browser inspection to verify real functionality; defer screenshot-based visual comparison and aesthetic review until Phase 2, except when a visual issue blocks interaction. Test keyboard and pointer interactions, navigation, loading states, and refresh persistence. If browser automation is available, add stable end-to-end tests for critical workflows.
 
 ### 5. PWA acceptance criteria
 
@@ -98,7 +115,7 @@ Use browser inspection/screenshots where available to verify actual rendering; d
 
 - A service worker provides sensible caching and an offline-capable app shell; do not claim offline simulation or data access unless verified.
 
-- The UI is usable at desktop sizes and reasonably responsive at narrower widths without deleting functionality.
+- During Phase 1 the UI is sufficiently usable at target browser sizes to access all features; detailed responsive polish belongs to Phase 2.
 
 - Reload, install/launch, navigation, asset loading, and updates behave reliably.
 
@@ -113,37 +130,50 @@ Testing must remain rigorous enough to establish correctness and verified parity
 ### Test scope and cadence
 
 - After a focused change, run the smallest relevant unit tests or deterministic parity cases first.
+
 - Expand to integration tests when the change crosses component or data boundaries, and to browser tests when rendering, interactions, browser persistence, navigation, or file handling is affected.
+
 - Batch related browser scenarios into one session. Reuse a healthy existing development server; avoid unnecessary restarts and rebuilds.
+
 - Run full regression, production build, and PWA installation/offline checks at meaningful milestones and before marking the port complete. Run them sooner for broad architectural changes or evidence of regressions.
+
 - Reuse prior PASS evidence for unchanged code and unaffected dependencies; rerun a parity case if its implementation, shared dependencies, reference interpretation, or test setup changes.
+
 - On failure, inspect the cause and change code or test conditions before retrying. Repeat a command unchanged only when investigating a credible intermittent failure.
 
 ### Output and evidence discipline
 
 - Redirect verbose test output to logs when possible. Read concise pass/fail summaries and failure-specific excerpts first; inspect full logs only as needed.
+
 - Keep reproducible test commands, fixtures, expected values, and reference outputs in repository files rather than repeatedly pasting large logs into the conversation.
+
 - Prefer automated, deterministic comparisons for numerical outputs, units, serialization, validation, and other repeatable behavior.
+
 - When numerical results differ, report the actual versus expected values and justified tolerance, not only a generic pass/fail claim.
+
 - Keep the parity checklist synchronized with actual verification. A skipped test or stale baseline is **not** a PASS.
+
 - Record commands, results, relevant log paths, outstanding failures, and reasons for deliberately deferred checks in `docs/PORT_PROGRESS.md`.
 
 ### Efficient browser verification
 
-- Use browser inspection for changed or high-risk visual and interactive behavior, including initial appearance and important workflows; don't repeatedly capture unchanged screens without a reason.
+- During Phase 1 use browser inspection primarily for actual user interactions, workflow results, and blockers; skip screenshot comparisons, appearance reviews, and repeated styling checks. During Phase 2 verify important visual changes without repeatedly capturing unchanged screens.
+
 - Prefer stable automated end-to-end flows for critical workflows when tooling is available.
+
 - Verify keyboard and pointer input, navigation, refresh, and persistence where relevant to the change, rather than every possible workflow after every edit.
+
 - Any feature whose actual browser behavior remains unverified must stay TODO, IN PROGRESS, or BLOCKED as appropriate, not PASS.
 
 ## Parity checklist format
 
 Maintain a file such as `docs/parity-checklist.md` with entries covering:
 
-| Feature / scenario | Reference (source / GUI / CLI) | Expected behavior | PWA implementation | Verification | Status |
+\| Feature / scenario | Reference (source / GUI / CLI) | Expected behavior | PWA implementation | Verification | Status |
 
-| --- | --- | --- | --- | --- | --- |
+\| --- | --- | --- | --- | --- | --- |
 
-| Example: default simulation | Exact command or source location | Inputs, outputs, and units | Code path / screen | Test or manual comparison | TODO |
+\| Example: default simulation | Exact command or source location | Inputs, outputs, and units | Code path / screen | Test or manual comparison | TODO |
 
 Use statuses `TODO`, `IN PROGRESS`, `PASS`, `DIFF`, or `BLOCKED`. Do not mark `PASS` unless the behavior was actually verified. Document reproducible steps for a `DIFF` or `BLOCKED` item.
 
@@ -219,7 +249,7 @@ Use this structure in `docs/PORT_PROGRESS.md`:
 
 Last updated: YYYY-MM-DD
 
-## Current objective
+## Current objective (include Phase 1 or Phase 2)
 
 ## Current state (working / failing / blocked)
 
@@ -261,7 +291,7 @@ Last updated: YYYY-MM-DD
 
 3. Verify any listed build/test/server commands against the current environment; do not assume an old server process is still alive.
 
-4. Select the first uncompleted action from `docs/PORT_PROGRESS.md`, cross-check its parity entry and original source/reference behavior, then **continue implementation immediately**.
+4. Select the highest-priority unfinished **functional** task from `docs/PORT_PROGRESS.md` and the parity checklist, cross-check its original behavior, then **continue implementation immediately**. Do not select cosmetic work while Phase 1 remains incomplete.
 
 5. Do not restart the port, regenerate the app unnecessarily, or redo already-verified work unless a regression or new evidence requires it.
 
@@ -275,8 +305,8 @@ Save an accurate checkpoint describing what works, what does not, exact commands
 
 **Suggested user resume prompt:**
 
-> Resume the ChamberSim-Reloaded to PWA 1:1 port. Read AGENTS.md and docs/PORT_PROGRESS.md, docs/parity-checklist.md, and docs/PORT_DECISIONS.md. Check git status and actual code, then continue from the next incomplete action. Implement and test as much as possible, and update all progress files before ending. Do not start over or ask me to repeat the original instructions.
+> Resume the ChamberSim-Reloaded to PWA 1:1 port. Prioritize implementing and verifying every missing function; do not work on cosmetic styling until functional parity is complete. Read AGENTS.md and docs/PORT_PROGRESS.md, docs/parity-checklist.md, and docs/PORT_DECISIONS.md. Check git status and actual code, then continue from the next incomplete action. Implement and test as much as possible, and update all progress files before ending. Do not start over or ask me to repeat the original instructions.
 
 ## Definition of done
 
-The port is complete only when all discoverable original features are represented in the checklist, critical workflows have passed direct parity tests, numerical differences are justified, documented platform deviations are minimal, and the installable PWA has been validated through its actual web server and a production build.
+The port is complete only when Phase 1 functional parity is verified and Phase 2 visual parity has been addressed, all discoverable original features are represented in the checklist, critical workflows have passed direct parity tests, numerical differences are justified, documented platform deviations are minimal, and the installable PWA has been validated through its actual web server and a production build.
