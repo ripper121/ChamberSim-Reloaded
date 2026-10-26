@@ -697,6 +697,7 @@ test("resizes and remembers native-style workspace splitters", async ({ page }) 
   const main = page.getByRole("separator", { name: "Resize input and output workspaces" });
   const input = page.locator(".inputs");
   const originalWidth = (await input.boundingBox())!.width;
+  expect(originalWidth).toBeCloseTo(373, 0);
   await main.focus();
   await main.press("ArrowRight");
   await main.press("ArrowRight");

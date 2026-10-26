@@ -14,7 +14,13 @@ const outputPath = resolve(outputDirectory, "main-current.png");
 const loadPath = resolve("..", "build", "release", "223Rem_D0735_RWS.csrload");
 
 mkdirSync(outputDirectory, { recursive: true });
-const server = await preview({ preview: { host: "127.0.0.1", port: 4173, strictPort: true } });
+let server;
+try {
+  const response = await fetch("http://127.0.0.1:4173/");
+  if (!response.ok) throw new Error(`Preview returned HTTP ${response.status}`);
+} catch {
+  server = await preview({ preview: { host: "127.0.0.1", port: 4173, strictPort: true } });
+}
 const browser = await chromium.launch({ headless: true, executablePath });
 
 try {
@@ -46,5 +52,5 @@ try {
   console.log(outputPath);
 } finally {
   await browser.close();
-  await server.close();
+  await server?.close();
 }
