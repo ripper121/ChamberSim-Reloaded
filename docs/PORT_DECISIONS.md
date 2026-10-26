@@ -1,6 +1,6 @@
 # PWA Port Decisions
 
-Last updated: 2026-10-25
+Last updated: 2026-10-26
 
 ## D-001 — Keep the PWA isolated under `pwa/`
 
@@ -269,3 +269,9 @@ Last updated: 2026-10-25
 **Decision:** Use a 1000×320 SVG coordinate system with source-like fixed gutters for the three value axes, and let the plot occupy the remaining wide Results pane. Keep seven X ticks, six aligned value ticks, independent nice-ceiling ranges and source colors. Render legend entries in native series-add order with compact Qt-like square markers, including one translated entry for each original-reference curve.
 
 **Rationale:** The previous 770×320 viewBox preserved its aspect ratio inside a roughly 3.1:1 pane, letterboxing the plot and wasting about one third of the available width. `QChart` lays out axis gutters around a plot that expands with its widget. The wider coordinate system reproduces that behavior without stretching text, retains invertible SVG coordinates for pointer interpolation, and makes report rendering use the same verified chart. Separate reference legend entries follow the actual `QLineSeries` names instead of inventing a generic browser-only label.
+
+## D-044 — Finish property commits before replacing the browser workspace
+
+**Decision:** Commit numeric PropertyPanel changes immediately, but defer the full DOM rerender to the next task so the browser can complete the initiating focus or pointer gesture. Identify property/unit controls and action targets with stable data keys, restore the equivalent focused control after recalculation, preserve menu activation, and postpone rerendering an active splitter/column gesture until pointer-up. Coded combo changes remain immediate because the native delegates explicitly clear their focus after activation.
+
+**Rationale:** Qt updates table items in place, so Tab advances to the unit/next editor and clicking another widget both commits the value and activates that widget. Replacing the entire PWA synchronously inside `change` detached the target before Tab/click completed, losing focus or swallowing the action. A one-task commit boundary preserves native interaction semantics while retaining deterministic whole-workspace recalculation and session persistence; stable keys are browser infrastructure only and do not enter load data.

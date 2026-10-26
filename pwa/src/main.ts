@@ -58,6 +58,8 @@ let activeProfile: CalibrationProfile = solverPreferences.profile;
 let appSyncState: "latest" | "checking" | "outdated" | "updating" = "latest";
 let appServiceWorker: ServiceWorkerRegistration | undefined;
 let status = "Loading project database…";
+let propertyRenderTimer: number | undefined;
+let propertyPointerTarget: HTMLElement | undefined;
 const simulationCache = new WeakMap<LoadFile, Map<CalibrationProfile, LadderResult[]>>();
 const ladderFocus = new WeakMap<LoadFile, number>();
 const measurementSeriesSelections = new WeakMap<LoadFile, number>();
@@ -94,6 +96,11 @@ const dialogFilterDelayMs = 500;
 const databaseFilterDebounce = deferredAction();
 const reportTemplateKey = "csr-report-template";
 const reportScaleKey = "csr-report-scale";
+
+app.addEventListener("pointerdown", (event) => {
+  propertyPointerTarget = (event.target as HTMLElement).closest<HTMLElement>("[data-close], button, summary, input, select, [tabindex]") ?? undefined;
+}, true);
+document.addEventListener("keydown", () => { propertyPointerTarget = undefined; }, true);
 
 function sessionSnapshot(): SessionSnapshot {
   const eligible = loads.filter((load) => sessionEligibleLoads.has(load));
@@ -200,7 +207,7 @@ function choices(entry: Entry): Choice[] | undefined {
 
 function editor(section: LoadSection, entry: Entry, label: string): string {
   const list = choices(entry);
-  const attributes = `data-property data-section="${section}" data-entry="${escapeHtml(entry.name)}" aria-label="${escapeHtml(label)}"`;
+  const attributes = `data-property data-focus-key="property:${section}:${escapeHtml(entry.name)}" data-section="${section}" data-entry="${escapeHtml(entry.name)}" aria-label="${escapeHtml(label)}"`;
   if (list) {
     const shotPart = entry.name === "shothull" || entry.name === "shotwad" || entry.name === "shotprimer";
     const selectedTitle = shotPart ? list.find((choice) => choice.value === entry.value)?.title ?? ""
@@ -214,7 +221,7 @@ function editor(section: LoadSection, entry: Entry, label: string): string {
   const value = numeric && displayUnit && Number.isFinite(Number(entry.value)) ? formatUnit(Number(entry.value), displayUnit) : entry.value;
   const title = numeric && displayUnit && entry.value !== "" && Number.isFinite(Number(entry.value))
     ? i18n.text("PropertyPanel", "stored value: %1", entry.value) : "";
-  return `<input ${attributes} value="${escapeHtml(value)}" ${title ? `title="${escapeHtml(title)}"` : ""} ${numeric ? 'inputmode="decimal"' : ""} ${displayUnit ? `data-unit-id="${displayUnit.id}" data-quantity="${quantity}"` : ""}/>`;
+  return `<input ${attributes} value="${escapeHtml(value)}" autocomplete="off" spellcheck="false" ${title ? `title="${escapeHtml(title)}"` : ""} ${numeric ? 'inputmode="decimal"' : ""} ${displayUnit ? `data-unit-id="${displayUnit.id}" data-quantity="${quantity}"` : ""}/>`;
 }
 
 function unitEditor(section: LoadSection, entry: Entry, label: string): string {
@@ -222,7 +229,7 @@ function unitEditor(section: LoadSection, entry: Entry, label: string): string {
   if (quantity === "none") return escapeHtml(entry.unit);
   const field = `${section}/${entry.name}`;
   const selected = unitPreferences.unitForField(field, quantity);
-  return `<select data-field-unit data-field="${field}" data-quantity="${quantity}" aria-label="${escapeHtml(label)} unit" title="${escapeHtml(i18n.text("PropertyPanel", "Click to choose another unit for this field"))}">${unitsOf(quantity).map((candidate) => `<option value="${candidate.id}" ${candidate.id === selected.id ? "selected" : ""}>${candidate.symbol}</option>`).join("")}</select>`;
+  return `<select data-field-unit data-focus-key="unit:${escapeHtml(field)}" data-field="${escapeHtml(field)}" data-quantity="${quantity}" aria-label="${escapeHtml(label)} unit" title="${escapeHtml(i18n.text("PropertyPanel", "Click to choose another unit for this field"))}">${unitsOf(quantity).map((candidate) => `<option value="${candidate.id}" ${candidate.id === selected.id ? "selected" : ""}>${candidate.symbol}</option>`).join("")}</select>`;
 }
 
 function entryPresentation(entry: Entry): { label: string; hint: string } {
@@ -870,6 +877,11 @@ function localizeShell(): void {
 }
 
 function render(): void {
+  if (propertyRenderTimer !== undefined) {
+    window.clearTimeout(propertyRenderTimer);
+    propertyRenderTimer = undefined;
+  }
+  propertyPointerTarget = undefined;
   const current = activeLoad();
   const currentHistory = current ? historyFor(current) : undefined;
   const tabs = [`<button data-tab="database" class="${activeTab === "database" ? "active" : ""}">Database</button>`, ...loads.map((load, index) => `<button data-tab="load-${index}" class="${activeTab === `load-${index}` ? "active" : ""}">${escapeHtml(load.fileName.replace(/\.(csrload|grtload)$/i, ""))}${historyFor(load).modified ? "*" : ""}<span class="close" data-close="${index}" aria-label="Close load">×</span></button>`)].join("");
@@ -880,6 +892,60 @@ function render(): void {
   localizeShell();
   bindEvents();
   persistSession();
+}
+
+function schedulePropertyRender(pointerFinished = false): void {
+  const resizeTarget = propertyPointerTarget?.closest<HTMLElement>("[data-splitter], [data-property-column]");
+  if (resizeTarget && !pointerFinished) {
+    const finish = (): void => schedulePropertyRender(true);
+    resizeTarget.addEventListener("pointerup", finish, { once: true });
+    resizeTarget.addEventListener("pointercancel", finish, { once: true });
+    return;
+  }
+  if (propertyRenderTimer !== undefined) window.clearTimeout(propertyRenderTimer);
+  propertyRenderTimer = window.setTimeout(() => {
+    propertyRenderTimer = undefined;
+    const active = document.activeElement as HTMLElement | null;
+    const pointer = propertyPointerTarget;
+    propertyPointerTarget = undefined;
+    const focusKey = active?.dataset.focusKey;
+    const focusId = active?.id;
+    const menus = [...app.querySelectorAll<HTMLDetailsElement>(".menubar > details")];
+    const openMenus = menus.flatMap((menu, index) => menu.open ? [index] : []);
+    const pointerMenu = pointer?.closest<HTMLDetailsElement>(".menubar > details");
+    const activeMenu = pointerMenu ?? active?.closest<HTMLDetailsElement>(".menubar > details");
+    const activeMenuIndex = activeMenu ? menus.indexOf(activeMenu) : -1;
+    const pointerMenuWasOpen = pointerMenu?.open ?? false;
+    const pointerFocusKey = pointer?.dataset.focusKey;
+    const pointerId = pointer?.id;
+    const pointerAction = (["tab", "input", "result", "drawing", "dbTable", "photoShow", "close", "selectComponent", "ladder", "splitter", "propertyColumn"] as const)
+      .find((name) => pointer?.dataset[name] !== undefined);
+    const pointerActionValue = pointerAction ? pointer?.dataset[pointerAction] : undefined;
+    render();
+    const renderedMenus = [...app.querySelectorAll<HTMLDetailsElement>(".menubar > details")];
+    for (const index of openMenus) renderedMenus[index]?.setAttribute("open", "");
+    if (activeMenuIndex >= 0) {
+      const summary = renderedMenus[activeMenuIndex]?.querySelector<HTMLElement>("summary");
+      if (!pointerMenuWasOpen) summary?.click(); else summary?.focus();
+      return;
+    }
+    const pointerReplacement = pointerFocusKey
+      ? [...app.querySelectorAll<HTMLElement>("[data-focus-key]")].find((element) => element.dataset.focusKey === pointerFocusKey)
+      : pointerId ? app.querySelector<HTMLElement>(`#${CSS.escape(pointerId)}`)
+        : pointerAction && pointerActionValue !== undefined
+          ? [...app.querySelectorAll<HTMLElement>(`[data-${pointerAction.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}]`)]
+            .find((element) => element.dataset[pointerAction] === pointerActionValue)
+          : undefined;
+    if (pointerReplacement) {
+      if (pointerFocusKey || pointerAction === "splitter" || pointerAction === "propertyColumn") pointerReplacement.focus();
+      else if (!document.querySelector("dialog[open]")) pointerReplacement.click();
+      return;
+    }
+    const replacement = focusKey
+      ? [...app.querySelectorAll<HTMLElement>("[data-focus-key]")].find((element) => element.dataset.focusKey === focusKey)
+      : focusId ? app.querySelector<HTMLElement>(`#${CSS.escape(focusId)}`) : undefined;
+    replacement?.focus();
+  }, 0);
 }
 
 function invalidateLoad(load: LoadFile): void {
@@ -2408,13 +2474,13 @@ function bindEvents(): void {
     if (!historyFor(load).edit(load, section, name, text)) {
       const label = entryPresentation(load[section].find((entry) => entry.name === name) ?? { name, value: "", unit: "", type: "", description: name }).label;
       status = `Invalid value for ${label}; the previous value was restored`;
-      render();
+      element instanceof HTMLInputElement ? schedulePropertyRender() : render();
       return;
     }
     invalidateLoad(load);
     const label = entryPresentation(load[section].find((entry) => entry.name === name) ?? { name, value: "", unit: "", type: "", description: name }).label;
     status = `Edited ${label}`;
-    render();
+    element instanceof HTMLInputElement ? schedulePropertyRender() : render();
   }));
   app.querySelector<HTMLSelectElement>("#chart-axis")?.addEventListener("change", (event) => {
     chartAxis = (event.currentTarget as HTMLSelectElement).value as typeof chartAxis;

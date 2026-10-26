@@ -680,7 +680,7 @@ test("resizes and remembers native-style workspace splitters", async ({ page }) 
   const propertyColumn = page.getByRole("separator", { name: "Resize Property column" });
   const propertyHeading = page.locator(".property-table thead th").first();
   await expect(propertyHeading).toBeVisible();
-  const originalColumnWidth = (await propertyHeading.boundingBox())!.width;
+  const originalColumnWidth = await propertyHeading.evaluate((heading) => heading.getBoundingClientRect().width);
   await propertyColumn.focus();
   await propertyColumn.press("ArrowRight");
   await expect.poll(async () => (await propertyHeading.boundingBox())!.width).toBeCloseTo(originalColumnWidth + 10, 0);
@@ -1068,6 +1068,12 @@ test("edits numeric inputs, recalculates, validates, and supports undo and redo"
   const charge = page.getByRole("textbox", { name: "Propellant Mass", exact: true });
   await charge.fill("1.5");
   await charge.press("Tab");
+  const chargeUnit = page.getByLabel("Propellant Mass unit", { exact: true });
+  await expect(chargeUnit).toBeFocused();
+  await chargeUnit.press("Shift+Tab");
+  await expect(charge).toBeFocused();
+  await charge.press("Tab");
+  await expect(chargeUnit).toBeFocused();
   await expect(page.getByText("2,928 bar", { exact: true })).toBeVisible();
   await expect(page.getByText("830.9 m/s", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /223Rem_D0735_RWS\*/ })).toBeVisible();
@@ -1083,7 +1089,20 @@ test("edits numeric inputs, recalculates, validates, and supports undo and redo"
   await charge.fill("not-a-number");
   await charge.press("Tab");
   await expect(charge).toHaveValue("1.500");
+  await expect(chargeUnit).toBeFocused();
   await expect(page.getByText(/Invalid value for Propellant Mass/)).toBeVisible();
+
+  await charge.fill("1.55");
+  await openMenu(page, "File");
+  await expect(page.locator("#settings")).toBeVisible();
+  await expect(page.locator("footer")).toHaveText("Edited Propellant Mass");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#settings")).toBeHidden();
+  await charge.fill("1.6");
+  await page.getByRole("button", { name: "Projectile", exact: true }).click();
+  await expect(page.locator(".component-title span")).toContainText("RWS, Scorion");
+  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  await expect(charge).toHaveValue("1.600");
 });
 
 test("shows native invalid, capacity, stuck-bullet, ladder, and overpressure states", async ({ page }) => {
