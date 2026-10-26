@@ -1,6 +1,7 @@
 import caliberScaleData from "../../../data/physical/calibers.json";
 import shotPartData from "../../../data/shotshell/parts.json";
 import type { Entry, LoadFile } from "./loadfile";
+import { loadStartPressureBar, primerOffsetBar } from "./primer";
 
 export type GrainShape = "fitted" | "ball" | "cylinder";
 
@@ -23,6 +24,7 @@ export interface SimInput {
   caliberBurnScale: number;
   sebert: number;
   startPressureBar: number;
+  primerOffsetBar: number;
   maxPressureBar: number;
   shotCapacityScale: number;
   shotEnergyScale: number;
@@ -183,8 +185,9 @@ export function simInputFromLoad(load: LoadFile): SimInput {
     boreAreaMm2: number(caliber, "Aeff"),
     grooveDiameterMm: number(caliber, "Dz"),
     caliberBurnScale: shotshell ? 1 : physicalCaliberScale(text(load.caliberFile, "cipname"), rimRatio),
-    sebert: number(caliber, "sebert", 0.5),
-    startPressureBar: number(caliber, "ps", 250),
+    sebert: (() => { const value = number(caliber, "sebert", 0.5); return value >= 0 && value <= 1 ? value : 0.5; })(),
+    startPressureBar: loadStartPressureBar(caliber),
+    primerOffsetBar: primerOffsetBar(caliber),
     maxPressureBar: number(caliber, "pMaxZul"),
     shotCapacityScale: shotFactors.capacity,
     shotEnergyScale: shotFactors.energy,

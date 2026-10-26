@@ -275,7 +275,11 @@ describe("Physical numerical model", () => {
     const ladder = simulateLadder(value, calibrationFor("physical"));
     expect(ladder.map((entry) => entry.chargeG)).toEqual([value.chargeG, value.chargeG - 0.1, value.chargeG - 0.2]);
     expect(ladder.every((entry) => entry.result.status === "ok")).toBe(true);
-    expect(ladder[0]!.result.maxPressureBar).toBeCloseTo(3614.471964703715, 8);
+    // Current native csr_sim normalizes old loads with the caliber's primer before dispatching.
+    expect(ladder[0]!.result.maxPressureBar).toBeCloseTo(3639.3882505989213, 8);
+    expect(ladder[0]!.result.bulletLeadTimeMs).toBeCloseTo(0.7464788122880305, 10);
+    expect(ladder[0]!.result.optimalBarrelTimeMs).toBeCloseTo(0.7472620234750001, 12);
+    expect(ladder[0]!.result.optimalBarrelNode).toBe(5);
     expect(ladder[1]!.result.maxPressureBar).toBeLessThan(ladder[0]!.result.maxPressureBar);
   });
 });

@@ -1,6 +1,6 @@
 import { databaseColumns, type DatabaseColumn, type ProjectRecord, type ProjectTable } from "./dbschema";
 import { fillBurnFactors } from "./burnfactors";
-import { searchMatches } from "./search";
+import { searchCellScore, searchMatches } from "./search";
 import physicalPowderSource from "../../../data/physical/propellants.json";
 import type { PhysicalPowderData } from "./loadbuilder";
 export { databaseColumns } from "./dbschema";
@@ -49,15 +49,27 @@ export function recordMatches(record: ProjectRecord, query: string, columns: rea
   return searchMatches(query, cells);
 }
 
+const relevance = new WeakMap<ProjectRecord, number>();
+
 export function filteredRecords(table: ProjectTable, query: string, records: readonly ProjectRecord[] = projectRecords[table]): ProjectRecord[] {
   const columns = databaseColumns[table];
-  return records.filter((record) => recordMatches(record, query.trim(), columns));
+  const trimmed = query.trim();
+  return records.filter((record) => {
+    const matches = recordMatches(record, trimmed, columns);
+    if (matches && trimmed) relevance.set(record, Math.max(...columns.map((column) => searchCellScore(trimmed, displayValue(record, column), !column.numeric && !column.boolean))));
+    else relevance.delete(record);
+    return matches;
+  });
 }
 
 export function sortedRecords(records: readonly ProjectRecord[], column: DatabaseColumn, direction: "asc" | "desc"): ProjectRecord[] {
   const sign = direction === "asc" ? 1 : -1;
   const collator = new Intl.Collator("en-US", { sensitivity: "base", numeric: true });
   return [...records].sort((left, right) => {
+    if (column.name === "id") {
+      const score = (relevance.get(right) ?? 0) - (relevance.get(left) ?? 0);
+      if (score !== 0) return score;
+    }
     if (column.numeric || column.boolean) {
       const a = Number(left[column.name] ?? 0), b = Number(right[column.name] ?? 0);
       return (a - b) * sign;

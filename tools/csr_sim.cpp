@@ -25,6 +25,7 @@
 // One result row per load and ladder step (index 0 = highest charge). Units are the base units of the
 // model: g, mm, bar, m/s, J, ms. Exit code: 0 all simulations ok, 1 at least one failed, 2 usage or read error.
 #include "loadfile.h"
+#include "loadbuilder.h"
 #include "numeric.h"
 #include "physicalpowders.h"
 #include "shotparts.h"
@@ -230,6 +231,8 @@ int main(int argc, char *argv[])
         }
         csr::attachPhysicalBurn(lf->propellant);
         csr::ensureShotParts(lf->caliber);
+        csr::ensureSebert(*lf);
+        csr::ensurePrimer(*lf);
 
         csr::SimInput in = csr::SimInput::fromLoad(*lf);
         if (cli.isSet(u"charge"_s)) in.charge_g = cli.value(u"charge"_s).toDouble();

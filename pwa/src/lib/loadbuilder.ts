@@ -1,5 +1,6 @@
 import { databaseColumns, type ProjectRecord } from "./dbschema";
 import type { Entry, LoadFile } from "./loadfile";
+import { ensurePrimer, primerOfCaliber, referenceStartPressureBar, updateStartPressure } from "./primer";
 
 const grainToGram = 0.06479891;
 
@@ -20,6 +21,7 @@ const caliberSpec = fields([
   ["Dz", "mm", "decimal", "groove caliber"], ["Aeff", "mm2", "decimal", "effektive area"],
   ["pMaxZul", "bar", "decimal", "maximum allowed pressure"], ["method", "", "string", "cartridge test method"],
   ["sebert", "", "decimal", "Sebert factor"], ["ps", "bar", "decimal", "initial gas pressure"],
+  ["primer", "", "string", "primer"], ["psadd", "bar", "decimal", "additional start pressure (bullet, crimp, case)"],
   ["shotshell", "", "boolean", "true if shotshell"]
 ]);
 const gunSpec = fields([
@@ -84,7 +86,8 @@ function caliberValues(caliber: Partial<ProjectRecord>): Record<string, string> 
     CaliberName: name, caselen: format(number(caliber, "L3")), casevol: format(caseVolumeCm3(caliber)), Dz: format(number(caliber, "c_Z")),
     Aeff: format(number(caliber, "c_Q")), pMaxZul: format(number(caliber, "Pmax")),
     method: text(caliber, "standard") === "SAAMI" ? "Piezo SAAMI" : "Piezo CIP",
-    sebert: format(number(caliber, "sebert") > 0 ? number(caliber, "sebert") : 0.5), shotshell: "false"
+    sebert: format(number(caliber, "sebert") > 0 ? number(caliber, "sebert") : 0.5),
+    primer: primerOfCaliber(caliber), shotshell: "false"
   };
 }
 
@@ -157,7 +160,7 @@ function replaceValues(entries: Entry[], values: Record<string, string>): void {
 function refreshTitleAndLength(load: LoadFile): void {
   load.title = `${getText(load.caliber, "CaliberName")} ${getText(load.projectile, "ProjectileName")} ${getText(load.propellant, "mname")} ${getText(load.propellant, "pname")}`;
   set(load.caliber, "oal", format(get(load.caliber, "caselen") + get(load.projectile, "glen") - get(load.projectile, "gdepth")));
-  set(load.caliber, "ps", format(get(load.projectile, "gpressure") || 250));
+  updateStartPressure(load);
 }
 
 function caliberFileEntries(caliber: ProjectRecord): Entry[] {
@@ -169,6 +172,8 @@ function caliberFileEntries(caliber: ProjectRecord): Entry[] {
 export function applyCaliber(load: LoadFile, caliber: ProjectRecord, resetDependent = false): void {
   replaceValues(load.caliber, caliberValues(caliber));
   load.caliberFile = caliberFileEntries(caliber);
+  ensurePrimer(load);
+  set(load.caliber, "primer", primerOfCaliber(caliber));
   if (resetDependent) {
     set(load.gun, "xe", format(defaultBarrelLengthMm(caliber)));
     set(load.projectile, "gdepth", format(defaultSeatingDepthMm(caliber, asRecord(load.projectile))));
@@ -177,9 +182,24 @@ export function applyCaliber(load: LoadFile, caliber: ProjectRecord, resetDepend
   refreshTitleAndLength(load);
 }
 
+export function attachCaliberRecord(load: LoadFile, caliber: ProjectRecord): boolean {
+  if (load.caliberFile.length) return false;
+  load.caliberFile = caliberFileEntries(caliber);
+  if (!load.caliberFile.length) return false;
+  // A parser-added primer for an old external load is only a provisional case-derived value.
+  if (!/name=["']primer["']/i.test(load.sourceXml)) {
+    set(load.caliber, "primer", primerOfCaliber(caliber));
+    updateStartPressure(load);
+  }
+  return true;
+}
+
 export function applyProjectile(load: LoadFile, projectile: ProjectRecord, resetDependent = false): void {
   replaceValues(load.projectile, projectileValues(projectile));
   completeTail(load.projectile);
+  ensurePrimer(load);
+  set(load.caliber, "psadd", format(number(projectile, "gpressure") > 0
+    ? number(projectile, "gpressure") - referenceStartPressureBar : 0));
   const caliber = asRecord(load.caliberFile);
   if ((resetDependent || get(load.projectile, "gdepth") <= 0) && load.caliberFile.length) {
     set(load.projectile, "gdepth", format(defaultSeatingDepthMm(caliber, projectile)));
@@ -203,6 +223,7 @@ export function buildLoad(caliber: ProjectRecord, projectile: ProjectRecord, pro
   const cal = caliberValues(caliber), prj = projectileValues(projectile), pro = propellantValues(propellant);
   cal.oal = format(number(caliber, "L3") + number(projectile, "glen") - depth);
   cal.ps = prj.gpressure!;
+  cal.psadd = format(Number(prj.gpressure) - referenceStartPressureBar);
   const caliberEntries = fill(caliberSpec, cal);
   const projectileEntries = fill(projectileSpec, { ...prj, gdepth: format(depth), gfrictionUnlock: "true" });
   completeTail(projectileEntries);

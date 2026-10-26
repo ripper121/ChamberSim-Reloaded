@@ -219,6 +219,26 @@ export class OwnDatabase {
     return record;
   }
 
+  async insertMany(table: ProjectTable, values: readonly Partial<ProjectRecord>[]): Promise<ProjectRecord[]> {
+    if (!values.length) return [];
+    const database = await this.#open();
+    const transaction = database.transaction(table, "readwrite");
+    const done = transactionDone(transaction);
+    const store = transaction.objectStore(table);
+    try {
+      const keys = await requestResult(store.getAllKeys());
+      let id = Math.max(ownIdBase - 1, ...keys.map(Number));
+      const records = values.map((value) => normalizeOwnRecord(table, value, ++id));
+      await Promise.all(records.map((record) => requestResult(store.add(record))));
+      await done;
+      return records;
+    } catch (problem) {
+      try { transaction.abort(); } catch { /* already aborted by IndexedDB */ }
+      try { await done; } catch { /* preserve the record-specific failure */ }
+      throw problem;
+    }
+  }
+
   async update(table: ProjectTable, id: number, values: Partial<ProjectRecord>): Promise<ProjectRecord> {
     if (id < ownIdBase) throw new Error("Only personal records can be changed");
     const database = await this.#open();

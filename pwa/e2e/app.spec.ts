@@ -11,7 +11,8 @@ const referenceLoad = resolve(repositoryRoot, "build/release/223Rem_D0735_RWS.cs
 const originalLoad = resolve(repositoryRoot, "tests/fixtures/8x57is.grtload");
 const measurementLoad = resolve(repositoryRoot, "tests/fixtures/measurements.grtload");
 const bulletFile = resolve(repositoryRoot, "tests/fixtures/example.csrbullets");
-const nativeSimulator = resolve(repositoryRoot, "build/release/csr_sim.exe");
+// build/release contains the historical v0.10 package; only a fresh source build is a v0.13 result oracle.
+const nativeSimulator = resolve(repositoryRoot, "build/current-reference/csr_sim.exe");
 
 async function openMenu(page: Page, name: string): Promise<void> {
   await page.locator(".menubar > .menu-dropdown > summary").filter({ hasText: name }).click();
@@ -64,10 +65,10 @@ test("browses, filters, sorts, and selects the complete project database", async
 
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("485 entries", { exact: true })).toBeVisible();
   await expect(page.locator(".database-table tbody tr[data-db-id]")).toHaveCount(120);
   await page.locator(".database-table-scroll").evaluate((element) => { element.scrollTop = element.scrollHeight; element.dispatchEvent(new Event("scroll")); });
-  await expect(page.locator('[data-db-id="1000483"]')).toBeVisible();
+  await expect(page.locator('[data-db-id="1000484"]')).toBeVisible();
 
   const filter = page.getByLabel("Filter all columns");
   await filter.click();
@@ -77,9 +78,9 @@ test("browses, filters, sorts, and selects the complete project database", async
   await page.keyboard.type("7 is");
   await page.waitForTimeout(300);
   expect(await originalFilter!.evaluate((input) => input.isConnected)).toBe(true);
-  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("485 entries", { exact: true })).toBeVisible();
   await expect.poll(() => originalFilter!.evaluate((input) => input.isConnected)).toBe(false);
-  await expect(page.getByText("3 of 484 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("3 of 485 entries", { exact: true })).toBeVisible();
   const matchingCell = page.getByRole("cell", { name: "8 x 57 IS", exact: true });
   await expect(matchingCell).toBeVisible();
   const row = page.locator(".database-table tbody tr").filter({ has: matchingCell });
@@ -97,15 +98,15 @@ test("browses, filters, sorts, and selects the complete project database", async
   await expect(page.getByRole("columnheader").filter({ has: page.getByRole("button", { name: "Sort by Pmax", exact: true }) })).toHaveAttribute("aria-sort", "descending");
 
   await page.getByRole("tab", { name: "Projectiles" }).click();
-  await expect(page.getByText("3,010 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,120 entries", { exact: true })).toBeVisible();
   await page.getByLabel("Filter all columns").fill("RWS Scorion 52");
-  await expect(page.getByText("1 of 3,010 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 of 3,120 entries", { exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: /Scorion Hpbt-Match 2313343/ })).toBeVisible();
 
   await page.getByRole("tab", { name: "Propellants" }).click();
-  await expect(page.getByText("245 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("249 entries", { exact: true })).toBeVisible();
   await page.getByLabel("Filter all columns").fill("lovex d073.4");
-  await expect(page.getByText("1 of 245 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 of 249 entries", { exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: "D073.4", exact: true })).toBeVisible();
 
   await page.getByRole("tab", { name: "Calibers" }).click();
@@ -116,7 +117,7 @@ test("browses, filters, sorts, and selects the complete project database", async
 test("supports native-style keyboard traversal for menus and database tables", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("485 entries", { exact: true })).toBeVisible();
 
   const file = page.locator(".file-menu > summary");
   await file.focus();
@@ -154,7 +155,7 @@ test("supports native-style keyboard traversal for menus and database tables", a
   await expect(second).toBeFocused();
   expect(await second.getAttribute("data-db-id")).not.toBe(firstId);
   await second.press("End");
-  const last = page.locator('[data-db-id="1000483"]');
+  const last = page.locator('[data-db-id="1000484"]');
   await expect(last).toBeFocused();
   await last.press("Home");
   await expect(page.locator('.database-table tr[data-db-id][tabindex="0"]')).toBeFocused();
@@ -174,7 +175,7 @@ test("supports native-style keyboard traversal for menus and database tables", a
 test("matches the native menu hierarchy and action state", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("485 entries", { exact: true })).toBeVisible();
   await expect(page.locator(".menubar > .menu-dropdown > summary")).toHaveText(["File", "Edit", "View", "Tools", "Help"]);
 
   await openMenu(page, "File");
@@ -216,16 +217,17 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   await page.locator(".view-menu > summary").click();
   await openMenu(page, "Help");
   await expect(page.locator("#user-manual")).toHaveAttribute("href", /\.pdf$/);
+  await expect(page.locator("#online-documentation")).toHaveAttribute("href", "https://schildkroet.github.io/ChamberSim-Reloaded/");
   await page.locator("#about").click();
   const about = page.getByRole("dialog", { name: "About ChamberSim Reloaded" });
   await expect(about).toContainText("Interior ballistics for handloaders");
-  await expect(about).toContainText("Version 0.10");
+  await expect(about).toContainText("Version 0.13");
   await expect(about.getByRole("heading", { name: "Features" })).toBeVisible();
   await expect(about.getByRole("heading", { name: "Accuracy" })).toBeVisible();
   await expect(about.getByRole("heading", { name: "Disclaimer" })).toBeVisible();
   await expect(about.getByRole("heading", { name: "Copyright and license" })).toBeVisible();
   await expect(about).toContainText("no responsibility or liability");
-  await expect(about).toContainText("Project records: 484 calibers, 3,010 projectiles, 245 propellants");
+  await expect(about).toContainText("Project records: 485 calibers, 3,120 projectiles, 249 propellants");
   await expect(about).toContainText("Original program's database: none chosen");
   await expect(about.getByRole("link", { name: "GNU General Public License" })).toHaveAttribute("target", "_blank");
   const aboutSize = await about.evaluate((element) => {
@@ -244,7 +246,7 @@ test("sorts and filters the native burn-rate table and converts every unit group
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("485 entries", { exact: true })).toBeVisible();
 
   const openTool = async (name: string): Promise<void> => {
     await page.locator(".tools-menu > summary").click();
@@ -311,7 +313,7 @@ test("copies, edits, exports, persists, and deletes a personal database record",
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await page.getByRole("tab", { name: "Propellants" }).click();
-  await expect(page.getByText("245 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("249 entries", { exact: true })).toBeVisible();
   await page.getByLabel("Filter all columns").fill("lovex d073.4");
   const projectRow = page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "D073.4", exact: true }) });
   await projectRow.click();
@@ -327,7 +329,7 @@ test("copies, edits, exports, persists, and deletes a personal database record",
   await copyDialog.getByLabel("Burn rate coefficient (Ba)").fill("0.6");
   await copyDialog.getByRole("button", { name: "Save", exact: true }).click();
 
-  await expect(page.getByText("2 of 246 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("2 of 250 entries", { exact: true })).toBeVisible();
   const personalRow = page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "D073.4 Browser copy", exact: true }) });
   await expect(personalRow.getByRole("cell", { name: "Personal", exact: true })).toBeVisible();
   await expect(personalRow).toHaveAttribute("aria-selected", "true");
@@ -337,7 +339,7 @@ test("copies, edits, exports, persists, and deletes a personal database record",
 
   await page.reload();
   await page.getByRole("tab", { name: "Propellants" }).click();
-  await expect(page.getByText("246 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("250 entries", { exact: true })).toBeVisible();
   await page.getByLabel("Filter all columns").fill("Personal");
   const persistedRow = page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "D073.4 Browser copy", exact: true }) });
   await persistedRow.click();
@@ -359,17 +361,17 @@ test("copies, edits, exports, persists, and deletes a personal database record",
 
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(page.getByText("0 of 245 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("0 of 249 entries", { exact: true })).toBeVisible();
   await page.reload();
   await page.getByRole("tab", { name: "Propellants" }).click();
-  await expect(page.getByText("245 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("249 entries", { exact: true })).toBeVisible();
 });
 
 test("imports a manufacturer bullet file, persists it, and suppresses duplicates", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await page.getByRole("tab", { name: "Projectiles" }).click();
-  await expect(page.getByText("3,010 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,120 entries", { exact: true })).toBeVisible();
 
   page.once("dialog", (dialog) => {
     expect(dialog.message()).toContain("2 bullet(s) can be added (manufacturer: Acme Bullets)");
@@ -377,14 +379,14 @@ test("imports a manufacturer bullet file, persists it, and suppresses duplicates
   });
   await page.locator("#bullet-picker").setInputFiles(bulletFile);
   await expect(page.getByText("2 bullet(s) imported.", { exact: true })).toBeVisible();
-  await expect(page.getByText("3,012 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,122 entries", { exact: true })).toBeVisible();
   await page.getByLabel("Filter all columns").fill("Acme Bullets");
-  await expect(page.getByText("2 of 3,012 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("2 of 3,122 entries", { exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: "Match HPBT .308 175 gr", exact: true })).toBeVisible();
 
   await page.reload();
   await page.getByRole("tab", { name: "Projectiles" }).click();
-  await expect(page.getByText("3,012 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,122 entries", { exact: true })).toBeVisible();
   page.once("dialog", (dialog) => {
     expect(dialog.message()).toContain("0 bullet(s) can be added");
     expect(dialog.message()).toContain("2 bullet(s) are already in the database");
@@ -392,14 +394,14 @@ test("imports a manufacturer bullet file, persists it, and suppresses duplicates
   });
   await page.locator("#bullet-picker").setInputFiles(bulletFile);
   await expect(page.getByText("No bullets imported from example.csrbullets", { exact: true })).toBeVisible();
-  await expect(page.getByText("3,012 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,122 entries", { exact: true })).toBeVisible();
 });
 
 test("creates a simulatable load through the native two-step database workflow", async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("485 entries", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /New load/ })).toBeEnabled();
   await page.getByRole("button", { name: /New load/ }).click();
   const dialog = page.getByRole("dialog", { name: "New load" });
@@ -443,17 +445,19 @@ test("creates a simulatable load through the native two-step database workflow",
   await expect(page.getByRole("button", { name: "Untitled 1" })).toBeVisible();
   await expect(page.getByText(/New load created: 223 Rem\./)).toBeVisible();
   await expect(page.getByText("Model: Physical Model", { exact: true })).toBeVisible();
-  await expect(page.getByRole("definition").filter({ hasText: "1,992 bar" })).toBeVisible();
-  await expect(page.getByRole("definition").filter({ hasText: "786.8 m/s" })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: "2,011 bar" })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: "788.8 m/s" })).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
   await openMenu(page, "File");
   await page.locator("#save-csr").click();
   const download = await downloadPromise;
   if (process.platform === "win32" && existsSync(nativeSimulator)) {
-    const native = JSON.parse(execFileSync(nativeSimulator, ["--format", "json", (await download.path())!], { encoding: "utf8" }))[0];
+    const native = JSON.parse(execFileSync(nativeSimulator, ["--format", "json", (await download.path())!], {
+      encoding: "utf8", env: { ...process.env, PATH: `C:\\msys64\\mingw64\\bin;${process.env.PATH ?? ""}` }
+    }))[0];
     expect(native.status).toBe("ok");
-    expect(Math.round(native.maxPressure_bar)).toBe(1992);
-    expect(native.muzzleVelocity_ms.toFixed(1)).toBe("786.8");
+    expect(Math.round(native.maxPressure_bar)).toBe(2011);
+    expect(native.muzzleVelocity_ms.toFixed(1)).toBe("788.8");
   }
   await page.getByRole("button", { name: "Projectile", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Projectile Product Name", exact: true })).toHaveValue("Scorion Hpbt-Match 2313343");
@@ -550,7 +554,7 @@ test("stores, reloads, displays, enlarges, and removes personal powder photos", 
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await page.getByRole("tab", { name: "Propellants" }).click();
-  await expect(page.getByText("245 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("249 entries", { exact: true })).toBeVisible();
   await page.getByLabel("Filter all columns").fill("lovex d073.4");
   await page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "D073.4", exact: true }) }).click();
   await page.getByRole("button", { name: "Copy", exact: true }).click();
@@ -628,12 +632,12 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
   });
   await expect(settings.getByText("Original database ready to apply.", { exact: true })).toBeVisible();
   await expect(settings.getByText("578 calibers, 5659 projectiles, 683 propellants. New records are stored in the Personal database.", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Database: 484 calibers, 3010 projectiles, 245 propellants.*no original database/)).toBeVisible();
+  await expect(page.getByText(/Database: 485 calibers, 3120 projectiles, 249 propellants.*no original database/)).toBeVisible();
   if (process.env.PARITY_ORIGINAL_SCREENSHOT) await page.screenshot({ path: process.env.PARITY_ORIGINAL_SCREENSHOT });
   await settings.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(settings.getByText("Original database imported.", { exact: true })).toBeVisible();
   await settings.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByText(/Database: 1062 calibers, 8669 projectiles, 928 propellants.*GordonsReloadingTool\.plain\.db/)).toBeVisible();
+  await expect(page.getByText(/Database: 1063 calibers, 8779 projectiles, 932 propellants.*GordonsReloadingTool\.plain\.db/)).toBeVisible();
   await openMenu(page, "Help");
   await page.locator("#about").click();
   const importedAbout = page.getByRole("dialog", { name: "About ChamberSim Reloaded" });
@@ -642,7 +646,7 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
 
   await page.getByRole("tab", { name: "Propellants" }).click();
   await page.getByLabel("Filter all columns").fill("Original GRT original-photo");
-  await expect(page.getByText("1 of 928 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 of 932 entries", { exact: true })).toBeVisible();
   const original = page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "Original Powder", exact: true }) });
   await original.click();
   await expect(original.getByRole("cell", { name: "Original GRT", exact: true })).toBeVisible();
@@ -652,7 +656,7 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
 
   await page.reload();
   await page.getByRole("tab", { name: "Propellants" }).click();
-  await expect(page.getByText("928 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("932 entries", { exact: true })).toBeVisible();
   await page.getByLabel("Filter all columns").fill("original-photo");
   await page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "Original Powder", exact: true }) }).click();
   await page.getByRole("button", { name: "Copy", exact: true }).click();
@@ -676,12 +680,12 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
   await settings.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(settings.getByText("The browser's imported copy was removed. The original file was not changed.", { exact: true })).toBeVisible();
   await settings.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByText(/Database: 484 calibers, 3010 projectiles, 246 propellants.*no original database/)).toBeVisible();
+  await expect(page.getByText(/Database: 485 calibers, 3120 projectiles, 250 propellants.*no original database/)).toBeVisible();
 
   await page.reload();
   await page.getByRole("tab", { name: "Propellants" }).click();
   await page.getByLabel("Filter all columns").fill("Original Powder");
-  await expect(page.getByText("1 of 246 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 of 250 entries", { exact: true })).toBeVisible();
   await page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "Original Powder (copy)", exact: true }) }).click();
   await page.locator("#edit-record").click();
   await expect(page.getByRole("dialog", { name: /Edit propellant/ }).getByRole("img", { name: "Overview photo" })).toBeVisible();
@@ -840,7 +844,7 @@ test("styles the source-defined primary actions consistently", async ({ page }) 
 
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("485 entries", { exact: true })).toBeVisible();
   const newLoad = page.getByRole("button", { name: /New load/ });
   await expectPrimary(newLoad);
   await newLoad.click();
@@ -851,7 +855,7 @@ test("styles the source-defined primary actions consistently", async ({ page }) 
   await newLoadDialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
   await page.locator("#file-picker").setInputFiles(referenceLoad);
-  await expect(page.getByText("3,614 bar", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,639 bar", { exact: true })).toBeVisible();
   await expectPrimary(page.locator("[data-select-component]"));
   await page.getByRole("button", { name: "Measurements", exact: true }).click();
   await expectPrimary(page.getByRole("button", { name: "Add charge", exact: true }));
@@ -1047,8 +1051,10 @@ test("runs verified Physical and Original simulations in the results view", asyn
   await expect(heading.getByRole("row", { name: /Propellant: Lovex D073.4 Charge: 25.30 grain Case volume: 30.34 grain H₂O/ })).toBeVisible();
   await expect(heading.getByRole("row", { name: /L3\/CL: 44.70 mm L6\/OAL: 54.65 mm Seating depth: 6.25 mm/ })).toBeVisible();
   await expect(heading.getByRole("row", { name: /Projectile length: 16.20 mm/ })).toBeVisible();
-  await expect(page.getByText("3,614 bar", { exact: true })).toBeVisible();
-  await expect(page.getByText("903.2 m/s", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,639 bar", { exact: true })).toBeVisible();
+  await expect(page.getByText("905.0 m/s", { exact: true })).toBeVisible();
+  await expect(page.getByText("0.7465 ms", { exact: true })).toBeVisible();
+  await expect(page.getByText("0.7473 ms, node #5", { exact: true })).toBeVisible();
   await expect(page.getByText("Model: Physical Model", { exact: true })).toBeVisible();
   await expect(page.locator("#solver-profile")).toHaveCount(0);
   const vivacity = page.getByRole("img", { name: "Burn rate Ba times phi of z" });
@@ -1124,7 +1130,7 @@ test("overlays, warns about, switches axes for, and clears original reference re
   await expect(page.locator(".chart-legend .reference-key")).toHaveText(["Pressure (original)", "Energy (original)", "Velocity (original)"]);
   await expect(page.locator(".reference-comparison tbody tr")).toHaveCount(6);
   await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("3,000");
-  await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("20.5 %");
+  await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("21.3 %");
   await openMenu(page, "File");
   await expect(page.locator("#clear-reference")).toBeEnabled();
   await page.locator(".file-menu > summary").click();
@@ -1161,13 +1167,13 @@ test("focuses a ladder charge from both native-style selectors", async ({ page }
 
   await expect(page.getByRole("tab", { name: "1.575 g" })).toBeVisible();
   await page.getByRole("tab", { name: "1.575 g" }).click();
-  await expect(page.getByRole("definition").filter({ hasText: "3,277 bar" })).toBeVisible();
-  await expect(page.getByRole("definition").filter({ hasText: "869.3 m/s" })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: "3,301 bar" })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: "871.1 m/s" })).toBeVisible();
   await expect(page.getByText("Selected ladder charge 1.575 g", { exact: true })).toBeVisible();
 
   await page.locator('tr[data-ladder="2"]').click();
-  await expect(page.getByRole("definition").filter({ hasText: "2,972 bar" })).toBeVisible();
-  await expect(page.getByRole("definition").filter({ hasText: "835.9 m/s" })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: "2,995 bar" })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: "837.8 m/s" })).toBeVisible();
 });
 
 test("edits numeric inputs, recalculates, validates, and supports undo and redo", async ({ page }) => {
@@ -1186,17 +1192,17 @@ test("edits numeric inputs, recalculates, validates, and supports undo and redo"
   await expect(charge).toBeFocused();
   await charge.press("Tab");
   await expect(chargeUnit).toBeFocused();
-  await expect(page.getByText("2,928 bar", { exact: true })).toBeVisible();
-  await expect(page.getByText("830.9 m/s", { exact: true })).toBeVisible();
+  await expect(page.getByText("2,951 bar", { exact: true })).toBeVisible();
+  await expect(page.getByText("832.9 m/s", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /223Rem_D0735_RWS\*/ })).toBeVisible();
   await openMenu(page, "Edit");
   await expect(page.locator("#undo")).toBeEnabled();
 
   await page.keyboard.press("Control+z");
-  await expect(page.getByText("3,614 bar", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,639 bar", { exact: true })).toBeVisible();
   await expect(charge).toHaveValue("1.639");
   await page.keyboard.press("Control+Shift+z");
-  await expect(page.getByText("2,928 bar", { exact: true })).toBeVisible();
+  await expect(page.getByText("2,951 bar", { exact: true })).toBeVisible();
 
   await charge.fill("not-a-number");
   await charge.press("Tab");
@@ -1384,8 +1390,8 @@ test("renders, customizes, scales, previews and prints the active-load report", 
 
   const paper = page.locator(".report-paper");
   await expect(paper.getByRole("heading", { name: "223Rem_D0735_RWS" })).toBeVisible();
-  await expect(paper).toContainText("3614 bar");
-  await expect(paper).toContainText("903.2 m/s");
+  await expect(paper).toContainText("3639 bar");
+  await expect(paper).toContainText("905.0 m/s");
   await expect(paper).toContainText("MEASUREMENTS");
   await expect(paper.locator("img")).toHaveCount(5);
   await expect(paper).not.toContainText("[result.");
@@ -1744,7 +1750,7 @@ test("serves a valid manifest and reloads the app shell offline", async ({ page,
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page).toHaveTitle("ChamberSim Reloaded");
   await expect(page.getByRole("button", { name: "Open load" })).toBeVisible();
-  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("485 entries", { exact: true })).toBeVisible();
   const settings = await openSettings(page);
   await settings.locator("[data-original-file]").setInputFiles({
     name: "offline.plain.db", mimeType: "application/vnd.sqlite3", buffer: await originalDatabaseFixture()
@@ -1776,7 +1782,7 @@ test("shows app update state at the right of the menu and checks on click", asyn
   expect(outdatedColor).toBe("rgb(237, 75, 75)");
 });
 
-test("switches and persists System default, Light, and Dark themes", async ({ page }) => {
+test("switches and persists every native theme", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
@@ -1804,6 +1810,15 @@ test("switches and persists System default, Light, and Dark themes", async ({ pa
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await expect(page.locator(".result-chart")).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await expect(page.locator(".technical-svg .case-cavity")).toHaveCSS("fill", "rgb(244, 240, 230)");
+  for (const [name, mode, effective] of [
+    ["Gruvbox Light", "gruvbox-light", "light"], ["Gruvbox Dark", "gruvbox-dark", "dark"], ["Nord", "nord", "dark"],
+    ["Dracula", "dracula", "dark"], ["Catppuccin Latte", "catppuccin-latte", "light"], ["Catppuccin Frappé", "catppuccin-frappe", "dark"]
+  ] as const) {
+    await openView();
+    await page.getByRole("menuitemradio", { name, exact: true }).click();
+    await expect(root).toHaveAttribute("data-theme-preference", mode);
+    await expect(root).toHaveAttribute("data-theme", effective);
+  }
   await openView();
   await page.getByRole("menuitemradio", { name: "Dark", exact: true }).click();
   await expect(page.locator(".result-chart")).toHaveCSS("background-color", "rgb(32, 32, 32)");
@@ -1850,7 +1865,7 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(page.locator(".file-menu > summary")).toHaveText("Datei");
   await expect(page.getByRole("button", { name: "Datenbank", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Kaliber", exact: true })).toBeVisible();
-  await expect(page.getByText("484 Einträge", { exact: true })).toBeVisible();
+  await expect(page.getByText("485 Einträge", { exact: true })).toBeVisible();
   const settings = await openSettings(page);
   await expect(settings.getByRole("group", { name: "Darstellung" })).toBeVisible();
   await expect(settings.getByLabel("Schriftgröße:")).toHaveValue("10");
@@ -1936,7 +1951,7 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(page.locator(".reference-comparison thead")).toContainText("Original");
   await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("Maximaldruck");
   await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("3.000");
-  await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("20,5 %");
+  await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("21,3 %");
   await page.getByRole("button", { name: "Messungen", exact: true }).click();
   await expect(page.getByRole("button", { name: "Neue Serie", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ladung hinzufügen", exact: true })).toBeVisible();
@@ -1971,8 +1986,8 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await charge.fill("1,5");
   await charge.press("Tab");
   await expect(charge).toHaveValue("1,500");
-  await expect(page.getByText("2.928 bar", { exact: true })).toBeVisible();
-  await expect(page.getByText("830,9 m/s", { exact: true })).toBeVisible();
+  await expect(page.getByText("2.951 bar", { exact: true })).toBeVisible();
+  await expect(page.getByText("832,9 m/s", { exact: true })).toBeVisible();
   await charge.fill("1.25");
   await charge.press("Tab");
   await expect(charge).toHaveValue("1,250");
@@ -2008,20 +2023,22 @@ test("renders representative French and Italian database and load surfaces", asy
   await page.goto("/");
   const cases = [
     {
-      locale: "fr_FR", lang: "fr-FR", database: "Base de données", calibers: "Calibres", projectiles: "Projectiles", entries: "484 entrées",
+      locale: "fr_FR", lang: "fr-FR", database: "Base de données", calibers: "Calibres", projectiles: "Projectiles", entries: "485 entrées",
       source: "Source", project: "Projet", projectTitle: "Enregistrement de la base du projet (lecture seule)",
       changeRecord: "Modifier l'enregistrement choisi", lockedRecord: "Seuls vos propres enregistrements peuvent être modifiés : faites une copie",
       newLoad: "Nouveau chargement", cartridge: "Cartouche & arme", results: "Résultats",
       maximumPressure: "Pression maximale", model: "Modèle : Modèle physique", propellantMass: "Masse de poudre",
-      units: "Unités", metric: "Métrique", resetUnits: "Réinitialiser les unités par champ", save: "Enregistrer", cancel: "Annuler"
+      units: "Unités", metric: "Métrique", resetUnits: "Réinitialiser les unités par champ", save: "Enregistrer", cancel: "Annuler",
+      validated: "Vérifié", validationTitle: /^(Vérifié à la main :|Non vérifié :)/
     },
     {
-      locale: "it_IT", lang: "it-IT", database: "Banca dati", calibers: "Calibri", projectiles: "Proiettili", entries: "484 voci",
+      locale: "it_IT", lang: "it-IT", database: "Banca dati", calibers: "Calibri", projectiles: "Proiettili", entries: "485 voci",
       source: "Fonte", project: "Progetto", projectTitle: "Record della banca dati del progetto (sola lettura)",
       changeRecord: "Modifica il record scelto", lockedRecord: "Si possono modificare solo i propri record: crea una copia",
       newLoad: "Nuovo caricamento", cartridge: "Cartuccia & arma", results: "Risultati",
       maximumPressure: "Pressione massima", model: "Modello: Modello fisico", propellantMass: "Massa di polvere",
-      units: "Unità", metric: "Metrico", resetUnits: "Ripristina le unità dei campi", save: "Salva", cancel: "Annulla"
+      units: "Unità", metric: "Metrico", resetUnits: "Ripristina le unità dei campi", save: "Salva", cancel: "Annulla",
+      validated: "Verificato", validationTitle: /^(Verificato a mano:|Non verificato:)/
     }
   ] as const;
 
@@ -2047,8 +2064,8 @@ test("renders representative French and Italian database and load surfaces", asy
     await expect(page.locator("#edit-record")).toHaveAttribute("title", sample.lockedRecord);
     await expect(page.locator("#delete-record")).toHaveAttribute("title", sample.lockedRecord);
     await page.getByRole("tab", { name: sample.projectiles, exact: true }).click();
-    await expect(page.locator('[data-db-sort="gValid"]')).toHaveText("Validated");
-    await expect(page.locator(".database-table tbody td.valid, .database-table tbody td.invalid").first()).toHaveAttribute("title", /^(Validated by hand:|Not validated:)/);
+    await expect(page.locator('[data-db-sort="gValid"]')).toHaveText(sample.validated);
+    await expect(page.locator(".database-table tbody td.valid, .database-table tbody td.invalid").first()).toHaveAttribute("title", sample.validationTitle);
 
     await page.locator("#new-record").click();
     const recordDialog = page.locator("dialog.record-dialog");

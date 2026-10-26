@@ -332,6 +332,7 @@ export const defaultReportTemplate = `====== ~~file.caption~~ ======
 | Case volume | ~~work.casevol~~ | Length | ~~work.glen~~ |
 | Combustion chamber | ~~work.Vb~~ | Seating depth | ~~work.gdepth~~ |
 | Barrel length | ~~work.xe~~ | Base type | ~~work.gtailtype~~ |
+| Twist length | ~~work.twistlen~~ | Bullet jump | ~~work.gjump~~ |
 | Sebert factor | ~~work.sebert~~ | Initial pressure | ~~work.ps~~ |
 | Max. allowed pressure | ~~work.pmaxZul~~ | G1 ballistic coefficient | ~~work.g1bc~~ |
 
@@ -345,6 +346,7 @@ export const defaultReportTemplate = `====== ~~file.caption~~ ======
 | Maximum pressure | ~~result.MaxPressure~~ | Muzzle velocity | ~~result.MuzzleVelocity~~ |
 | Muzzle pressure | ~~result.MuzzlePressure~~ | IPSC / MIP factor | ~~result.IPSCFactor("0")~~ / ~~result.MIPFactor("0")~~ |
 | Muzzle energy | ~~result.MuzzleEnergy~~ | Barrel time | ~~result.MuzzleTime~~ |
+| Bullet lead time (BLT) | ~~result.BulletLeadTime~~ | Optimal barrel time (OBT) | ~~result.OptimalBarrelTime~~, node ~~result.OptimalBarrelNode~~ |
 | Load ratio | ~~result.LoadRatio~~ | Recoil impulse | ~~result.Impulse~~ |
 | Burnt propellant | ~~result.BurnRatio~~ | Recoil energy | ~~result.RecoilEnergy~~ |
 | Efficiency | ~~result.Efficiency~~ | Gas outflow velocity | ~~result.OutflowVelocity~~ |

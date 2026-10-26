@@ -7,7 +7,7 @@ describe("Qt translation catalog", () => {
     expect(german.messageCount).toBeGreaterThan(630);
     expect(german.text("MainWindow", "&File")).toBe("Datei");
     expect(german.text("MainWindow", "Calibers")).toBe("Kaliber");
-    expect(german.text("MainWindow", "Import bullets")).toBe("Import bullets");
+    expect(german.text("MainWindow", "Import bullets")).toBe("Geschosse importieren");
     expect(german.text("missing", "A&nbsp;B &gt; C && D")).toBe("A&nbsp;B &gt; C & D");
   });
 

@@ -5,7 +5,7 @@
 **Fork:** [`ripper121/ChamberSim-Reloaded`](https://github.com/ripper121/ChamberSim-Reloaded), `main`  
 **Purpose:** Bring the fork's native application and its independently implemented PWA up to the latest upstream behavior **without losing PWA work**.
 
-> **Status: ANALYSIS / TODO, not a completed merge or completed PWA upgrade.** This document is based on public GitHub comparison metadata, upstream commit titles, upstream release notes and the fork's supplied PWA progress/parity documents. No merge was performed, and no post-merge tests were executed. Check the latest refs again before integrating.
+> **Status: IMPLEMENTATION IN PROGRESS.** Upstream v0.13 was merged into `integrate-upstream-013` on 2026-10-26; `backup-before-upstream-013` preserves the pre-merge state. M1 and M2 are implemented and verified. M3's BLT/OBT/report behavior is implemented, while the new card/group Results layout remains. M4 theme choices and Online documentation are functional, with fine palette/layout comparison remaining. All 175 unit tests, 42 Edge scenarios, production build, installability gate and dependency audit pass. Native `tst_core` is blocked by the local QtTest link-mode mismatch. `build/release` is the old v0.10 package; current numeric acceptance uses a fresh ignored `build/current-reference` build.
 
 ## 1. Git state
 
@@ -123,12 +123,12 @@ Run appropriate native CMake/CTest targets configured in the working tree too. T
 
 | Milestone | Scope | Status |
 | --- | --- | --- |
-| M0 | Git backup, integration branch and reviewed upstream merge | TODO |
-| M1 | Solver, primer, Sebert and current-source numeric baselines | TODO |
-| M2 | Resources, database, search, caliber fallback and import atomicity | TODO |
-| M3 | BLT/OBT, Results UI, reports and exports | TODO |
-| M4 | Themes, i18n, Help/manual and fine visual parity | TODO |
-| M5 | Full regression suite, updated docs, PR merge | TODO |
+| M0 | Git backup, integration branch and reviewed upstream merge | PASS |
+| M1 | Solver, primer, Sebert and current-source numeric baselines | PASS (native `tst_core` link environment blocked) |
+| M2 | Resources, database, search, caliber fallback and import atomicity | PASS |
+| M3 | BLT/OBT, Results UI, reports and exports | IN PROGRESS — behavior/report PASS; v0.13 card layout remains |
+| M4 | Themes, i18n, Help/manual and fine visual parity | IN PROGRESS — choices/Help PASS; fine palette comparison remains |
+| M5 | Full regression suite, updated docs, PR merge | IN PROGRESS — gates/docs PASS; commit and PR merge remain |
 
 ## 7. Evidence and limitations
 

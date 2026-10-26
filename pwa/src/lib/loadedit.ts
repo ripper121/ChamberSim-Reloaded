@@ -1,4 +1,5 @@
 import type { Entry, LoadFile } from "./loadfile";
+import { referenceStartPressureBar, updateStartPressure } from "./primer";
 
 export type LoadSection = "caliber" | "gun" | "projectile" | "propellant" | "physical" | "shotshell";
 
@@ -110,8 +111,21 @@ export function editLoadValue(load: LoadFile, section: LoadSection, name: string
   } else if (section === "caliber" && name === "caselen") {
     followCaseLength(load, previousCaseLength);
   }
-  if (section === "caliber" && name === "ps") set(load, "projectile", "gpressure", format(number(load, "caliber", "ps")));
-  else if (section === "projectile" && name === "gpressure") set(load, "caliber", "ps", format(number(load, "projectile", "gpressure")));
+  if (find(load, "caliber", "psadd")) {
+    if (section === "caliber" && name === "ps") {
+      set(load, "caliber", "psadd", format(number(load, "caliber", "ps") - referenceStartPressureBar));
+    } else if (section === "projectile" && name === "gpressure") {
+      set(load, "caliber", "psadd", format(number(load, "projectile", "gpressure") - referenceStartPressureBar));
+    }
+    updateStartPressure(load);
+  } else if (section === "caliber" && name === "ps") {
+    set(load, "projectile", "gpressure", format(number(load, "caliber", "ps")));
+  } else if (section === "projectile" && name === "gpressure") {
+    set(load, "caliber", "ps", format(number(load, "projectile", "gpressure")));
+  }
+  if (section === "caliber" && name === "sebert") {
+    set(load, "caliber", "sebert", format(Math.min(Math.max(number(load, "caliber", "sebert"), 0), 1)));
+  }
   if (section === "projectile" && name === "gTailType") completeTail(load);
   else if (section === "projectile" && name === "Dbul") completeTail(load, previousDiameter);
   return true;

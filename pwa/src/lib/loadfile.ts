@@ -1,3 +1,5 @@
+import { normalizeLoadCompatibility } from "./primer";
+
 export type FileFormat = "reload" | "original";
 
 export interface Entry {
@@ -135,7 +137,7 @@ export function parseLoadXml(xml: string, fileName: string): LoadFile {
   if (!load) throw new Error("The load element is missing.");
 
   const titleElement = directChild(load, "title");
-  return {
+  const parsed: LoadFile = {
     fileName,
     appVersion: root.getAttribute("version") ?? "",
     source,
@@ -151,6 +153,8 @@ export function parseLoadXml(xml: string, fileName: string): LoadFile {
     measurements: readMeasurements(load),
     sourceXml: xml
   };
+  normalizeLoadCompatibility(parsed);
+  return parsed;
 }
 
 export async function readLoadFile(file: File): Promise<LoadFile> {
@@ -344,7 +348,7 @@ export function serializeLoadXml(load: LoadFile, format: FileFormat = "reload"):
   const sections = [
     `<title>${percentEncode(load.title)}</title>`,
     ...load.config.map((entry) => writeEntry("config", entry)),
-    writeSection("caliber", "input", load.caliber),
+    writeSection("caliber", "input", original ? load.caliber.filter((entry) => entry.name !== "primer" && entry.name !== "psadd") : load.caliber),
     writeSection("caliberfile", "var", load.caliberFile),
     writeSection("gun", "input", load.gun),
     writeSection("projectile", "input", projectile),

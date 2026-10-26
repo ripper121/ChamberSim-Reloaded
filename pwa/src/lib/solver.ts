@@ -1,4 +1,5 @@
 import type { PhysicalBurn, SimInput } from "./siminput";
+import { nearestObtNode } from "./obt";
 
 export type SimStatus = "ok" | "invalid_input" | "charge_too_high" | "bullet_stuck";
 export type SolverModel = "original" | "physical";
@@ -21,6 +22,11 @@ export interface SimResult {
   muzzleVelocityMs: number;
   muzzleEnergyJ: number;
   muzzleTimeMs: number;
+  pmax10TimeMs: number;
+  bulletLeadTimeMs: number;
+  optimalBarrelTimeMs: number;
+  optimalBarrelNode: number;
+  restPhase: Array<{ timeMs: number; pressureBar: number }>;
   burntFraction: number;
   efficiency: number;
   indexPmax: number;
@@ -125,6 +131,11 @@ export function emptySimResult(status: SimStatus = "invalid_input"): SimResult {
     muzzleVelocityMs: 0,
     muzzleEnergyJ: 0,
     muzzleTimeMs: 0,
+    pmax10TimeMs: 0,
+    bulletLeadTimeMs: 0,
+    optimalBarrelTimeMs: 0,
+    optimalBarrelNode: 0,
+    restPhase: [],
     burntFraction: 0,
     efficiency: 0,
     indexPmax: 0,
@@ -493,6 +504,24 @@ function summarize(result: SimResult, input: SimInput, calibration: Calibration,
   result.muzzleVelocityMs = last.velocityMs;
   result.muzzleEnergyJ = last.energyJ;
   result.muzzleTimeMs = last.timeMs;
+  const tenPercent = 0.1 * result.maxPressureBar;
+  const rise = points.findIndex((point) => point.pressureBar >= tenPercent);
+  if (rise >= 0) {
+    result.pmax10TimeMs = points[rise]!.timeMs;
+    const before = rise === 0 ? result.restPhase : points;
+    const upper = rise === 0 ? before.findIndex((point) => point.pressureBar >= tenPercent) : rise;
+    if (upper >= 0) {
+      result.pmax10TimeMs = before[upper]!.timeMs;
+      if (upper > 0 && before[upper]!.pressureBar > before[upper - 1]!.pressureBar) {
+        const lower = before[upper - 1]!, higher = before[upper]!;
+        result.pmax10TimeMs = lower.timeMs + (tenPercent - lower.pressureBar) / (higher.pressureBar - lower.pressureBar)
+          * (higher.timeMs - lower.timeMs);
+      }
+    }
+  }
+  result.bulletLeadTimeMs = result.muzzleTimeMs - result.pmax10TimeMs;
+  const obt = nearestObtNode(result.bulletLeadTimeMs, input.barrelLengthMm);
+  if (obt) { result.optimalBarrelTimeMs = obt.timeMs; result.optimalBarrelNode = obt.node; }
   result.burntFraction = last.z;
   result.efficiency = last.energyJ / (input.chargeG * 1e-3 * input.heatQexKjKg * 1e3);
   result.burnoutInBarrel = burnout >= 0;
@@ -890,14 +919,18 @@ export function simulatePhysical(input: SimInput, calibration: Calibration, step
     step *= grow(candidate.error);
   }
 
+  const result = emptySimResult();
   let first = 0;
   while (first + 1 < samples.length && samples[first + 1]!.velocity <= 0) first += 1;
+  result.restPhase = samples.slice(0, first + 1).map((sample) => ({
+    timeMs: (sample.time - samples[first]!.time) * 1e3,
+    pressureBar: sample.pressure / pascalsPerBar
+  }));
   if (first > 0) {
     samples.splice(0, first);
     const startTime = samples[0]!.time;
     for (const current of samples) current.time -= startTime;
   }
-  const result = emptySimResult();
   let sampleIndex = 0;
   for (let index = 0; index < steps; index += 1) {
     const position = index + 1 === steps ? samples.at(-1)!.x : startPosition + index * outputStep;
@@ -916,8 +949,7 @@ export function simulatePhysical(input: SimInput, calibration: Calibration, step
       timeMs: lerp(before.time, after.time) * 1e3
     });
   }
-  const used = adjusted.sebert <= 0 ? { ...adjusted, sebert: 0.5 } : adjusted;
-  summarize(result, used, active, preflight.freeVolumeCm3);
+  summarize(result, adjusted, active, preflight.freeVolumeCm3);
   result.frictionForceN = slideForce + extraForce;
   result.muzzleFrictionEnergyJ = result.frictionForceN * Math.max(0, state[0] - (startPosition + jump));
   result.heatLossJ = state[3];
@@ -925,8 +957,12 @@ export function simulatePhysical(input: SimInput, calibration: Calibration, step
 }
 
 export function simulate(input: SimInput, calibration: Calibration, steps = 2000): SimResult {
-  if (calibration.model === "physical" && !input.shotshell) return simulatePhysical(input, calibration, steps);
-  return simulateOriginal(input, calibration.model === "physical" ? originalCalibration() : calibration, steps);
+  const effective = input.primerOffsetBar !== 0
+    ? { ...input, primerOffsetBar: 0, startPressureBar: input.startPressureBar
+      + (calibration.model === "physical" && !input.shotshell ? input.primerOffsetBar : 0) }
+    : input;
+  if (calibration.model === "physical" && !effective.shotshell) return simulatePhysical(effective, calibration, steps);
+  return simulateOriginal(effective, calibration.model === "physical" ? originalCalibration() : calibration, steps);
 }
 
 export interface LadderResult {

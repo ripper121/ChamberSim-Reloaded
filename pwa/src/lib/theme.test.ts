@@ -49,6 +49,17 @@ describe("ThemePreference", () => {
     expect(document.documentElement.dataset.theme).toBe("dark");
   });
 
+  it("restores every current native named scheme with its light/dark color class", () => {
+    for (const [mode, effective] of [["gruvbox-light", "light"], ["gruvbox-dark", "dark"], ["nord", "dark"],
+      ["dracula", "dark"], ["catppuccin-latte", "light"], ["catppuccin-frappe", "dark"]] as const) {
+      localStorage.setItem("csr-theme", mode);
+      const preference = new ThemePreference(localStorage, document.documentElement, new SystemTheme(false) as unknown as MediaQueryList);
+      expect(preference.mode).toBe(mode);
+      expect(preference.effective).toBe(effective);
+      expect(document.documentElement.dataset.themePreference).toBe(mode);
+    }
+  });
+
   it("restores a saved dark preference", () => {
     localStorage.setItem("csr-theme", "dark");
     const preference = new ThemePreference(localStorage, document.documentElement, new SystemTheme(false) as unknown as MediaQueryList);

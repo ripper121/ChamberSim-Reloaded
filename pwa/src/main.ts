@@ -3,6 +3,7 @@ import "./styles.css";
 import manualUrl from "../../docs/manual/manual.pdf?url";
 import { aboutHtml } from "./lib/about";
 import { parseLoadXml, readLoadFile, serializeLoadXml, type Entry, type FileFormat, type LoadFile, type MeasurementSeries } from "./lib/loadfile";
+import { primerName, primerStartPressureBar, primerTypes } from "./lib/primer";
 import { LoadHistory, type LoadSection } from "./lib/loadedit";
 import shotPartData from "../../data/shotshell/parts.json";
 import { createMeasuredCharge, emptyMeasurementSeries, hasMeasuredCharge, measurementPredictions, parsePastedShots, pressureStatistics, statistics, velocityStatistics, type MeasurementPrediction } from "./lib/measurement";
@@ -11,7 +12,7 @@ import { chronographFormatName, readChronograph, type ChronographFile } from "./
 import type { DatabaseColumn, ProjectRecord, ProjectTable } from "./lib/projectdb";
 import { OwnDatabase, projectValidationProblems, recordFileName, recordJson, recordTitle } from "./lib/owndb";
 import { readBulletFile, sameBullet } from "./lib/bulletfile";
-import { applyCaliber, applyProjectile, applyPropellant, buildLoad, defaultBarrelLengthMm, defaultChargeG, defaultSeatingDepthMm } from "./lib/loadbuilder";
+import { applyCaliber, applyProjectile, applyPropellant, attachCaliberRecord, buildLoad, defaultBarrelLengthMm, defaultChargeG, defaultSeatingDepthMm } from "./lib/loadbuilder";
 import { preparePhoto, scaleBarMm, type StoredImage } from "./lib/photos";
 import type { OriginalDatabaseImport, OriginalDatabaseInfo } from "./lib/originaldb";
 import { technicalDrawingView } from "./lib/drawingview";
@@ -97,6 +98,14 @@ const databaseFilterDebounce = deferredAction();
 const reportTemplateKey = "csr-report-template";
 const reportScaleKey = "csr-report-scale";
 
+function attachMissingCaliberRecord(load: LoadFile): boolean {
+  if (!projectDatabase || load.caliberFile.length || entryValue(load.caliber, "shotshell") === "true") return false;
+  const wanted = projectDatabase.normalizedSearch(entryValue(load.caliber, "CaliberName")).replace(/^0+(?=\d)/, "");
+  const record = projectDatabase.projectRecords.caliber.find((candidate) => [candidate.cipname, candidate.altname]
+    .some((name) => projectDatabase!.normalizedSearch(String(name ?? "")).replace(/^0+(?=\d)/, "") === wanted));
+  return record ? attachCaliberRecord(load, record) : false;
+}
+
 app.addEventListener("pointerdown", (event) => {
   propertyPointerTarget = (event.target as HTMLElement).closest<HTMLElement>("[data-close], button, summary, input, select, [tabindex]") ?? undefined;
 }, true);
@@ -177,6 +186,17 @@ interface Choice { value: string; label: string; title?: string }
 
 function choices(entry: Entry): Choice[] | undefined {
   const propertyText = (source: string): string => i18n.text("PropertyPanel", source);
+  if (entry.name === "primer") {
+    const pressureUnit = unitPreferences.unitFor("pressure");
+    const withPressure = (code: string, name: string): string => code
+      ? `${name} (${formatUnit(primerStartPressureBar(code, 0), pressureUnit, 0)} ${pressureUnit.symbol})`
+      : propertyText("not specified");
+    const options: Choice[] = [{ value: "", label: withPressure("", "") }, ...primerTypes.map(([code]) => ({
+      value: code, label: withPressure(code, i18n.text("csr::primer", primerName(code)))
+    }))];
+    if (entry.value && !options.some((option) => option.value === entry.value)) options.push({ value: entry.value, label: entry.value });
+    return options;
+  }
   if (entry.name === "gTailType") {
     const options = [{ value: "0", label: propertyText("flat base") }, { value: "1", label: propertyText("hollow base") }, { value: "2", label: propertyText("boat tail") }];
     if (!options.some((option) => option.value === entry.value)) options.push({ value: entry.value, label: i18n.text("PropertyPanel", "type %1", entry.value) });
@@ -534,9 +554,12 @@ function resultView(load: LoadFile): string {
   const dash = "—";
   const value = (html: string): string => resultOk ? html : dash;
   const summary = `<div class="result-summary"><dl><dt>${loadLabel("Maximum pressure")}</dt><dd class="${overpressure ? "overpressure-value" : ""}">${value(shown(result.maxPressureBar, "pressure"))}</dd><dt>${loadLabel("Muzzle pressure")}</dt><dd>${value(shown(result.muzzlePressureBar, "pressure"))}</dd><dt>${loadLabel("Projectile energy")}</dt><dd>${value(shown(result.muzzleEnergyJ, "energy"))}</dd><dt>${loadLabel("Muzzle velocity")}</dt><dd>${value(shown(result.muzzleVelocityMs, "velocity"))}</dd><dt>${loadLabel("Barrel time (BT)")}</dt><dd>${value(escapeHtml(loadText("%1 ms", formatNumber(result.muzzleTimeMs, 4))))}</dd></dl><dl><dt>${loadLabel("Burnout pressure")}</dt><dd>${value(result.burnoutInBarrel ? shown(result.burnoutPressureBar, "pressure") : loadLabel("not burnt out"))}</dd><dt>${loadLabel("Gas outflow velocity")}</dt><dd>${value(shown(gasVelocity, "velocity"))}</dd><dt>${loadLabel("Projectile speed")}</dt><dd>${value(result.muzzleRpm > 0 ? escapeHtml(loadText("%1 k/min", formatNumber(result.muzzleRpm / 1000, 1))) : dash)}</dd><dt>${loadLabel("Recoil energy")}</dt><dd>${value(result.recoilEnergyJ > 0 ? shown(result.recoilEnergyJ, "energy") : loadLabel("– (gun weight 0)"))}</dd><dt>${loadLabel("IPSC / MIP factor")}</dt><dd>${value(`${formatNumber(result.ipscFactor, 0)}, ${formatNumber(result.mipFactor, 0)}`)}</dd></dl><dl><dt>${loadLabel("Load ratio")}</dt><dd>${value(`${formatNumber(result.loadRatio * 100, 1)} %`)}</dd><dt>${loadLabel("Burnt propellant")}</dt><dd>${value(`${formatNumber(result.burntFraction * 100, 1)} %`)}</dd><dt>${loadLabel("Effective efficiency")}</dt><dd>${value(`${formatNumber(result.efficiency * 100, 1)} %`)}</dd><dt>${loadLabel("Heat / friction loss")}</dt><dd>${value(`${result.heatLossJ > 0 ? shown(result.heatLossJ, "energy") : dash}, ${shown(result.muzzleFrictionEnergyJ, "energy")}`)}</dd></dl></div>`;
+  const obtWholeNode = Math.trunc(result.optimalBarrelNode);
+  const obtNode = `#${obtWholeNode}${result.optimalBarrelNode > obtWholeNode ? " ½" : ""}`;
+  const barrelTiming = `<dl class="result-barrel-timing"><dt>${loadLabel("Bullet lead time (BLT)")}</dt><dd>${value(escapeHtml(loadText("%1 ms", formatNumber(result.bulletLeadTimeMs, 4))))}</dd><dt>${loadLabel("Optimal barrel time (OBT)")}</dt><dd>${value(escapeHtml(loadText("%1 ms, node %2", formatNumber(result.optimalBarrelTimeMs, 4), obtNode)))}</dd></dl>`;
   const statusClass = resultOk ? "result-status" : "result-status simulation-failure";
   return `<div class="result-view"${splitStyle("results")}>
-    <div class="result-top"><section>${resultHeading(load, input, focused.chargeG)}${overpressure}${burnNotice}<p class="${statusClass}">${resultStatus}</p>${summary}${resultOk && reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>${loadLabel("Charge")}</th><th>${loadLabel("Max. pressure")}</th><th>${loadLabel("Velocity")}</th><th>${loadLabel("Energy")}</th><th>${loadLabel("Load ratio")}</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input, effectiveProfile)}</div>
+    <div class="result-top"><section>${resultHeading(load, input, focused.chargeG)}${overpressure}${burnNotice}<p class="${statusClass}">${resultStatus}</p>${summary}${barrelTiming}${resultOk && reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>${loadLabel("Charge")}</th><th>${loadLabel("Max. pressure")}</th><th>${loadLabel("Velocity")}</th><th>${loadLabel("Energy")}</th><th>${loadLabel("Load ratio")}</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input, effectiveProfile)}</div>
     ${splitter("results", "horizontal", "Resize result summary and chart", 150, 250)}<div class="result-chart-pane"><div class="chart-controls">${tabs}<select id="chart-axis" aria-label="Horizontal axis"><option value="time" ${chartAxis === "time" ? "selected" : ""}>${loadLabel("Time axis")}</option><option value="position" ${chartAxis === "position" ? "selected" : ""}>${loadLabel("Position axis")}</option></select></div>
     ${chartView(result, ladder.filter((_, index) => index !== focus).map((entry) => entry.result), input, reference)}
     <div class="chart-legend"><span class="pressure-key">${escapeHtml(i18n.text("CurveChart", "Pressure"))}</span>${reference?.points.length ? `<span class="pressure-key reference-key">${escapeHtml(i18n.text("CurveChart", "Pressure (original)"))}</span>` : ""}<span class="permitted-key">${escapeHtml(i18n.text("CurveChart", "Pmax permitted"))}</span><span class="energy-key">${escapeHtml(i18n.text("CurveChart", "Energy"))}</span>${reference?.points.length ? `<span class="energy-key reference-key">${escapeHtml(i18n.text("CurveChart", "Energy (original)"))}</span>` : ""}<span class="velocity-key">${escapeHtml(i18n.text("CurveChart", "Velocity"))}</span>${reference?.points.length ? `<span class="velocity-key reference-key">${escapeHtml(i18n.text("CurveChart", "Velocity (original)"))}</span>` : ""}</div></div></div>`;
@@ -836,7 +859,11 @@ function menuBarHtml(current: LoadFile | undefined, canUndo: boolean, canRedo: b
   const item = (id: string, source: string, shortcut = "", enabled = true, title = ""): string =>
     `<button id="${id}" role="menuitem" ${enabled ? "" : "disabled"}${title ? ` title="${escapeHtml(title)}"` : ""}><span>${tr(source)}</span>${shortcut ? `<kbd>${shortcut}</kbd>` : ""}</button>`;
   const separator = `<hr class="menu-separator">`;
-  const themeOptions: Array<[ThemeMode, string]> = [["system", "System default"], ["light", "Light"], ["dark", "Dark"]];
+  const themeOptions: Array<[ThemeMode, string]> = [
+    ["system", "System default"], ["light", "Light"], ["dark", "Dark"],
+    ["gruvbox-light", "Gruvbox Light"], ["gruvbox-dark", "Gruvbox Dark"], ["nord", "Nord"], ["dracula", "Dracula"],
+    ["catppuccin-latte", "Catppuccin Latte"], ["catppuccin-frappe", "Catppuccin Frappé"]
+  ];
   const languageOptions: Array<[LanguageChoice, string]> = [["system", "System default"], ["de_DE", "Deutsch (Deutschland)"], ["en_US", "English (United States)"], ["fr_FR", "Français (France)"], ["it_IT", "Italiano (Italia)"]];
   const themeMenu = themeOptions.map(([mode, source]) => `<button role="menuitemradio" aria-checked="${themePreference.mode === mode}" data-theme-mode="${mode}"><span aria-hidden="true">${themePreference.mode === mode ? "✓" : ""}</span><span>${tr(source)}</span></button>`).join("");
   const languageMenu = languageOptions.map(([choice, label]) => `<button role="menuitemradio" aria-checked="${languagePreference.choice === choice}" data-language="${choice}"><span aria-hidden="true">${languagePreference.choice === choice ? "✓" : ""}</span><span>${choice === "system" ? tr(label) : escapeHtml(label)}</span></button>`).join("");
@@ -874,6 +901,7 @@ function menuBarHtml(current: LoadFile | undefined, canUndo: boolean, canRedo: b
   </div></details>
   <details class="menu-dropdown help-menu"><summary>${tr("&Help")}</summary><div class="menu-popup" role="menu" aria-label="${tr("&Help")}">
     <a id="user-manual" role="menuitem" href="${escapeHtml(manualUrl)}" target="_blank" rel="noopener"><span>${tr("&User manual")}</span><kbd>F1</kbd></a>
+    <a id="online-documentation" role="menuitem" href="https://schildkroet.github.io/ChamberSim-Reloaded/" target="_blank" rel="noopener"><span>${tr("&Online documentation")}</span></a>
     ${item("about", "&About ChamberSim Reloaded…")}
   </div></details>`;
 }
@@ -1947,10 +1975,11 @@ async function importBulletFile(file: File): Promise<void> {
   const parsed = readBulletFile(await file.text());
   const existing = combinedDatabaseRecords("projectile");
   const fresh: Array<Partial<ProjectRecord>> = [];
+  const seen: Array<Partial<ProjectRecord>> = [];
   let known = 0;
   for (const bullet of parsed.bullets) {
-    if (existing.some((record) => sameBullet(record, bullet))) ++known;
-    else fresh.push(bullet);
+    if (existing.some((record) => sameBullet(record, bullet)) || seen.some((record) => sameBullet(record, bullet))) ++known;
+    else { fresh.push(bullet); seen.push(bullet); }
   }
   let message = i18n.plural("MainWindow", "%n bullet(s) can be added", fresh.length);
   if (parsed.manufacturer) message += i18n.text("MainWindow", " (manufacturer: %1)", parsed.manufacturer);
@@ -1967,13 +1996,13 @@ async function importBulletFile(file: File): Promise<void> {
   if (!window.confirm(`${message}\n\n${i18n.text("MainWindow", "Add them to your own records?")}`)) return;
   let added = 0;
   try {
-    for (const bullet of fresh) { await ownDatabase.insert("projectile", bullet); ++added; }
+    added = (await ownDatabase.insertMany("projectile", fresh)).length;
     await refreshOwnDatabase();
     databaseSelections.projectile = undefined;
     status = i18n.plural("MainWindow", "%n bullet(s) imported.", added);
   } catch (problem) {
     await refreshOwnDatabase();
-    status = i18n.text("MainWindow", "A bullet could not be stored:\n%1", problem instanceof Error ? problem.message : String(problem));
+    status = i18n.text("MainWindow", "A bullet could not be stored, none were imported:\n%1", problem instanceof Error ? problem.message : String(problem));
   }
   render();
 }
@@ -2806,6 +2835,7 @@ function bindEvents(): void {
     for (const file of Array.from(picker.files ?? [])) {
       try {
         const load = await readLoadFile(file);
+        attachMissingCaliberRecord(load);
         sessionEligibleLoads.add(load);
         loads.push(load);
         activeTab = `load-${loads.length - 1}`;
@@ -2967,6 +2997,7 @@ showDisclaimer();
 
 void import("./lib/projectdb").then(async (database) => {
   projectDatabase = database;
+  for (const load of loads) attachMissingCaliberRecord(load);
   try {
     await refreshOwnDatabase();
     if (status === "Loading project database…") status = databaseStatus();

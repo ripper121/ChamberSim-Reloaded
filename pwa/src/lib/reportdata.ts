@@ -71,6 +71,8 @@ export function buildReportData(load: LoadFile, input: SimInput, result: SimResu
   num("work.Vb", result.status === "ok" ? result.effectiveCaseVolumeCm3 : input.caseVolumeCm3 - bulletIntrusionM3(input) * 1e6, "volume");
   num("work.sebert", number(c, "sebert"));
   num("work.xe", number(load.gun, "xe"), "length");
+  num("work.twistlen", number(load.gun, "twistlen"), "length");
+  num("work.gjump", number(load.gun, "gjump"), "length");
   num("work.xeEff", number(load.gun, "xe") - (input.caseLengthMm - input.seatingDepthMm), "length");
   num("work.ps", number(c, "ps"), "pressure");
 
@@ -106,6 +108,14 @@ export function buildReportData(load: LoadFile, input: SimInput, result: SimResu
     num("result.MuzzleEnergy", result.muzzleEnergyJ, "energy");
     num("result.MuzzleVelocity", result.muzzleVelocityMs, "velocity");
     num("result.MuzzleTime", result.muzzleTimeMs, "time");
+    num("result.BulletLeadTime", result.bulletLeadTimeMs, "time");
+    if (result.optimalBarrelTimeMs > 0) {
+      num("result.OptimalBarrelTime", result.optimalBarrelTimeMs, "time");
+      const whole = Math.floor(result.optimalBarrelNode);
+      txt("result.OptimalBarrelNode", `#${whole}${result.optimalBarrelNode > whole ? " ½" : ""}`);
+    } else {
+      txt("result.OptimalBarrelTime", "–"); txt("result.OptimalBarrelNode", "–");
+    }
     setReportValue(data, "result.LoadRatio", reportFraction(result.loadRatio));
     setReportValue(data, "result.BurnRatio", reportFraction(result.burntFraction));
     if (result.burnoutInBarrel && result.points[result.indexBurnout]) {

@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { physicalPowderData, projectRecords } from "./projectdb";
-import { applyCaliber, applyProjectile, applyPropellant, buildLoad, caseVolumeCm3, defaultBarrelLengthMm, defaultChargeG, defaultSeatingDepthMm } from "./loadbuilder";
+import { applyCaliber, applyProjectile, applyPropellant, attachCaliberRecord, buildLoad, caseVolumeCm3, defaultBarrelLengthMm, defaultChargeG, defaultSeatingDepthMm } from "./loadbuilder";
 import { parseLoadXml, serializeLoadXml } from "./loadfile";
 import { simInputFromLoad } from "./siminput";
 import { calibrationFor, simulate } from "./solver";
@@ -10,6 +12,18 @@ const projectile = projectRecords.projectile.find((record) => Number(record.gdia
 const propellant = projectRecords.propellant.find((record) => record.mname === "Vihtavuori" && record.pname === "N150")!;
 
 describe("native load builder", () => {
+  it("attaches the project caliber record to an external load that omitted caliberfile", () => {
+    const path = resolve(import.meta.dirname, "../../../tests/fixtures/357sig_no_caliberfile.grtload");
+    const load = parseLoadXml(readFileSync(path, "utf8"), "357sig_no_caliberfile.grtload");
+    const sig = projectRecords.caliber.find((record) => record.cipname === "357 SIG")!;
+    expect(load.caliberFile).toHaveLength(0);
+    expect(attachCaliberRecord(load, sig)).toBe(true);
+    expect(attachCaliberRecord(load, sig)).toBe(false);
+    expect(load.caliberFile.find((item) => item.name === "cipname")?.value).toBe("357 SIG");
+    expect(load.caliberFile.find((item) => item.name === "P1")?.value).toBeTruthy();
+    expect(load.caliber.find((item) => item.name === "primer")?.value).toBe(String(sig.primer));
+  });
+
   it("reproduces the native defaults", () => {
     expect(caseVolumeCm3(caliber)).toBeCloseTo(4.075851439, 9);
     expect(defaultBarrelLengthMm(caliber)).toBe(600);
@@ -21,7 +35,7 @@ describe("native load builder", () => {
     const load = buildLoad(caliber, projectile, propellant, {
       chargeG: 2.7, barrelLengthMm: 600, seatingDepthMm: 10.4, twistLengthMm: 240, gunWeightKg: 3.7
     }, "Untitled.csrload", physicalPowderData);
-    expect(load.caliber.map((item) => item.name)).toEqual(["CaliberName", "oal", "caselen", "casevol", "Dz", "Aeff", "pMaxZul", "method", "sebert", "ps", "shotshell"]);
+    expect(load.caliber.map((item) => item.name)).toEqual(["CaliberName", "oal", "caselen", "casevol", "Dz", "Aeff", "pMaxZul", "method", "sebert", "ps", "primer", "psadd", "shotshell"]);
     expect(load.projectile.map((item) => item.name).slice(0, 19)).toEqual(["ProjectileName", "mname", "pname", "lotid", "Dbul", "mp", "gdepth", "glen", "gpressure", "gtailh", "gTailDiaA", "gTailDiaB", "gTailType", "g1bc", "g7bc", "gUBCS", "gfriction", "gfrictionUnlock", "mode"]);
     expect(load.propellant.find((item) => item.name === "physBa")).toBeDefined();
     expect(load.caliberFile.some((item) => item.name === "PmaxSAAMI")).toBe(false);

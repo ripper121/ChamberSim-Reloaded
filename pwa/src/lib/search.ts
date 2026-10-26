@@ -22,3 +22,19 @@ export function searchMatches(query: string, cells: readonly string[]): boolean 
   const isName = (word: string): boolean => Array.from(word).some((character) => /\p{L}/u.test(character) && character.toLocaleLowerCase("en-US") !== "x");
   return words.length >= 2 && words.some(isName) && words.every((word) => !normalizedSearch(word) || normalizedSearch(word) === "x" || found(word));
 }
+
+export function searchCellScore(query: string, cell: string, textual: boolean): number {
+  const queries = [normalizedSearch(query), normalizedSearch(query, false)];
+  const cells = [normalizedSearch(cell), normalizedSearch(cell, false)];
+  let best = 0;
+  for (let index = 0; index < queries.length; index += 1) {
+    const needle = queries[index]!;
+    const value = cells[index]!;
+    if (!needle) continue;
+    const fill = Math.trunc(999 * needle.length / Math.max(value.length, 1));
+    if (value === needle) best = Math.max(best, 4000 + fill);
+    else if (value.startsWith(needle)) best = Math.max(best, 3000 + fill);
+    else if (value.includes(needle)) best = Math.max(best, 2000 + fill);
+  }
+  return best === 0 ? 0 : textual ? best : 1;
+}

@@ -1,11 +1,12 @@
-export type ThemeMode = "system" | "light" | "dark";
-export type EffectiveTheme = Exclude<ThemeMode, "system">;
+export type ThemeMode = "system" | "light" | "dark" | "gruvbox-light" | "gruvbox-dark" | "nord" | "dracula" | "catppuccin-latte" | "catppuccin-frappe";
+export type EffectiveTheme = "light" | "dark";
 
 const storageKey = "csr-theme";
 
 function storedTheme(storage: Storage): ThemeMode {
   const value = storage.getItem(storageKey);
-  return value === "light" || value === "dark" ? value : "system";
+  return ["light", "dark", "gruvbox-light", "gruvbox-dark", "nord", "dracula", "catppuccin-latte", "catppuccin-frappe"].includes(value ?? "")
+    ? value as ThemeMode : "system";
 }
 
 export class ThemePreference {
@@ -24,7 +25,8 @@ export class ThemePreference {
   }
 
   get effective(): EffectiveTheme {
-    return this.mode === "system" ? (this.systemDark.matches ? "dark" : "light") : this.mode;
+    if (this.mode === "system") return this.systemDark.matches ? "dark" : "light";
+    return this.mode === "light" || this.mode === "gruvbox-light" || this.mode === "catppuccin-latte" ? "light" : "dark";
   }
 
   set(mode: ThemeMode): void {

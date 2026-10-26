@@ -311,3 +311,9 @@ Last updated: 2026-10-26
 **Decision:** Treat browser installability as verified only when a fresh non-incognito Edge profile emits the native `beforeinstallprompt` event, the browser's processed manifest has no errors, CDP reports no installability errors and computes an app id. Separately launch the same production URL through Edge's app-window mode and require the service worker, correct title and `display-mode: standalone`. Keep this as the repeatable `npm run test:install` gate; do not add an in-document imitation of browser installation UI.
 
 **Rationale:** Ordinary Playwright test contexts are incognito and CDP correctly reports `in-incognito`, so they cannot prove that Edge would promote installation. A persistent profile exercises the real browser decision while remaining isolated from the user's profile. Browser-owned modal buttons are outside the document automation surface, but the promotion event plus zero browser errors proves eligibility, and the separate app-window launch proves the runtime behavior controlled by the manifest's standalone display contract.
+
+## D-051 — Treat `build/release` as a historical v0.10 package after the v0.13 merge
+
+**Decision:** Keep `build/release/223Rem_D0735_RWS.csrload` as a legacy compatibility input, but do not use the executables or their outputs as v0.13 acceptance goldens. Build the merged source in ignored `build/current-reference`, normalize old loads through the same `ensureSebert`/`ensurePrimer` path as the GUI, and use that CLI for current numerical comparisons. Browser tests perform a native comparison only when this fresh executable exists.
+
+**Rationale:** The checked-in package is version 0.10 while the merged source and PWA identify as 0.13. Primer offsets and refitted physical resources intentionally change Physical results, so retaining v0.10 output assertions would reject correct v0.13 behavior. The old load remains valuable for backward-compatible parsing and migration.

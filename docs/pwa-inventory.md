@@ -1,14 +1,14 @@
 # PWA source application inventory
 
-This inventory is the starting point for the browser port. It was assembled from the Qt/C++ source, the user manual, the release binaries in `build/release/`, and direct screenshots of version 0.10 on 2026-10-21. It is intentionally descriptive: an item being listed here does not mean that it has been ported.
+This inventory started from the Qt/C++ source, manual and packaged v0.10 release on 2026-10-21. It was updated after merging upstream v0.13 on 2026-10-26. An item being listed here does not by itself mean that it has been ported.
 
 ## Reference executables and deterministic baseline
 
-- GUI: `build/release/ChamberSimReloaded.exe`
-- Simulator CLI: `build/release/csr_sim.exe`
-- Powder-fit CLI: `build/release/csr_fitpowder.exe`
+- Historical packaged GUI/CLIs: `build/release/` (**v0.10 input/visual compatibility references, not v0.13 numerical oracles**)
+- Current-source v0.13 simulator CLI: ignored local build `build/current-reference/csr_sim.exe`
+- Current-source v0.13 powder-fit CLI: ignored local build `build/current-reference/csr_fitpowder.exe`
 - Reference load: `build/release/223Rem_D0735_RWS.csrload`
-- Default (`physical`) reference result: 3614.471964703715 bar peak pressure, 903.2301893320783 m/s muzzle velocity, 1374.4784603072444 J muzzle energy, 0.7525100460423123 ms barrel time.
+- Current v0.13 default Physical result for that legacy input after load normalization: 3639.3882505989213 bar peak pressure, 905.0165289447478 m/s muzzle velocity, 1379.9205132572683 J muzzle energy, 0.748939922616817 ms barrel time, 0.7464788122880305 ms BLT, and 0.7472620234750001 ms OBT at node 5.
 - `original` reference result: 3546.47 bar peak pressure, 872.578 m/s muzzle velocity, 1282.77 J muzzle energy, 0.802893 ms barrel time.
 
 The release GUI runs in this Windows environment. Screenshot mode was used without elevated privileges. `csr_sim --help` and `csr_fitpowder --help` both exit successfully with code 0.
@@ -19,9 +19,9 @@ The release GUI runs in this Windows environment. Screenshot mode was used witho
 - A permanent Database tab and one closable tab for every open load.
 - File: New load, Open load, Open recent, Save, Save as, Print preview, Print, PDF export, reference-result overlay/clear, Settings, Quit.
 - Edit: contextual Undo and Redo for the active load.
-- View: system/light/dark theme and English/German/French/Italian language selection.
+- View: System, Light, Dark, Gruvbox Light/Dark, Nord, Dracula and Catppuccin Latte/Frappé themes plus English/German/French/Italian language selection.
 - Tools: Burn rate table and Unit converter.
-- Help: PDF user manual and About dialog.
+- Help: bundled PDF user manual, online documentation and About dialog.
 - Splitter positions, table column widths, window geometry, recent files, optional session reopening, appearance, units, solver, database path, report, and logging settings persist through `QSettings`.
 
 ## Database workflow
@@ -31,7 +31,7 @@ The release GUI runs in this Windows environment. Screenshot mode was used witho
 - New, copy, view/edit, delete, and JSON export. Only own records are mutable.
 - Projectile manufacturer bullet-file import (`*.csrbullets` and JSON), validation, duplicate filtering, and problem reporting.
 - Record dialogs expose typed fields, descriptions, provenance, dates, and propellant overview/detail photos.
-- Project data currently contains 484 calibers, 3010 projectiles, and 245 propellants in the observed release database.
+- Current v0.13 project data contains 485 calibers, 3,120 projectiles, and 249 propellants. The packaged v0.10 database counts were 484/3,010/245.
 
 ## Load creation, editing, and files
 
@@ -48,7 +48,7 @@ The release GUI runs in this Windows environment. Screenshot mode was used witho
 
 - Models: Physical Model (default), Published, and GRT Original. An option forces GRT Original for files opened from `*.grtload`.
 - Domain implementation lives in `src/core/solver.cpp`, with inputs from `SimInput::fromLoad`; default calculation uses 2000 curve positions.
-- Results summary: peak and muzzle pressure, muzzle velocity and energy, barrel time, burnout pressure, gas outflow velocity, spin, recoil, load ratio, burnt fraction, effective efficiency, heat loss, and friction loss.
+- Results summary: peak and muzzle pressure, muzzle velocity and energy, barrel time, burnout pressure, bullet lead time (BLT), nearest optimal barrel time/node (OBT), gas outflow velocity, spin, recoil, load ratio, burnt fraction, effective efficiency, heat loss, and friction loss.
 - Invalid input, overpressure, over-capacity charge, missing physical values, and powder/database divergence banners.
 - Time/position chart for pressure, velocity, and energy; transition, peak, burnout, and 95%-velocity markers; pressure bands; pointer readout.
 - Vivacity/burn-rate chart.
