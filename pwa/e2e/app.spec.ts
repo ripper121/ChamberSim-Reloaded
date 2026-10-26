@@ -85,6 +85,11 @@ test("browses, filters, sorts, and selects the complete project database", async
   const row = page.locator(".database-table tbody tr").filter({ has: matchingCell });
   await row.press("Enter");
   await expect(row).toHaveAttribute("aria-selected", "true");
+  const viewer = page.locator("dialog.record-view-dialog");
+  await expect(viewer).toBeVisible();
+  await expect(viewer).toContainText("8 x 57 IS");
+  await expect(viewer.getByRole("button", { name: "Copy", exact: true })).toBeVisible();
+  await viewer.getByRole("button", { name: "Close", exact: true }).click();
 
   const pressureSort = page.getByRole("button", { name: "Sort by Pmax", exact: true });
   await pressureSort.click();
@@ -106,6 +111,64 @@ test("browses, filters, sorts, and selects the complete project database", async
   await page.getByRole("tab", { name: "Calibers" }).click();
   await expect(page.getByLabel("Filter all columns")).toHaveValue("8x57 is");
   expect(errors).toEqual([]);
+});
+
+test("supports native-style keyboard traversal for menus and database tables", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+
+  const file = page.locator(".file-menu > summary");
+  await file.focus();
+  await file.press("ArrowRight");
+  await expect(page.locator(".edit-menu > summary")).toBeFocused();
+  await page.locator(".edit-menu > summary").press("ArrowLeft");
+  await expect(file).toBeFocused();
+  await file.press("ArrowDown");
+  await expect(page.locator("#menu-new-load")).toBeFocused();
+  await page.locator("#menu-new-load").press("End");
+  await expect(page.locator("#settings")).toBeFocused();
+  await page.locator("#settings").press("Escape");
+  await expect(file).toBeFocused();
+  await expect(page.locator(".file-menu")).not.toHaveAttribute("open", "");
+
+  const view = page.locator(".view-menu > summary");
+  await view.focus();
+  await view.press("ArrowDown");
+  const theme = page.locator(".view-menu .menu-submenu").first().locator(":scope > summary");
+  await expect(theme).toBeFocused();
+  await theme.press("ArrowRight");
+  await expect(page.locator('[data-theme-mode="system"]')).toBeFocused();
+  await page.locator('[data-theme-mode="system"]').press("ArrowDown");
+  await expect(page.locator('[data-theme-mode="light"]')).toBeFocused();
+  await page.locator('[data-theme-mode="light"]').press("ArrowLeft");
+  await expect(theme).toBeFocused();
+  await theme.press("Escape");
+  await expect(view).toBeFocused();
+
+  const first = page.locator('.database-table tr[data-db-id][tabindex="0"]');
+  await first.focus();
+  const firstId = await first.getAttribute("data-db-id");
+  await first.press("ArrowDown");
+  const second = page.locator('.database-table tr[data-db-id][tabindex="0"]');
+  await expect(second).toBeFocused();
+  expect(await second.getAttribute("data-db-id")).not.toBe(firstId);
+  await second.press("End");
+  const last = page.locator('[data-db-id="1000483"]');
+  await expect(last).toBeFocused();
+  await last.press("Home");
+  await expect(page.locator('.database-table tr[data-db-id][tabindex="0"]')).toBeFocused();
+
+  await page.getByRole("button", { name: /New load/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New load" });
+  const dialogFirst = dialog.locator('tr[data-db-id][tabindex="0"]');
+  await dialogFirst.focus();
+  const dialogFirstId = await dialogFirst.getAttribute("data-db-id");
+  await dialogFirst.press("ArrowDown");
+  const dialogSecond = dialog.locator('tr[data-db-id][tabindex="0"]');
+  await expect(dialogSecond).toBeFocused();
+  expect(await dialogSecond.getAttribute("data-db-id")).not.toBe(dialogFirstId);
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
 });
 
 test("matches the native menu hierarchy and action state", async ({ page }) => {

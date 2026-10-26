@@ -723,9 +723,9 @@ function databaseStatus(): string {
   return `Database: ${count("caliber")} calibers, ${count("projectile")} projectiles, ${count("propellant")} propellants (${own} personal); ${original}`;
 }
 
-function databaseRowHtml(record: ProjectRecord, columns: readonly DatabaseColumn[], table: ProjectTable = activeDatabaseTable, selectedId = databaseSelections[table]): string {
+function databaseRowHtml(record: ProjectRecord, columns: readonly DatabaseColumn[], table: ProjectTable = activeDatabaseTable, selectedId = databaseSelections[table], focusable = selectedId === record.id): string {
   if (!projectDatabase) return "";
-  return `<tr data-db-id="${record.id}" tabindex="0" aria-selected="${selectedId === record.id}">${columns.map((column) => {
+  return `<tr data-db-id="${record.id}" tabindex="${focusable ? 0 : -1}" aria-selected="${selectedId === record.id}">${columns.map((column) => {
     const value = column.name === "source"
       ? i18n.text("TableBrowser", record.source === "own" ? "Personal" : record.source === "original" ? "Original GRT" : "Project")
       : projectDatabase!.displayValue(record, column);
@@ -747,11 +747,31 @@ function databaseColumnLabel(column: DatabaseColumn): string {
 function databaseBodyHtml(records: readonly ProjectRecord[], columns: readonly DatabaseColumn[], scrollTop: number, table: ProjectTable = activeDatabaseTable, selectedId = databaseSelections[table]): { html: string; start: number } {
   const start = Math.max(0, Math.min(records.length, Math.floor(scrollTop / databaseRowHeight) - 20));
   const end = Math.min(records.length, start + databaseWindowSize);
+  const selectedVisible = selectedId !== undefined && records.slice(start, end).some((record) => record.id === selectedId);
   const spacer = (height: number): string => height > 0 ? `<tr class="database-spacer" aria-hidden="true"><td colspan="${columns.length}" style="height:${height}px"></td></tr>` : "";
   return {
     start,
-    html: spacer(start * databaseRowHeight) + records.slice(start, end).map((record) => databaseRowHtml(record, columns, table, selectedId)).join("") + spacer((records.length - end) * databaseRowHeight)
+    html: spacer(start * databaseRowHeight) + records.slice(start, end).map((record, offset) => databaseRowHtml(record, columns, table, selectedId, record.id === selectedId || (!selectedVisible && offset === 0))).join("") + spacer((records.length - end) * databaseRowHeight)
   };
+}
+
+function navigatedRecordIndex(event: KeyboardEvent, records: readonly ProjectRecord[], currentId: number, viewportRows: number): number | undefined {
+  if (!records.length) return undefined;
+  const current = Math.max(0, records.findIndex((record) => record.id === currentId));
+  if (event.key === "ArrowDown") return Math.min(records.length - 1, current + 1);
+  if (event.key === "ArrowUp") return Math.max(0, current - 1);
+  if (event.key === "PageDown") return Math.min(records.length - 1, current + Math.max(1, viewportRows - 1));
+  if (event.key === "PageUp") return Math.max(0, current - Math.max(1, viewportRows - 1));
+  if (event.key === "Home") return 0;
+  if (event.key === "End") return records.length - 1;
+  return undefined;
+}
+
+function scrollForRecord(index: number, current: number, viewportHeight: number): number {
+  const top = index * databaseRowHeight, bottom = top + databaseRowHeight;
+  if (top < current) return top;
+  if (bottom > current + viewportHeight) return Math.max(0, bottom - viewportHeight);
+  return current;
 }
 
 function recordTableHtml(table: ProjectTable, records: readonly ProjectRecord[], sort: { column: string; direction: "asc" | "desc" }, scrollTop: number, selectedId?: number): { html: string; records: ProjectRecord[]; columns: readonly DatabaseColumn[] } {
@@ -1119,18 +1139,77 @@ function bindDatabaseRows(root: ParentNode = app): void {
       const selected = row === element;
       row.classList.toggle("selected", selected);
       row.setAttribute("aria-selected", String(selected));
+      row.tabIndex = selected ? 0 : -1;
     });
     updateButtons();
   };
   root.querySelectorAll<HTMLElement>("[data-db-id]").forEach((element) => {
     element.addEventListener("click", () => selectDatabaseRow(element));
+    element.addEventListener("dblclick", () => { selectDatabaseRow(element); openRecordViewDialog(); });
     element.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectDatabaseRow(element); }
+      if (event.key === "Enter") { event.preventDefault(); selectDatabaseRow(element); openRecordViewDialog(); return; }
+      if (event.key === " ") { event.preventDefault(); selectDatabaseRow(element); return; }
+      const current = currentDatabaseRows();
+      const scroller = app.querySelector<HTMLElement>(".database-table-scroll");
+      if (!current || !scroller) return;
+      const index = navigatedRecordIndex(event, current.records, Number(element.dataset.dbId), Math.floor(scroller.clientHeight / databaseRowHeight));
+      if (index === undefined) return;
+      event.preventDefault();
+      const target = current.records[index]!;
+      databaseSelections[activeDatabaseTable] = target.id;
+      databaseScrolls[activeDatabaseTable] = scrollForRecord(index, scroller.scrollTop, scroller.clientHeight);
+      render();
+      requestAnimationFrame(() => app.querySelector<HTMLElement>(`[data-db-id="${target.id}"]`)?.focus({ preventScroll: true }));
     });
   });
 }
 
 type RecordEditMode = "new" | "copy" | "edit";
+
+function shownRecordValue(field: RecordField, value: unknown): string {
+  if (field.kind === "number") return shownRecordNumber(Number(value ?? 0), field, field.quantity ? unitPreferences.unitFor(field.quantity) : undefined);
+  if (field.choices) {
+    const current = field.column === "gValid" ? String(Boolean(value)) : String(value ?? "");
+    const choice = field.choices.find((candidate) => candidate.value.toLowerCase() === current.toLowerCase());
+    const label = choice?.label ?? current;
+    return ["flat base", "hollow base", "boat tail", "â€“ not specified â€“", "â€“ not set â€“"].includes(label)
+      ? i18n.text("RecordDialog", label) : label;
+  }
+  return String(value ?? "");
+}
+
+function openRecordViewDialog(): void {
+  const record = selectedDatabaseRecord();
+  if (!record) return;
+  const table = activeDatabaseTable;
+  const fields = recordFields(table);
+  const groups = Array.from(new Set(fields.map((field) => field.group)));
+  const kind = i18n.text("RecordViewDialog", table === "caliber" ? "Caliber" : table === "projectile" ? "Projectile" : "Propellant");
+  const title = `${kind} â€“ ${recordTitle(table, record)}`;
+  const dialog = document.createElement("dialog");
+  dialog.className = "record-view-dialog";
+  dialog.setAttribute("aria-label", title);
+  const fieldHtml = (field: RecordField): string => {
+    const unit = field.quantity ? unitPreferences.unitFor(field.quantity).symbol : field.unitText;
+    const label = i18n.text("csr::dbfields", field.label);
+    const value = shownRecordValue(field, record[field.column]);
+    if (field.column === "Qlty") {
+      const quality = Math.max(0, Math.min(1, Number(record.Qlty ?? 0)));
+      return `<dt>${escapeHtml(label)}${unit ? ` [${escapeHtml(unit)}]` : ""}:</dt><dd>${escapeHtml(value)} <progress max="1" value="${quality}" title="${escapeHtml(i18n.text("RecordViewDialog", "Quality of the fit of the powder model: 1 = very good, 0 = unknown"))}"></progress></dd>`;
+    }
+    return `<dt>${escapeHtml(label)}${unit ? ` [${escapeHtml(unit)}]` : ""}:</dt><dd class="${field.column === "gValid" ? (Boolean(record.gValid) ? "valid" : "invalid") : ""}">${escapeHtml(value) || "&nbsp;"}</dd>`;
+  };
+  const own = record.source === "own";
+  const action = i18n.text("RecordViewDialog", own ? "Edit" : "Copy");
+  const actionHelp = i18n.text("RecordViewDialog", own ? "Change this record" : "Only your own records can be changed: add a changed copy");
+  dialog.innerHTML = `<form><h2>${escapeHtml(title)}</h2><div class="record-view-scroll">${groups.map((group) => `<fieldset><legend>${escapeHtml(i18n.text("csr::dbfields", group))}</legend><dl>${fields.filter((field) => field.group === group).map(fieldHtml).join("")}</dl></fieldset>`).join("")}</div><div class="dialog-buttons"><button type="button" data-view-action title="${escapeHtml(actionHelp)}">${escapeHtml(action)}</button><button type="button" data-view-close>${standardButton("Close")}</button></div></form>`;
+  document.body.append(dialog);
+  const close = (): void => { dialog.close(); dialog.remove(); };
+  dialog.querySelector("[data-view-close]")?.addEventListener("click", close);
+  dialog.querySelector("[data-view-action]")?.addEventListener("click", () => { close(); void openRecordDialog(own ? "edit" : "copy"); });
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.showModal();
+}
 
 async function refreshOwnDatabase(): Promise<void> {
   [ownRecords, originalRecords, originalDatabaseInfo] = await Promise.all([
@@ -1671,16 +1750,30 @@ function openNewLoadDialog(): void {
     });
     filter?.addEventListener("compositionend", (event) => { queries[active] = (event.currentTarget as HTMLInputElement).value; scheduleFilter(); });
     dialog.querySelector<HTMLInputElement>("[data-match-diameter]")?.addEventListener("change", (event) => { matchDiameter = (event.currentTarget as HTMLInputElement).checked; renderDialog(); });
-    const chooseRow = (row: HTMLElement): void => {
+    const chooseRow = (row: HTMLElement, restoreFocus = false): void => {
       const id = Number(row.dataset.dbId);
       selected[active] = combinedDatabaseRecords(active).find((record) => record.id === id);
       if (active === "caliber" && selected.projectile && matchDiameter && Math.abs(Number(selected.projectile.gdia ?? 0) - Number(selected.caliber?.c_Z ?? 0)) >= 0.25) selected.projectile = undefined;
       renderDialog();
+      if (restoreFocus) requestAnimationFrame(() => dialog.querySelector<HTMLElement>(`[data-db-id="${id}"]`)?.focus({ preventScroll: true }));
     };
-    dialog.querySelectorAll<HTMLElement>("[data-db-id]").forEach((row) => {
+    const bindRows = (root: ParentNode): void => root.querySelectorAll<HTMLElement>("[data-db-id]").forEach((row) => {
       row.addEventListener("click", () => chooseRow(row));
-      row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseRow(row); } });
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseRow(row, true); return; }
+        const scroller = dialog.querySelector<HTMLElement>(".dialog-record-table");
+        if (!scroller) return;
+        const index = navigatedRecordIndex(event, shownRecords, Number(row.dataset.dbId), Math.floor(scroller.clientHeight / databaseRowHeight));
+        if (index === undefined) return;
+        event.preventDefault();
+        scrolls[active] = scrollForRecord(index, scroller.scrollTop, scroller.clientHeight);
+        const target = shownRecords[index]!;
+        selected[active] = combinedDatabaseRecords(active).find((record) => record.id === target.id);
+        renderDialog();
+        requestAnimationFrame(() => dialog.querySelector<HTMLElement>(`[data-db-id="${target.id}"]`)?.focus({ preventScroll: true }));
+      });
     });
+    bindRows(dialog);
     dialog.querySelectorAll<HTMLElement>("[data-dialog-sort]").forEach((button) => button.addEventListener("click", () => {
       const column = button.dataset.dialogSort ?? "id", current = sorts[active];
       sorts[active] = { column, direction: current.column === column && current.direction === "asc" ? "desc" : "asc" };
@@ -1696,10 +1789,7 @@ function openNewLoadDialog(): void {
         const window = databaseBodyHtml(shownRecords, shownColumns, scroller.scrollTop, table, selected[table]?.id);
         if (Number(body.dataset.windowStart) === window.start) return;
         body.dataset.windowStart = String(window.start); body.innerHTML = window.html;
-        body.querySelectorAll<HTMLElement>("[data-db-id]").forEach((row) => {
-          row.addEventListener("click", () => chooseRow(row));
-          row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseRow(row); } });
-        });
+        bindRows(body);
       });
     }
     dialog.querySelector("[data-new-load-next]")?.addEventListener("click", () => {
@@ -1793,11 +1883,29 @@ function openSelectComponentDialog(table: ProjectTable): void {
       scrollTop = 0; renderDialog();
     });
     dialog.querySelector<HTMLInputElement>("[data-component-reset]")?.addEventListener("change", (event) => { reset = (event.currentTarget as HTMLInputElement).checked; });
-    const chooseRow = (row: HTMLElement): void => { selected = combinedDatabaseRecords(table).find((record) => record.id === Number(row.dataset.dbId)); renderDialog(); };
-    dialog.querySelectorAll<HTMLElement>("[data-db-id]").forEach((row) => {
+    const chooseRow = (row: HTMLElement, restoreFocus = false): void => {
+      const id = Number(row.dataset.dbId);
+      selected = combinedDatabaseRecords(table).find((record) => record.id === id);
+      renderDialog();
+      if (restoreFocus) requestAnimationFrame(() => dialog.querySelector<HTMLElement>(`[data-db-id="${id}"]`)?.focus({ preventScroll: true }));
+    };
+    const bindRows = (root: ParentNode): void => root.querySelectorAll<HTMLElement>("[data-db-id]").forEach((row) => {
       row.addEventListener("click", () => chooseRow(row));
-      row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseRow(row); } });
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseRow(row, true); return; }
+        const scroller = dialog.querySelector<HTMLElement>(".dialog-record-table");
+        if (!scroller) return;
+        const index = navigatedRecordIndex(event, recordTable.records, Number(row.dataset.dbId), Math.floor(scroller.clientHeight / databaseRowHeight));
+        if (index === undefined) return;
+        event.preventDefault();
+        scrollTop = scrollForRecord(index, scroller.scrollTop, scroller.clientHeight);
+        const target = recordTable.records[index]!;
+        selected = combinedDatabaseRecords(table).find((record) => record.id === target.id);
+        renderDialog();
+        requestAnimationFrame(() => dialog.querySelector<HTMLElement>(`[data-db-id="${target.id}"]`)?.focus({ preventScroll: true }));
+      });
     });
+    bindRows(dialog);
     dialog.querySelectorAll<HTMLElement>("[data-dialog-sort]").forEach((button) => button.addEventListener("click", () => {
       const column = button.dataset.dialogSort ?? "id";
       sort = { column, direction: sort.column === column && sort.direction === "asc" ? "desc" : "asc" }; scrollTop = 0; renderDialog();
@@ -1812,10 +1920,7 @@ function openSelectComponentDialog(table: ProjectTable): void {
         const window = databaseBodyHtml(recordTable.records, recordTable.columns, scrollTop, table, selected?.id);
         if (Number(body.dataset.windowStart) === window.start) return;
         body.dataset.windowStart = String(window.start); body.innerHTML = window.html;
-        body.querySelectorAll<HTMLElement>("[data-db-id]").forEach((row) => {
-          row.addEventListener("click", () => chooseRow(row));
-          row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseRow(row); } });
-        });
+        bindRows(body);
       });
     }
     dialog.querySelector("[data-component-apply]")?.addEventListener("click", () => {
@@ -2343,9 +2448,79 @@ function bindPropertyColumns(root: ParentNode = app): void {
   });
 }
 
+function menuItems(popup: HTMLElement): HTMLElement[] {
+  return Array.from(popup.children).flatMap((child) => {
+    if (child instanceof HTMLButtonElement && !child.disabled) return [child];
+    if (child instanceof HTMLAnchorElement) return [child];
+    if (child instanceof HTMLDetailsElement) {
+      const summary = child.querySelector<HTMLElement>(":scope > summary");
+      return summary && summary.getAttribute("aria-disabled") !== "true" ? [summary] : [];
+    }
+    return [];
+  });
+}
+
+function bindMenuKeyboard(): void {
+  const menus = Array.from(app.querySelectorAll<HTMLDetailsElement>(".menubar > .menu-dropdown"));
+  const summaries = menus.map((menu) => menu.querySelector<HTMLElement>(":scope > summary")!);
+  const focusFirst = (menu: HTMLDetailsElement): void => menuItems(menu.querySelector<HTMLElement>(":scope > .menu-popup")!)[0]?.focus();
+  const switchMenu = (current: HTMLDetailsElement, direction: number): void => {
+    const index = menus.indexOf(current);
+    const target = menus[(index + direction + menus.length) % menus.length]!;
+    const wasOpen = current.open;
+    current.open = false;
+    summaries[menus.indexOf(target)]?.focus();
+    if (wasOpen) { target.open = true; focusFirst(target); }
+  };
+  menus.forEach((menu, index) => {
+    const summary = summaries[index]!;
+    summary.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); switchMenu(menu, event.key === "ArrowRight" ? 1 : -1); return; }
+      if (event.key === "ArrowDown") { event.preventDefault(); menu.open = true; focusFirst(menu); return; }
+      if (event.key === "Escape") { event.preventDefault(); menu.open = false; summary.focus(); }
+    });
+    const popup = menu.querySelector<HTMLElement>(":scope > .menu-popup")!;
+    popup.addEventListener("keydown", (event) => {
+      const target = event.target as HTMLElement;
+      const containingPopup = target.closest<HTMLElement>(".menu-popup");
+      if (containingPopup !== popup) return;
+      const items = menuItems(popup), current = items.indexOf(target);
+      if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+        event.preventDefault();
+        const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+          : (Math.max(0, current) + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+        items[next]?.focus();
+      } else if (event.key === "ArrowRight") {
+        const submenu = target.closest<HTMLDetailsElement>(".menu-submenu");
+        if (submenu && target === submenu.querySelector(":scope > summary")) {
+          event.preventDefault(); submenu.open = true;
+          menuItems(submenu.querySelector<HTMLElement>(":scope > .menu-popup")!)[0]?.focus();
+        } else { event.preventDefault(); switchMenu(menu, 1); }
+      } else if (event.key === "ArrowLeft") { event.preventDefault(); switchMenu(menu, -1); }
+      else if (event.key === "Escape") { event.preventDefault(); menu.open = false; summary.focus(); }
+    });
+    menu.querySelectorAll<HTMLDetailsElement>(".menu-submenu").forEach((submenu) => {
+      const submenuSummary = submenu.querySelector<HTMLElement>(":scope > summary")!;
+      const submenuPopup = submenu.querySelector<HTMLElement>(":scope > .submenu-popup");
+      submenuPopup?.addEventListener("keydown", (event) => {
+        const items = menuItems(submenuPopup), current = items.indexOf(event.target as HTMLElement);
+        if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+          event.preventDefault();
+          const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+            : (Math.max(0, current) + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+          items[next]?.focus();
+        } else if (event.key === "ArrowLeft" || event.key === "Escape") {
+          event.preventDefault(); submenu.open = false; submenuSummary.focus();
+        }
+      });
+    });
+  });
+}
+
 function bindEvents(): void {
   bindSplitters();
   bindPropertyColumns();
+  bindMenuKeyboard();
   const closeMenus = (): void => app.querySelectorAll<HTMLDetailsElement>(".menubar details[open]").forEach((menu) => menu.removeAttribute("open"));
   app.querySelectorAll<HTMLDetailsElement>(".menubar > .menu-dropdown").forEach((menu) => menu.addEventListener("toggle", () => {
     if (!menu.open) return;

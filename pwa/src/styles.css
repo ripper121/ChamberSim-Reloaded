@@ -332,6 +332,19 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .record-dialog textarea { min-height: 70px; resize: vertical; }
 .record-dialog [readonly] { color: #aaa; background: #292929; }
 .record-dialog .invalid-field { color: #111; background: #f6c6c6; }
+.record-view-dialog { width: min(850px, calc(100% - 32px)); height: min(720px, calc(100% - 32px)); padding: 0; color: #eee; background: #303030; border: 1px solid #666; box-shadow: 0 15px 60px #000; }
+.record-view-dialog::backdrop { background: rgb(0 0 0 / .75); }
+.record-view-dialog form { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; padding: 12px; }
+.record-view-dialog h2 { margin: 0; font-size: 1.2rem; }
+.record-view-scroll { min-height: 0; overflow: auto; }
+.record-view-dialog fieldset { margin: 0 0 9px; border: 1px solid #555; }
+.record-view-dialog legend { padding-inline: 6px; }
+.record-view-dialog dl { display: grid; grid-template-columns: minmax(170px, auto) minmax(180px, 1fr); gap: 5px 10px; margin: 0; }
+.record-view-dialog dt { text-align: right; color: #bbb; }
+.record-view-dialog dd { min-width: 0; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.record-view-dialog dd.valid { color: #45b95c; }
+.record-view-dialog dd.invalid { color: #e04450; }
+.record-view-dialog progress { width: min(240px, 70%); vertical-align: middle; }
 .photo-editor { display: grid !important; grid-template-columns: 1fr !important; gap: 10px !important; }
 .photo-slot { display: grid; grid-template-columns: 116px minmax(160px, 1fr); grid-template-rows: auto minmax(76px, auto) auto; gap: 5px 10px; align-items: start; }
 .photo-slot > strong { grid-column: 1 / -1; }
