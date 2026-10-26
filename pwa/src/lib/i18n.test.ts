@@ -22,12 +22,12 @@ describe("Qt translation catalog", () => {
 
   it("matches Qt platform translations for standard dialog buttons", async () => {
     const [german, french, italian] = await Promise.all([loadI18n("de_DE"), loadI18n("fr_FR"), loadI18n("it_IT")]);
-    expect([german.standardButton("Save"), german.standardButton("Cancel"), german.standardButton("Close"), german.standardButton("Apply")])
-      .toEqual(["Speichern", "Abbrechen", "Schließen", "Anwenden"]);
-    expect([french.standardButton("Save"), french.standardButton("Cancel"), french.standardButton("Close"), french.standardButton("Apply")])
-      .toEqual(["Enregistrer", "Annuler", "Fermer", "Appliquer"]);
-    expect([italian.standardButton("Save"), italian.standardButton("Cancel"), italian.standardButton("Close"), italian.standardButton("Apply")])
-      .toEqual(["Salva", "Annulla", "Chiudi", "Applica"]);
+    expect([german.standardButton("Save"), german.standardButton("Cancel"), german.standardButton("Discard"), german.standardButton("Close"), german.standardButton("Apply")])
+      .toEqual(["Speichern", "Abbrechen", "Verwerfen", "Schließen", "Anwenden"]);
+    expect([french.standardButton("Save"), french.standardButton("Cancel"), french.standardButton("Discard"), french.standardButton("Close"), french.standardButton("Apply")])
+      .toEqual(["Enregistrer", "Annuler", "Ne pas tenir compte", "Fermer", "Appliquer"]);
+    expect([italian.standardButton("Save"), italian.standardButton("Cancel"), italian.standardButton("Discard"), italian.standardButton("Close"), italian.standardButton("Apply")])
+      .toEqual(["Salva", "Annulla", "Scarta", "Chiudi", "Applica"]);
   });
 
   it("rejects malformed XML and falls back for unfinished messages", () => {

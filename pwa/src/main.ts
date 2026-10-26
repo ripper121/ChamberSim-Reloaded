@@ -155,7 +155,7 @@ function shown(value: number, quantity: Exclude<Quantity, "none">, decimals?: nu
   return `${formatUnit(value, unit, decimals)} ${unit.symbol}`;
 }
 
-function standardButton(source: "OK" | "Save" | "Close" | "Cancel" | "Apply"): string {
+function standardButton(source: "OK" | "Save" | "Close" | "Cancel" | "Discard" | "Apply"): string {
   return escapeHtml(i18n.standardButton(source));
 }
 
@@ -980,9 +980,7 @@ function undoActive(redo = false): void {
   render();
 }
 
-function downloadLoad(format: FileFormat): void {
-  const load = activeLoad();
-  if (!load) return;
+function downloadLoadFile(load: LoadFile, format: FileFormat): void {
   const suffix = format === "reload" ? "csrload" : "grtload";
   const fileName = load.fileName.replace(/\.(csrload|grtload)$/i, "") + `.${suffix}`;
   const url = URL.createObjectURL(new Blob([serializeLoadXml(load, format)], { type: "application/xml;charset=utf-8" }));
@@ -997,7 +995,61 @@ function downloadLoad(format: FileFormat): void {
   }
   status = format === "reload" ? `Saved ${fileName}` : `Exported ${fileName}`;
   logger.info(`${format === "reload" ? "Load saved" : "Load exported"}: ${fileName}`, "main.ts");
+}
+
+function downloadLoad(format: FileFormat): void {
+  const load = activeLoad();
+  if (!load) return;
+  downloadLoadFile(load, format);
   render();
+}
+
+function closeLoad(index: number, closeStatus = "Load closed"): void {
+  const closing = loads[index];
+  if (!closing) return;
+  const current = activeLoad();
+  loads.splice(index, 1);
+  if (current && current !== closing) {
+    const currentIndex = loads.indexOf(current);
+    activeTab = currentIndex >= 0 ? `load-${currentIndex}` : "database";
+  } else if (loads.length) {
+    activeTab = `load-${Math.min(index, loads.length - 1)}`;
+  } else {
+    activeTab = "database";
+  }
+  status = closeStatus;
+  render();
+}
+
+function closePromptName(load: LoadFile): string {
+  return sessionEligibleLoads.has(load) ? load.fileName : load.fileName.replace(/\.(csrload|grtload)$/i, "");
+}
+
+function requestCloseLoad(index: number): void {
+  const load = loads[index];
+  if (!load) return;
+  if (!historyFor(load).modified) {
+    closeLoad(index);
+    return;
+  }
+
+  const title = i18n.text("MainWindow", "Unsaved changes");
+  const dialog = document.createElement("dialog");
+  dialog.className = "unsaved-changes-dialog";
+  dialog.setAttribute("aria-label", title);
+  dialog.innerHTML = `<form method="dialog"><h2>${escapeHtml(title)}</h2><p>${escapeHtml(i18n.text("MainWindow", "Save changes to %1?", closePromptName(load)))}</p><div class="dialog-buttons"><button type="button" data-close-cancel>${standardButton("Cancel")}</button><button type="button" data-close-discard>${standardButton("Discard")}</button><button class="primary" type="button" data-close-save autofocus>${standardButton("Save")}</button></div></form>`;
+  document.body.append(dialog);
+  const dismiss = (): void => dialog.close();
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.querySelector("[data-close-cancel]")?.addEventListener("click", dismiss);
+  dialog.querySelector("[data-close-discard]")?.addEventListener("click", () => { dismiss(); closeLoad(index); });
+  dialog.querySelector("[data-close-save]")?.addEventListener("click", () => {
+    downloadLoadFile(load, "reload");
+    const savedStatus = status;
+    dismiss();
+    closeLoad(index, savedStatus);
+  });
+  dialog.showModal();
 }
 
 function openSaveAsDialog(): void {
@@ -2544,10 +2596,7 @@ function bindEvents(): void {
   app.querySelectorAll<HTMLElement>("[data-close]").forEach((element) => element.addEventListener("click", (event) => {
     event.stopPropagation();
     const index = Number(element.dataset.close);
-    loads.splice(index, 1);
-    activeTab = "database";
-    status = "Load closed";
-    render();
+    requestCloseLoad(index);
   }));
   const picker = app.querySelector<HTMLInputElement>("#file-picker");
   app.querySelector("#open-load")?.addEventListener("click", () => picker?.click());
@@ -2626,14 +2675,22 @@ async function syncLatestApp(): Promise<void> {
 const updateServiceWorker = registerSW({
   onRegisteredSW(_serviceWorkerUrl, registration) {
     appServiceWorker = registration;
-    if (registration?.waiting) appSyncState = "outdated";
-    render();
+    if (registration?.waiting) {
+      appSyncState = "outdated";
+      render();
+    }
   },
   onNeedRefresh() {
     appSyncState = "outdated";
     status = "A newer app version is ready. Click Sync to load it.";
     render();
   }
+});
+
+window.addEventListener("beforeunload", (event) => {
+  if (!loads.some((load) => historyFor(load).modified)) return;
+  event.preventDefault();
+  event.returnValue = true;
 });
 
 document.addEventListener("keydown", (event) => {

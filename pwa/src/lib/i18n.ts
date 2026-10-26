@@ -2,16 +2,16 @@ import type { AppLanguage } from "./language";
 
 type Message = string | readonly string[];
 type Catalog = Map<string, Message>;
-export type StandardButton = "OK" | "Save" | "Close" | "Cancel" | "Apply";
+export type StandardButton = "OK" | "Save" | "Close" | "Cancel" | "Discard" | "Apply";
 
 // Qt supplies these through qtbase_<locale>.qm (QPlatformTheme), separately
 // from ChamberSim's application catalog. Keep the browser port's equivalent
 // centralized and source-aligned instead of duplicating labels in every dialog.
 const standardButtons: Record<AppLanguage, Record<StandardButton, string>> = {
-  de_DE: { OK: "OK", Save: "Speichern", Close: "Schließen", Cancel: "Abbrechen", Apply: "Anwenden" },
-  en_US: { OK: "OK", Save: "Save", Close: "Close", Cancel: "Cancel", Apply: "Apply" },
-  fr_FR: { OK: "OK", Save: "Enregistrer", Close: "Fermer", Cancel: "Annuler", Apply: "Appliquer" },
-  it_IT: { OK: "OK", Save: "Salva", Close: "Chiudi", Cancel: "Annulla", Apply: "Applica" }
+  de_DE: { OK: "OK", Save: "Speichern", Close: "Schließen", Cancel: "Abbrechen", Discard: "Verwerfen", Apply: "Anwenden" },
+  en_US: { OK: "OK", Save: "Save", Close: "Close", Cancel: "Cancel", Discard: "Discard", Apply: "Apply" },
+  fr_FR: { OK: "OK", Save: "Enregistrer", Close: "Fermer", Cancel: "Annuler", Discard: "Ne pas tenir compte", Apply: "Appliquer" },
+  it_IT: { OK: "OK", Save: "Salva", Close: "Chiudi", Cancel: "Annulla", Discard: "Scarta", Apply: "Applica" }
 };
 
 const catalogLoaders: Record<AppLanguage, () => Promise<{ default: string }>> = {

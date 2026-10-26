@@ -230,7 +230,7 @@ Last updated: 2026-10-26
 
 ## D-037 — Mirror Qt platform translations for standard dialog buttons
 
-**Decision:** Keep ChamberSim application wording sourced from the repository's `ChamberSimReloaded_<locale>` catalogs, but centralize OK, Save, Close, Cancel and Apply using the exact Qt 6.5.3 `QPlatformTheme` translations for German, French and Italian. Treat browser-owned update/session/print statuses and ARIA descriptions as explicit PWA wording when no desktop-catalog source exists.
+**Decision:** Keep ChamberSim application wording sourced from the repository's `ChamberSimReloaded_<locale>` catalogs, but centralize OK, Save, Close, Cancel, Discard and Apply using the exact Qt 6.5.3 `QPlatformTheme` translations for German, French and Italian. Treat browser-owned update/session/print statuses and ARIA descriptions as explicit PWA wording when no desktop-catalog source exists.
 
 **Rationale:** `src/app/translation.cpp` installs both the application translator and a separate `qtbase_<locale>.qm` translator. The repository `.ts` files therefore correctly omit labels supplied by `QDialogButtonBox`; falling back to English in the PWA would not reproduce the released localized UI. Keeping the small platform map separate preserves that two-catalog ownership model and avoids falsely attributing browser-only accessibility or service-worker text to the desktop application.
 
@@ -287,3 +287,9 @@ Last updated: 2026-10-26
 **Decision:** Implement `markPrimary` once as a reusable button class and attach it only to actions marked primary by the Qt sources: database New Load, component replacement, measurement Add charge, New Load Next/Create, and the three report output actions. Preserve the native enabled treatment (accent fill, highlighted bold text, 30 px minimum height, rounded border and pointing cursor) and let disabled actions return to the ordinary theme-specific button palette.
 
 **Rationale:** Container-specific selectors had colored only database and report buttons, leaving other source-equivalent primary actions visually ordinary and making the same native role vary by screen. A shared role mirrors `buttonstyle.h`, follows both application themes, and gives source additions one explicit mapping without accidentally promoting unrelated browser actions.
+
+## D-047 — Protect dirty loads at both browser-owned close boundaries
+
+**Decision:** Reproduce `MainWindow::maybeSave` with an in-document Save/Discard/Cancel dialog whenever a modified load tab is closed. Save performs the existing explicit CSR download, marks the load clean and then closes it; Discard closes without a download; Cancel retains the load. Also register `beforeunload` only while at least one load is modified so refresh, navigation and installed-window close receive the browser's native confirmation.
+
+**Rationale:** Directly removing a dirty tab silently lost changes and skipped a source-defined workflow. A tab-close click is a user gesture, so the PWA can safely initiate its browser download before removing the load. Browser unload handlers cannot display custom text, await multiple choices or start reliable asynchronous downloads; the platform confirmation is therefore the closest secure equivalent to the desktop `closeEvent` loop. The session snapshot remains recovery infrastructure, not a substitute for warning about unsaved portable-file changes.

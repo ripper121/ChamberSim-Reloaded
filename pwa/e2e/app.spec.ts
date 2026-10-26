@@ -1154,6 +1154,51 @@ test("edits numeric inputs, recalculates, validates, and supports undo and redo"
   await expect(charge).toHaveValue("1.600");
 });
 
+test("protects modified loads when tabs or the browser are closed", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await setUnitSystem(page, "metric");
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  expect(await page.evaluate(() => window.dispatchEvent(new Event("beforeunload", { cancelable: true })))).toBe(true);
+
+  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  const charge = page.getByRole("textbox", { name: "Propellant Mass", exact: true });
+  await charge.fill("1.5");
+  await charge.press("Tab");
+  expect(await page.evaluate(() => window.dispatchEvent(new Event("beforeunload", { cancelable: true })))).toBe(false);
+
+  await page.locator('[data-close="0"]').click();
+  let prompt = page.getByRole("dialog", { name: "Unsaved changes" });
+  await expect(prompt).toContainText("Save changes to 223Rem_D0735_RWS.csrload?");
+  await prompt.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("button", { name: /223Rem_D0735_RWS\*/ })).toBeVisible();
+
+  await page.locator('[data-close="0"]').click();
+  prompt = page.getByRole("dialog", { name: "Unsaved changes" });
+  await prompt.getByRole("button", { name: "Discard", exact: true }).click();
+  await expect(page.getByRole("button", { name: /223Rem_D0735_RWS/ })).toHaveCount(0);
+  await expect(page.locator('[data-tab="database"]')).toHaveClass(/active/);
+
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await page.locator('[data-close="0"]').click();
+  await expect(page.getByRole("dialog", { name: "Unsaved changes" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /223Rem_D0735_RWS/ })).toHaveCount(0);
+
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  await page.getByRole("textbox", { name: "Propellant Mass", exact: true }).fill("1.55");
+  await page.getByRole("textbox", { name: "Propellant Mass", exact: true }).press("Tab");
+  await page.locator('[data-close="0"]').click();
+  prompt = page.getByRole("dialog", { name: "Unsaved changes" });
+  const downloadPromise = page.waitForEvent("download");
+  await prompt.getByRole("button", { name: "Save", exact: true }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("223Rem_D0735_RWS.csrload");
+  expect(readFileSync((await download.path())!, "utf8")).toMatch(/name="mc" value="1\.55"/);
+  await expect(page.getByRole("button", { name: /223Rem_D0735_RWS/ })).toHaveCount(0);
+  expect(await page.evaluate(() => window.dispatchEvent(new Event("beforeunload", { cancelable: true })))).toBe(true);
+});
+
 test("shows native invalid, capacity, stuck-bullet, ladder, and overpressure states", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
