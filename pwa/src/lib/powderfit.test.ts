@@ -36,12 +36,15 @@ describe("native powder fitting", () => {
     expect(physical.before[0]).toBeCloseTo(0.488376, 10);
     expect(physical.after[0]).toBe(50);
     expect(physical.iterations).toBe(4);
-    // The release CLI reports 684.7/767.7 m/s. Current source/data additionally applies the
-    // 8 x 57 IS burn-rate factor (1.0139), so keep the explicit sub-0.5% compatibility tolerance.
-    expect(Math.abs(physical.samples[0]!.velocityBefore / 684.7 - 1)).toBeLessThan(0.005);
-    expect(Math.abs(physical.samples[0]!.velocityAfter / 767.7 - 1)).toBeLessThan(0.005);
-    expect(Math.abs(physical.velocityRmsBefore - 0.1988)).toBeLessThan(0.005);
-    expect(Math.abs(physical.velocityRmsAfter - 0.1052)).toBeLessThan(0.005);
+    // Current csr_fitpowder embeds the same physical caliber factors as the GUI (CMake regression
+    // fitpowder_cli_physical), so these are direct current-native references rather than a tolerance
+    // around the older packaged CLI that omitted the resource.
+    expect(physical.samples[0]?.velocityBefore).toBeCloseTo(687.5, 1);
+    expect(physical.samples[1]?.velocityBefore).toBeCloseTo(725.5, 1);
+    expect(physical.samples[0]?.velocityAfter).toBeCloseTo(767.7, 1);
+    expect(physical.samples[1]?.velocityAfter).toBeCloseTo(805.2, 1);
+    expect(physical.velocityRmsBefore).toBeCloseTo(0.1957, 4);
+    expect(physical.velocityRmsAfter).toBeCloseTo(0.1052, 4);
   });
 
   it("applies both improved models as one load mutation and preserves physical geometry", () => {

@@ -23,6 +23,10 @@ set_tests_properties(sim_cli PROPERTIES PASS_REGULAR_EXPRESSION "muzzleVelocity_
 add_test(NAME sim_cli_missing_file COMMAND csr_sim "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/does-not-exist.grtload")
 set_tests_properties(sim_cli_missing_file PROPERTIES WILL_FAIL TRUE)
 
+# Physical powder fitting must use the same embedded caliber factors as the GUI and csr_sim.
+add_test(NAME fitpowder_cli_physical COMMAND csr_fitpowder --model physical --params Ba "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/measurements.grtload")
+set_tests_properties(fitpowder_cli_physical PROPERTIES PASS_REGULAR_EXPRESSION "687\\.5")
+
 if(TARGET clang_format)
     add_dependencies(tst_core clang_format)
     add_dependencies(tst_gui clang_format)

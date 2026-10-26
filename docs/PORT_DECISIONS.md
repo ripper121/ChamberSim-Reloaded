@@ -150,11 +150,11 @@ Last updated: 2026-10-26
 
 **Rationale:** The desktop UI persists splitter state through `layoutstate.h`; fixed CSS borders prevented users from allocating space to the data they were actively working with. A single splitter controller keeps pointer, keyboard, bounds and persistence semantics consistent across the main load, input drawing, results, measurements and report editor without coupling domain state to layout preferences. Narrow layouts still stack both panes and hide inapplicable desktop handles.
 
-## D-024 — Port current-source powder fitting and disclose the release Physical difference
+## D-024 — Keep powder fitting aligned with current-source physical resources
 
-**Decision:** Port `powderfit.cpp` directly, including sample weighting, numerical Jacobian, damped least-squares steps, constraints, RMS reporting, both-model fitting and application order. Use the current source/data Physical caliber burn-rate scale rather than special-casing the PWA to the packaged release CLI.
+**Decision:** Port `powderfit.cpp` directly, including sample weighting, numerical Jacobian, damped least-squares steps, constraints, RMS reporting, both-model fitting and application order. Use the current source/data Physical caliber burn-rate scale rather than special-casing the PWA to the older packaged release CLI. Embed `CSR_PROJECT_DATA` into `csr_fitpowder`, just as the GUI and `csr_sim` do, and keep a native CLI regression for the tracked Physical fixture.
 
-**Rationale:** The Original fit for `tests/fixtures/measurements.grtload` reproduces `build/release/csr_fitpowder.exe` (Ba 0.5814 → 50 and velocity RMS 26.40% → 8.78%). The packaged CLI's Physical fit reports 684.7 m/s before fitting, while the direct current-source port produces 687.5 m/s because the current `data/physical/calibers.json` factor for 8 x 57 IS is 1.0139; the difference is below 0.5%. Silently disabling the current source's explicit caliber scaling solely to match that release artifact would make the PWA inconsistent with the authoritative implementation and current data. Tests keep an explicit 0.5% release-comparison tolerance and the checklist remains `DIFF` until a rebuilt native reference confirms the current-source result.
+**Rationale:** The Original fit for `tests/fixtures/measurements.grtload` reproduces `build/release/csr_fitpowder.exe` (Ba 0.5814 → 50 and velocity RMS 26.40% → 8.78%). The packaged CLI's Physical fit reported 684.7 m/s because its target omitted the resource containing the current `data/physical/calibers.json` factor for 8 x 57 IS. A separately configured current-source CLI reproduced that value before the resource fix and 687.5/725.5 m/s after it, exactly matching the PWA; after-fit values are 767.7/805.2 m/s and RMS is 19.57% → 10.52%. This identifies and fixes the source-target inconsistency instead of weakening the PWA to match a stale artifact.
 
 ## D-025 — Keep original reference overlays transient and per load
 

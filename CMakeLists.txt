@@ -137,6 +137,9 @@ target_compile_definitions(csr_datacheck PRIVATE CSR_SOURCE_DIR="${CMAKE_SOURCE_
 # fits a propellant model to the measurements in *.grtload files: csr_fitpowder --help
 add_executable(csr_fitpowder tools/csr_fitpowder.cpp)
 target_link_libraries(csr_fitpowder PRIVATE csrcore)
+if(CSR_PROJECT_DATA)  # physical powder values and caliber factors used by the GUI and Physical fitting
+    qt_add_resources(csr_fitpowder "projectdata" PREFIX "/" FILES ${CSR_PROJECT_DATA})
+endif()
 install(TARGETS csr_fitpowder RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # fits a propellant model to published load data (CSV from scripts/data/loaddata): csr_fitdata --help
