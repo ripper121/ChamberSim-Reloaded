@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import initSqlJs from "sql.js";
 
 const pwaRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -680,7 +680,11 @@ test("resizes and remembers native-style workspace splitters", async ({ page }) 
   const propertyColumn = page.getByRole("separator", { name: "Resize Property column" });
   const propertyHeading = page.locator(".property-table thead th").first();
   await expect(propertyHeading).toBeVisible();
-  const originalColumnWidth = await propertyHeading.evaluate((heading) => heading.getBoundingClientRect().width);
+  let originalColumnWidth = 0;
+  await expect.poll(async () => {
+    originalColumnWidth = await propertyHeading.evaluate((heading) => heading.getBoundingClientRect().width);
+    return originalColumnWidth;
+  }).toBeGreaterThan(100);
   await propertyColumn.focus();
   await propertyColumn.press("ArrowRight");
   await expect.poll(async () => (await propertyHeading.boundingBox())!.width).toBeCloseTo(originalColumnWidth + 10, 0);
@@ -748,6 +752,50 @@ test("resizes and remembers native-style workspace splitters", async ({ page }) 
   expect(await page.evaluate(() => localStorage.getItem("csr-layout-property-columns"))).toBeNull();
   await main.dblclick();
   expect(await page.evaluate(() => localStorage.getItem("csr-layout-main"))).toBeNull();
+});
+
+test("styles the source-defined primary actions consistently", async ({ page }) => {
+  const expectPrimary = async (button: Locator): Promise<void> => {
+    await expect(button).toHaveClass(/\bprimary\b/);
+    expect(await button.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        background: style.backgroundColor,
+        color: style.color,
+        cursor: style.cursor,
+        fontWeight: style.fontWeight,
+        minHeight: style.minHeight
+      };
+    })).toEqual({
+      background: "rgb(39, 140, 202)",
+      color: "rgb(255, 255, 255)",
+      cursor: "pointer",
+      fontWeight: "700",
+      minHeight: "30px"
+    });
+  };
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await expect(page.getByText("484 entries", { exact: true })).toBeVisible();
+  const newLoad = page.getByRole("button", { name: /New load/ });
+  await expectPrimary(newLoad);
+  await newLoad.click();
+  const newLoadDialog = page.getByRole("dialog", { name: "New load" });
+  const next = newLoadDialog.getByRole("button", { name: "Next >", exact: true });
+  await expect(next).toHaveClass(/\bprimary\b/);
+  await expect(next).toBeDisabled();
+  await newLoadDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await expect(page.getByText("3,614 bar", { exact: true })).toBeVisible();
+  await expectPrimary(page.locator("[data-select-component]"));
+  await page.getByRole("button", { name: "Measurements", exact: true }).click();
+  await expectPrimary(page.getByRole("button", { name: "Add charge", exact: true }));
+  await page.getByRole("button", { name: "Report", exact: true }).click();
+  for (const name of ["Print preview", "Print", "Export PDF"]) {
+    await expectPrimary(page.getByRole("button", { name, exact: true }));
+  }
 });
 
 test("edits measurement series and compares measured shots with simulation", async ({ context, page }) => {
@@ -956,7 +1004,7 @@ test("runs verified Physical and Original simulations in the results view", asyn
     const matrix = svg.getScreenCTM();
     if (!matrix) return 0;
     const left = new DOMPoint(58, 0).matrixTransform(matrix).x;
-    const right = new DOMPoint(916, 0).matrixTransform(matrix).x;
+    const right = new DOMPoint(926, 0).matrixTransform(matrix).x;
     return (right - left) / svg.getBoundingClientRect().width;
   });
   expect(plotWidthRatio).toBeGreaterThan(0.84);

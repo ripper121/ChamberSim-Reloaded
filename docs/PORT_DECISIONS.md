@@ -281,3 +281,9 @@ Last updated: 2026-10-26
 **Decision:** Map `LoadView`'s 420:1200 initial splitter sizes to a responsive CSS clamp: the input pane scales at 420 / 1620 of the available width, never below the native 360 px minimum and never above the seeded 420 px size while the output pane absorbs later growth. Persisted user sizing remains an explicit pixel width and uses the same 360 px lower bound. At the existing narrow-layout breakpoint, both panes continue to stack so browser reachability takes precedence over the desktop minimum.
 
 **Rationale:** The former 30% default produced a 391 px input pane at 1280 px and allowed resizing to 310 px, neither of which followed `loadview.cpp`. The source sets sizes to 420 and 1200, assigns the left splitter a 360 px minimum, and gives only the output side stretch. The clamp reproduces those constraints at ordinary desktop widths without weakening the PWA's already-verified narrow-screen adaptation.
+
+## D-046 — Treat primary actions as a shared source-owned widget role
+
+**Decision:** Implement `markPrimary` once as a reusable button class and attach it only to actions marked primary by the Qt sources: database New Load, component replacement, measurement Add charge, New Load Next/Create, and the three report output actions. Preserve the native enabled treatment (accent fill, highlighted bold text, 30 px minimum height, rounded border and pointing cursor) and let disabled actions return to the ordinary theme-specific button palette.
+
+**Rationale:** Container-specific selectors had colored only database and report buttons, leaving other source-equivalent primary actions visually ordinary and making the same native role vary by screen. A shared role mirrors `buttonstyle.h`, follows both application themes, and gives source additions one explicit mapping without accidentally promoting unrelated browser actions.

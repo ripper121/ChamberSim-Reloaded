@@ -8,6 +8,11 @@ button { border: 1px solid #4c4c4c; background: linear-gradient(#444, #343434); 
 button:hover:not(:disabled) { border-color: #6d6d6d; background: #4a4a4a; }
 button:focus-visible, input:focus-visible { outline: 2px solid #4da9e9; outline-offset: 1px; }
 button:disabled { color: #858585; opacity: .75; }
+button.primary:not(:disabled) { min-height: 30px; padding: 4px 14px; color: #fff; background: #278cca; border-color: #278cca; border-radius: 4px; font-weight: 700; cursor: pointer; }
+button.primary:hover:not(:disabled) { background: #217db5; border-color: #217db5; }
+button.primary:active:not(:disabled) { background: #185b85; border-color: #185b85; }
+button.primary:focus-visible { border: 2px solid currentColor; outline: 0; }
+button.primary:disabled { min-height: 30px; padding: 4px 14px; border-radius: 4px; font-weight: 400; cursor: default; }
 select { background: #202020; border: 1px solid #555; border-radius: 2px; padding: 4px 24px 4px 7px; }
 .app-shell { height: 100%; display: grid; grid-template-rows: 30px 34px minmax(0, 1fr) 24px; background: #282828; }
 .menubar { display: flex; align-items: center; background: #303030; border-bottom: 1px solid #191919; overflow: visible; }
@@ -53,7 +58,6 @@ footer { padding: 3px 6px; border-top: 1px solid #4c4c4c; color: #c8c8c8; overfl
 .primary-actions, .button-row { display: flex; gap: 6px; }
 .database > .button-row button:last-child { margin-left: auto; }
 .primary-actions button { padding: .6rem 1rem; }
-.primary-actions button:first-child { background: #278cca; border-color: #37a4e7; }
 .filter { background: #202020; border: 1px solid #444; padding: 6px; width: 100%; }
 .database-filter-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
 .database-filter-row span { min-width: 9rem; text-align: right; font-variant-numeric: tabular-nums; }
@@ -294,7 +298,6 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .report-toolbar button { white-space: nowrap; }
 .report-toolbar label { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
 .report-toolbar input { width: 4.7rem; padding: 3px 4px; color: #eee; text-align: right; background: #202020; border: 1px solid #555; }
-.report-toolbar .primary, .report-template-dialog .primary { background: #278cca; border-color: #37a4e7; }
 .report-scroll { min-width: 0; min-height: 0; overflow: auto; padding: 16px; background: #696969; }
 .report-paper { width: min(720px, 100%); min-height: 930px; margin: 0 auto; padding: 38px 42px; overflow: hidden; color: #111; background: #fff; box-shadow: 0 3px 16px #0008; font-family: Arial, sans-serif; line-height: 1.25; transform-origin: top center; }
 .report-paper h1, .report-paper h2, .report-paper h3, .report-paper h4, .report-paper h5 { margin: .7em 0 .35em; }
@@ -417,6 +420,9 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 :root[data-theme="light"] button { color: #202020; background: linear-gradient(#fff, #e4e4e4); border-color: #a9a9a9; }
 :root[data-theme="light"] button:hover:not(:disabled) { background: #f8f8f8; border-color: #777; }
 :root[data-theme="light"] button:disabled { color: #8a8a8a; }
+:root[data-theme="light"] button.primary:not(:disabled) { color: #fff; background: #278cca; border-color: #278cca; }
+:root[data-theme="light"] button.primary:hover:not(:disabled) { background: #217db5; border-color: #217db5; }
+:root[data-theme="light"] button.primary:active:not(:disabled) { background: #185b85; border-color: #185b85; }
 :root[data-theme="light"] select,
 :root[data-theme="light"] input,
 :root[data-theme="light"] textarea { color: #202020; background-color: #fff; border-color: #aaa; }
