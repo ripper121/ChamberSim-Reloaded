@@ -1909,11 +1909,34 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(page.getByRole("button", { name: "Bericht", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Patrone", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Patronenlager", exact: true })).toBeVisible();
+  await expect(page.locator(".drawing-dimensions h3")).toContainText("CIP-Ma");
+  await page.getByRole("tab", { name: "Patronenlager", exact: true }).click();
+  await expect(page.locator(".drawing-dimensions h3")).toContainText("Patronenlagerma");
   await expect(page.getByText("Maximaldruck", { exact: true })).toBeVisible();
   await expect(page.getByText("Mündungsgeschwindigkeit", { exact: true })).toBeVisible();
   await expect(page.getByText("Modell: Physikalisches Modell", { exact: true })).toBeVisible();
   await expect(page.locator("#chart-axis")).toContainText("Zeitachse");
   await expect(page.locator("#chart-axis")).toContainText("Wegachse");
+  const resultChartBox = await page.locator(".result-chart").boundingBox();
+  expect(resultChartBox).not.toBeNull();
+  await page.mouse.move(resultChartBox!.x + resultChartBox!.width * 0.5, resultChartBox!.y + resultChartBox!.height * 0.5);
+  await expect(page.locator(".chart-tooltip")).toContainText("Verbranntes Pulver:");
+  await expect(page.locator(".chart-tooltip")).not.toContainText("Burnt propellant:");
+  await page.locator("#reference-picker").setInputFiles({
+    name: "browser-reference.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({
+      job: "browser-reference.grtload", stale: false,
+      summary: {
+        MaxPressure: "3000 bar", MuzzlePressure: "500 bar", MuzzleVelocity: "800 m/s",
+        MuzzleEnergy: "1000 J", MuzzleTime: "1.000 ms", RecoilImpulse: "2.00 Ns"
+      },
+      points: [{ x: 20, z: 0.1, p: 800, v: 100, e: 20, t: 0.1 }, { x: 570, z: 1, p: 500, v: 800, e: 1000, t: 1 }]
+    }))
+  });
+  await expect(page.locator(".reference-comparison thead")).toContainText("hier");
+  await expect(page.locator(".reference-comparison thead")).toContainText("Original");
+  await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("Maximaldruck");
+  await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("3.000");
+  await expect(page.locator(".reference-comparison tbody tr").first()).toContainText("20,5 %");
   await page.getByRole("button", { name: "Messungen", exact: true }).click();
   await expect(page.getByRole("button", { name: "Neue Serie", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ladung hinzufügen", exact: true })).toBeVisible();
@@ -1955,6 +1978,11 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(charge).toHaveValue("1,250");
   await page.locator("#file-picker").setInputFiles(measurementLoad);
   await page.getByRole("button", { name: "Messungen", exact: true }).click();
+  const measurementChartBox = await page.locator(".measurement-chart").boundingBox();
+  expect(measurementChartBox).not.toBeNull();
+  await page.mouse.move(measurementChartBox!.x + measurementChartBox!.width * 0.5, measurementChartBox!.y + measurementChartBox!.height * 0.45);
+  await expect(page.locator(".measurement-chart-tooltip")).toContainText("Geschwindigkeit (Sim.):");
+  await expect(page.locator(".measurement-chart-tooltip")).not.toContainText("Velocity (sim.):");
   await page.locator("#measurement-fit-powder").click();
   const fitDialog = page.getByRole("dialog", { name: "An Messungen anpassen" });
   await expect(fitDialog.getByText("Anzupassende Werte:", { exact: true })).toBeVisible();

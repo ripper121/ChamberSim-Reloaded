@@ -482,13 +482,15 @@ function referenceComparison(result: SimResult, reference: ReferenceRun): string
     const unit = row.quantity ? unitPreferences.unitFor(row.quantity) : undefined;
     const format = (value: number): string => unit
       ? formatUnit(value, unit, row.decimals)
-      : new Intl.NumberFormat("en-US", { minimumFractionDigits: row.decimals, maximumFractionDigits: row.decimals }).format(value);
+      : formatLocaleNumber(value, { minimumFractionDigits: row.decimals, maximumFractionDigits: row.decimals });
     const compared = Number.isFinite(referenceValue) && referenceValue !== 0
       ? `<td>${format(referenceValue)}</td><td>${formatNumber(100 * (row.value / referenceValue - 1), 1)} %</td>`
       : "<td></td><td></td>";
-    return `<tr><th>${row.label}</th><td><strong>${format(row.value)}</strong></td>${compared}<td>${unit?.symbol ?? row.unit ?? ""}</td></tr>`;
+    return `<tr><th>${escapeHtml(i18n.text("LoadView", row.label))}</th><td><strong>${format(row.value)}</strong></td>${compared}<td>${unit?.symbol ?? row.unit ?? ""}</td></tr>`;
   }).join("");
-  return `<div class="reference-comparison"><table><thead><tr><th></th><th>this</th><th>original</th><th>Δ</th><th></th></tr></thead><tbody>${body}</tbody></table></div>`;
+  const header = i18n.text("LoadView", "<table cellspacing='3'><tr><th></th><th align='right'>this</th><th align='right'>original</th><th align='right'>Δ</th><th></th></tr>")
+    .replace("<tr>", "<thead><tr>").replace("</tr>", "</tr></thead>");
+  return `<div class="reference-comparison">${header}<tbody>${body}</tbody></table></div>`;
 }
 
 function resultView(load: LoadFile): string {
@@ -588,14 +590,15 @@ function drawingView(load: LoadFile): string {
   drawingModes.set(load, mode);
   const drawingLabel = (source: string): string => escapeHtml(i18n.text("LoadView", source));
   const tabs = `<div class="drawing-tabs" role="tablist"><button role="tab" data-drawing="cartridge" class="${mode === "cartridge" ? "active" : ""}" aria-selected="${mode === "cartridge"}">${drawingLabel("Cartridge")}</button><button role="tab" data-drawing="chamber" class="${mode === "chamber" ? "active" : ""}" aria-selected="${mode === "chamber"}">${drawingLabel("Chamber")}</button>${hasPhotos ? `<button role="tab" data-drawing="powder" class="${mode === "powder" ? "active" : ""}" aria-selected="${mode === "powder"}">${drawingLabel("Powder")}</button>` : ""}</div>`;
-  if (mode !== "powder") return `<div class="drawing-panel">${tabs}${technicalDrawingView(load, mode, unitPreferences)}</div>`;
+  if (mode !== "powder") return `<div class="drawing-panel">${tabs}${technicalDrawingView(load, mode, unitPreferences, (context, source, ...args) => i18n.text(context, source, ...args))}</div>`;
   let selected = photoSelections.get(load) ?? (photos[0] ? 0 : 1);
   if (!photos[selected]) selected = photos[0] ? 0 : 1;
   photoSelections.set(load, selected as 0 | 1);
   const photo = photos[selected]!;
   const millimeters = scaleBarMm(photo.scale, photo.width, photo.width);
   const bar = millimeters > 0 ? `<div class="photo-scale" style="width:${millimeters * photo.scale / photo.width * 100}%"><span>${millimeters >= 1 ? millimeters : millimeters.toFixed(1)} mm</span></div>` : "";
-  return `<div class="drawing-panel powder-photo-view">${tabs}<div class="photo-choice"><button data-photo-show="0" class="${selected === 0 ? "active" : ""}" ${photos[0] ? "" : "disabled"} title="Photo of the powder grains">Overview</button><button data-photo-show="1" class="${selected === 1 ? "active" : ""}" ${photos[1] ? "" : "disabled"} title="Close-up photo of a grain">Detail</button></div><figure data-enlarge-photo title="Double-click to enlarge"><div class="photo-image-wrap"><img src="${escapeHtml(photo.dataUrl)}" alt="${escapeHtml(photo.name || "Powder photo")}">${bar}</div><figcaption>${escapeHtml(photo.name)}</figcaption></figure></div>`;
+  const photoText = (source: string): string => escapeHtml(i18n.text("PhotoView", source));
+  return `<div class="drawing-panel powder-photo-view">${tabs}<div class="photo-choice"><button data-photo-show="0" class="${selected === 0 ? "active" : ""}" ${photos[0] ? "" : "disabled"} title="${photoText("Photo of the powder grains")}">${photoText("Overview")}</button><button data-photo-show="1" class="${selected === 1 ? "active" : ""}" ${photos[1] ? "" : "disabled"} title="${photoText("Close-up photo of a grain")}">${photoText("Detail")}</button></div><figure data-enlarge-photo title="${photoText("Double-click to enlarge")}"><div class="photo-image-wrap"><img src="${escapeHtml(photo.dataUrl)}" alt="${escapeHtml(photo.name || i18n.text("PhotoView", "Photo of the powder grains"))}">${bar}</div><figcaption>${escapeHtml(photo.name)}</figcaption></figure></div>`;
 }
 
 function storedReportScale(): number {
@@ -656,8 +659,8 @@ function reportDataFor(load: LoadFile): ReportData {
     const burn = reportSvg(vivacityView(input, effectiveProfile), "vivacity-chart", 1100, 600);
     Object.assign(images, {
       "result.diagramm.png": stackedReportSvg(curves, burn), "result.diagramCurves.png": curves, "result.diagramPropellant.png": burn,
-      "caliber.drawing.png": reportSvg(technicalDrawingView(load, "cartridge", unitPreferences), "technical-svg", 420, 760),
-      "caliber.chamber.png": reportSvg(technicalDrawingView(load, "chamber", unitPreferences), "technical-svg", 420, 760)
+      "caliber.drawing.png": reportSvg(technicalDrawingView(load, "cartridge", unitPreferences, (context, source, ...args) => i18n.text(context, source, ...args)), "technical-svg", 420, 760),
+      "caliber.chamber.png": reportSvg(technicalDrawingView(load, "chamber", unitPreferences, (context, source, ...args) => i18n.text(context, source, ...args)), "technical-svg", 420, 760)
     });
     if (measurementMarkup) images["measurement.chart.png"] = reportSvg(measurementMarkup, "measurement-chart", 1100, 480);
   }
@@ -2052,7 +2055,7 @@ function powderFitDescription(result: PowderFitResult, source: string, chargeCou
 function openPowderFitDialog(load: LoadFile): void {
   const tr = (source: string, ...args: readonly (string | number)[]): string => i18n.text("PowderFitDialog", source, ...args);
   const extracted = powderFitSamples(load, load.fileName), samples = extracted.samples;
-  if (samples.length === 0) { window.alert("Enter the measured velocity of the shots first."); return; }
+  if (samples.length === 0) { window.alert(i18n.text("LoadView", "Enter the measured velocity of the shots first.")); return; }
   const selected = new Set<PowderFitParam>(defaultPowderFitParams(samples));
   let results: PowderFitResult[] = [];
   const dialog = document.createElement("dialog");
@@ -2279,14 +2282,21 @@ function bindMeasurementEvents(): void {
     const cursor = chart.querySelector<SVGLineElement>(".measurement-cursor"); cursor?.setAttribute("x1", String(cursorX)); cursor?.setAttribute("x2", String(cursorX));
     const prediction = predictionAt(measurementCurve(load, series), chargeG);
     const near = snap ? series.charges.find((charge) => Math.abs(charge.chargeKg * 1e3 - chargeG) < 1e-6) : undefined;
-    const lines = [`Charge: ${formatUnit(chargeG, chargeUnit)} ${chargeUnit.symbol}`];
-    if (prediction) lines.push(`Velocity (sim.): ${formatUnit(prediction.velocityMs, velocityUnit)} ${velocityUnit.symbol}`, `Pressure (sim.): ${formatUnit(prediction.pressureBar, pressureUnit)} ${pressureUnit.symbol}`);
+    const chartText = (source: string, ...args: readonly (string | number)[]): string => i18n.text("MeasurementChart", source, ...args);
+    const lines = [chartText("Charge: %1 %2", formatUnit(chargeG, chargeUnit), chargeUnit.symbol)];
+    if (prediction) lines.push(
+      chartText("Velocity (sim.): %1 %2", formatUnit(prediction.velocityMs, velocityUnit), velocityUnit.symbol),
+      chartText("Pressure (sim.): %1 %2", formatUnit(prediction.pressureBar, pressureUnit), pressureUnit.symbol)
+    );
     if (near) {
       const velocity = velocityStatistics(near.shots), pressure = pressureStatistics(near.shots);
-      if (velocity.count) lines.push(`Velocity: ${formatUnit(velocity.mean, velocityUnit)} ± ${formatUnit(velocity.sd, velocityUnit)} ${velocityUnit.symbol} (${velocity.count} shot${velocity.count === 1 ? "" : "s"})`, `Extreme spread: ${formatUnit(velocity.extremeSpread, velocityUnit)} ${velocityUnit.symbol}`);
-      if (velocity.count && prediction) lines.push(`Deviation from sim.: ${formatNumber(100 * (velocity.mean / prediction.velocityMs - 1), 1)} %`);
-      if (pressure.count) lines.push(`Pressure: ${formatUnit(pressure.mean, pressureUnit)} ${pressureUnit.symbol} (${pressure.count} shot${pressure.count === 1 ? "" : "s"})`);
-      if (pressure.count && prediction) lines.push(`Deviation from sim.: ${formatNumber(100 * (pressure.mean / prediction.pressureBar - 1), 1)} %`);
+      if (velocity.count) lines.push(
+        i18n.plural("MeasurementChart", "Velocity: %1 ± %2 %3 (%n shot(s))", velocity.count, formatUnit(velocity.mean, velocityUnit), formatUnit(velocity.sd, velocityUnit), velocityUnit.symbol),
+        chartText("Extreme spread: %1 %2", formatUnit(velocity.extremeSpread, velocityUnit), velocityUnit.symbol)
+      );
+      if (velocity.count && prediction) lines.push(chartText("Deviation from sim.: %1 %", formatNumber(100 * (velocity.mean / prediction.velocityMs - 1), 1)));
+      if (pressure.count) lines.push(i18n.plural("MeasurementChart", "Pressure: %1 %2 (%n shot(s))", pressure.count, formatUnit(pressure.mean, pressureUnit), pressureUnit.symbol));
+      if (pressure.count && prediction) lines.push(chartText("Deviation from sim.: %1 %", formatNumber(100 * (pressure.mean / prediction.pressureBar - 1), 1)));
     }
     tooltip.innerHTML = lines.map((line) => `<span>${escapeHtml(line)}</span>`).join("");
     tooltip.style.left = `${Math.min(Math.max(event.offsetX + 12, 6), chart.clientWidth - 220)}px`; tooltip.style.top = "12px";
@@ -2759,7 +2769,24 @@ function bindEvents(): void {
     set(".energy-dot", toDisplay(value.energyJ, unitPreferences.unitFor("energy")), Number(chart.dataset.eMax));
     set(".velocity-dot", toDisplay(value.velocityMs, unitPreferences.unitFor("velocity")), Number(chart.dataset.vMax));
     chart.classList.add("cursor-visible");
-    tooltip.innerHTML = `<span>Time: ${formatNumber(value.timeMs, 3)} ms</span><span>Bullet base: ${shown(value.xMm, "length")}</span><span class="pressure">Pressure: ${shown(value.pressureBar, "pressure")}</span><span class="velocity">Velocity: ${shown(value.velocityMs, "velocity")}</span><span class="energy">Energy: ${shown(value.energyJ, "energy")}</span><span>Burnt propellant: ${formatNumber(value.z * 100, 1)} %</span>`;
+    const chartText = (source: string, ...args: readonly (string | number)[]): string => i18n.text("CurveChart", source, ...args);
+    const displayed = (base: number, quantity: "length" | "pressure" | "velocity" | "energy"): [string, string] => {
+      const unit = unitPreferences.unitFor(quantity);
+      return [formatUnit(base, unit), unit.symbol];
+    };
+    const [position, positionUnit] = displayed(value.xMm, "length");
+    const [pressure, pressureUnit] = displayed(value.pressureBar, "pressure");
+    const [velocity, velocityUnit] = displayed(value.velocityMs, "velocity");
+    const [energy, energyUnit] = displayed(value.energyJ, "energy");
+    const lines = [
+      chartText("Time: %1 ms", formatNumber(value.timeMs, 3)),
+      chartText("Bullet base: %1 %2", position, positionUnit),
+      chartText("Pressure: %1 %2", pressure, pressureUnit),
+      chartText("Velocity: %1 %2", velocity, velocityUnit),
+      chartText("Energy: %1 %2", energy, energyUnit),
+      chartText("Burnt propellant: %1 %", formatNumber(value.z * 100, 1))
+    ];
+    tooltip.innerHTML = lines.map((line, index) => `<span class="${index === 2 ? "pressure" : index === 3 ? "velocity" : index === 4 ? "energy" : ""}">${escapeHtml(line)}</span>`).join("");
     tooltip.style.left = `${Math.min(Math.max(event.offsetX + 12, 6), chart.clientWidth - 190)}px`;
     tooltip.style.top = "12px";
     tooltip.classList.add("visible");

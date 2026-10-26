@@ -4,6 +4,7 @@ import { simInputFromLoad } from "./siminput";
 import { formatUnit, type Quantity, type UnitPreferences } from "./units";
 
 type DrawingMode = "cartridge" | "chamber";
+type DrawingTranslator = (context: string, source: string, ...args: readonly (string | number)[]) => string;
 interface Row { key: string; label: string; quantity: Quantity; suffix?: string }
 interface Measure { diameter: boolean; a: number; b: number }
 
@@ -126,22 +127,31 @@ function dimensionLine(x: number, y0: number, y1: number, text: string): string 
   return `<g class="fixed-dimension"><line x1="${x}" x2="${x}" y1="${n(y0)}" y2="${n(y1)}"/><line x1="${x - 3}" x2="${x + 3}" y1="${n(y0)}" y2="${n(y0)}"/><line x1="${x - 3}" x2="${x + 3}" y1="${n(y1)}" y2="${n(y1)}"/><text x="${x - 4}" y="${n(middle)}" transform="rotate(-90 ${x - 4} ${n(middle)})">${text}</text></g>`;
 }
 
-export function technicalDrawingView(load: LoadFile, mode: DrawingMode, preferences: UnitPreferences): string {
+export function technicalDrawingView(load: LoadFile, mode: DrawingMode, preferences: UnitPreferences, translate?: DrawingTranslator): string {
+  const tr: DrawingTranslator = translate ?? ((_context, source, ...args) => {
+    let text = source;
+    args.forEach((value, index) => { text = text.replaceAll(`%${index + 1}`, String(value)); });
+    return text;
+  });
   const round = makeRound(load, simInputFromLoad(load));
   const rows = mode === "cartridge" ? cartridgeRows : chamberRows;
   const prefix = mode;
   const lengthUnit = preferences.unitFor("length");
   const length = (value: number): string => `${formatUnit(value, lengthUnit)} ${lengthUnit.symbol}`;
-  let svg = "", valid = round.geometry.valid, heading = "CIP dimensions", measureRows: Array<[string, string]> = [];
+  let svg = "", valid = round.geometry.valid, heading = tr("CartridgeView", "CIP dimensions"), measureRows: Array<[string, string]> = [];
   if (mode === "cartridge") {
     const top = Math.max(bulletTip(round), round.dims.L6 ?? 0, caseLength(round));
     const scale = Math.min(270 / (top + 2), 150 / Math.max(round.dims.R1 ?? 0, 14));
     const X = (value: number): number => 150 + value * scale, Y = (value: number): number => 288 - value * scale;
     svg = `${defs(prefix)}${roundSvg(round, X, Y, prefix)}${dimensionLine(14, Y(0), Y(bulletTip(round)), `A  ${length(bulletTip(round))}`)}${dimensionLine(39, Y(0), Y(caseLength(round)), `B  ${length(caseLength(round))}`)}${dimensionLine(64, Y(bulletBase(round)), Y(caseLength(round)), `C  ${length(round.depth)}`)}${hoverSvg(mode, rows, round, X, Y, 228)}`;
-    measureRows = [["A", `Overall length ${length(bulletTip(round))}`], ["B", `Case length ${length(caseLength(round))}`], ["C", `Seating depth ${length(round.depth)}`]];
+    measureRows = [
+      ["A", `${tr("CartridgeView", "Overall length")} ${length(bulletTip(round))}`],
+      ["B", `${tr("CartridgeView", "Case length")} ${length(caseLength(round))}`],
+      ["C", `${tr("CartridgeView", "Seating depth")} ${length(round.depth)}`]
+    ];
   } else {
     const { geometry, topY } = chamberForRound(round);
-    valid = geometry.valid; heading = "Chamber dimensions";
+    valid = geometry.valid; heading = tr("ChamberView", "Chamber dimensions");
     if (valid) {
       const halfWidth = Math.max(round.dims.c_R1 ?? 0, round.dims.c_P1 ?? 0, 12) / 2 + 7;
       const scale = Math.min(260 / (topY + 6), 205 / (2 * halfWidth));
@@ -149,10 +159,10 @@ export function technicalDrawingView(load: LoadFile, mode: DrawingMode, preferen
       const block = `M${n(X(-halfWidth))} ${n(Y(topY))} H${n(X(halfWidth))} V${n(Y(0))} H${n(X(-halfWidth))} Z ${closedSymmetricPath(geometry.cavity, X, Y)}`;
       const grooves = geometry.grooves > geometry.lands && geometry.lands > 0 ? [-1, 1].map((sign) => `<line class="groove-line" x1="${n(X(sign * geometry.grooves / 2))}" x2="${n(X(sign * geometry.grooves / 2))}" y1="${n(Y(geometry.throatY + 1))}" y2="${n(Y(topY))}"/>`).join("") : "";
       svg = `${defs(prefix)}<path class="steel-block" fill-rule="evenodd" d="${block}" fill="url(#${prefix}-steel)" stroke="#c8ccd2"/><rect class="bolt" x="${n(X(-halfWidth))}" y="${n(Y(0))}" width="${n(2 * halfWidth * scale)}" height="${n(4 * scale)}" fill="#4a525e"/>${roundSvg(round, X, Y, prefix)}${grooves}${dimensionLine(18, Y(0), Y(round.dims.c_L3 ?? 0), `A  ${length(round.dims.c_L3 ?? 0)}`)}${hoverSvg(mode, rows, round, X, Y, 226)}`;
-      measureRows = [["A", `Chamber length ${length(round.dims.c_L3 ?? 0)}`]];
+      measureRows = [["A", tr("ChamberView", "Chamber length %1", length(round.dims.c_L3 ?? 0))]];
     }
   }
-  if (!valid) return `<div class="drawing-placeholder">No ${mode} data</div>`;
+  if (!valid) return `<div class="drawing-placeholder">${tr(mode === "cartridge" ? "CartridgeView" : "ChamberView", mode === "cartridge" ? "No cartridge data" : "No chamber data")}</div>`;
   const values = rows.flatMap((row) => {
     const value = round.dims[row.key];
     return value === undefined || value === 0 ? [] : [[row, formatValue(row, value, preferences)] as const];
