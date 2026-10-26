@@ -24,7 +24,7 @@ Working, not blocked. Upstream v0.13 is merged on `integrate-upstream-013`; `bac
 
 1. Update the Results layout from the prior three-column form to v0.13's four key cards and Barrel/Projectile/Propellant groups; visually compare all new theme palettes while keeping the green functional gates.
 2. Resolve or document the static/dynamic QtTest link mismatch and run native `tst_core` when a matching QtTest build is available.
-3. Commit the v0.13 PWA refresh and its synchronized tracking files, then review the integration branch before merging it to `main`.
+3. Review commit `9978229` on the integration branch, finish the remaining visual items, then merge it to `main` through the normal reviewed workflow.
 
 **Historical pre-v0.13 baseline:** The original Qt application and both packaged release CLIs ran locally, and the PWA passed 165 units, 42 Edge scenarios, installability and audit gates before the upstream merge. The detailed milestone history below remains useful evidence for unchanged workflows, but its v0.10 counts and numerical goldens are superseded by the checkpoint above.
 

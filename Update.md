@@ -128,7 +128,7 @@ Run appropriate native CMake/CTest targets configured in the working tree too. T
 | M2 | Resources, database, search, caliber fallback and import atomicity | PASS |
 | M3 | BLT/OBT, Results UI, reports and exports | IN PROGRESS — behavior/report PASS; v0.13 card layout remains |
 | M4 | Themes, i18n, Help/manual and fine visual parity | IN PROGRESS — choices/Help PASS; fine palette comparison remains |
-| M5 | Full regression suite, updated docs, PR merge | IN PROGRESS — gates/docs PASS; commit and PR merge remain |
+| M5 | Full regression suite, updated docs, PR merge | IN PROGRESS — gates/docs/commit PASS; review and PR merge remain |
 
 ## 7. Evidence and limitations
 
