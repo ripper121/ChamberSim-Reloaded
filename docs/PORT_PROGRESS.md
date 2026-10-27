@@ -70,6 +70,7 @@ Regression-sensitive invariants retained from the update review:
 
 ## Completed since previous checkpoint
 
+- Replaced the Report tab's browser-authored centered gray paper canvas with the native `QTextBrowser` presentation: the white document now fills the output pane, starts at the source-sized 4 px inset, uses intrinsic report-table widths, has no decorative shadow, and keeps the source-like compact heading offset. Browser preview/print/PDF retain their separate A4 paper layout. A fresh 1280×800 fixture capture was inspected beside `docs/manual/images/report.png`.
 - Matched `MeasurementView`'s seeded splitter geometry: the charge table and shot/chart regions now start at the native 260:480 vertical ratio, and the shot editor keeps the source's 330 px initial width while the chart absorbs remaining space. Persisted pointer/keyboard sizes and the stacked narrow-screen layout remain unchanged. A fresh 1280×800 fixture capture was inspected beside `docs/manual/images/measurements.png`.
 - Restored the database startup actions' source-defined emphasis from `MainWindow`: New load and Open load now retain their localized labels alongside visible file/open icons, and both use the native 46 px minimum height with 24 px icons. A fresh 1280×800 Edge database capture was inspected against `docs/manual/images/database.png`.
 - Corrected low-contrast splitters across named themes. Idle resize targets now mix the current Window and Text roles instead of reusing Window exactly, while hover, drag and keyboard focus retain the stronger Highlight/HighlightedText treatment.
@@ -328,6 +329,8 @@ $env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
 - Database startup-action geometry gate on 2026-10-27: `npm run typecheck` PASS; full unit suite PASS (30 files, 175 tests); production build PASS with 27 Workbox entries / 4,525.01 KiB; focused `npx playwright test -g "styles the source-defined primary actions consistently"` PASS (1/1). Edge verifies visible file/open icons at 24 px and at least 46 px rendered button heights while retaining the shared primary-action contract. A fresh 1280×800 database capture confirms the source layout; the first focused invocation used the preceding `dist` bundle, so it was rebuilt before the passing rerun.
 
 - Measurement splitter-geometry gate on 2026-10-27: production build/typecheck PASS with 27 Workbox entries / 4,525.00 KiB; focused native splitter and complete measurement-editing Edge scenarios PASS (2/2). At 1280×800 Edge measures a 235 px top region over a 435 px lower region and a 330 px shot editor, matching the source seeds after the 7 px splitter handle; the fresh fixture capture was inspected against the native manual image.
+
+- Report browser-surface gate on 2026-10-27: production build/typecheck PASS with 27 Workbox entries / 4,524.99 KiB; the complete report edit/scale/preview/print/PDF Edge scenario PASS. Browser geometry verifies a pane-filling white report with no shadow, zero left surface gap, compact 12 px heading offset and an intrinsic 451 px first table rather than a forced full-width paper table; the final 1280×800 capture was inspected against the native report image.
 
 ## Known issues and blockers
 

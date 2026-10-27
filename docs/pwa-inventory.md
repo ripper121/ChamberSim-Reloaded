@@ -69,7 +69,7 @@ The release GUI runs in this Windows environment. Screenshot mode was used witho
 
 ## Reporting and auxiliary dialogs
 
-- Report tab, report template editor, adjustable scale, print preview, printing, and PDF export.
+- Report tab with the native pane-filling white document surface and intrinsic tables, report template editor, adjustable scale, print preview, printing, and PDF export.
 - Burn-rate table dialog.
 - Unit converter dialog.
 - Settings pages for database, units/per-field reset, solver, appearance, start-up/session, report, and logging.

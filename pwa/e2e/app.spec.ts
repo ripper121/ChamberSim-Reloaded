@@ -1475,6 +1475,27 @@ test("renders, customizes, scales, previews and prints the active-load report", 
 
   const paper = page.locator(".report-paper");
   await expect(paper.getByRole("heading", { name: "223Rem_D0735_RWS" })).toBeVisible();
+  const reportSurface = page.locator(".report-scroll");
+  await expect(reportSurface).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(paper).toHaveCSS("box-shadow", "none");
+  const reportGeometry = await paper.evaluate((node) => {
+    const paperBox = node.getBoundingClientRect();
+    const surfaceBox = node.parentElement!.getBoundingClientRect();
+    const headingBox = node.querySelector("h1")!.getBoundingClientRect();
+    const firstTableBox = node.querySelector("table")!.getBoundingClientRect();
+    return {
+      leftInset: paperBox.left - surfaceBox.left,
+      widthDifference: surfaceBox.width - paperBox.width,
+      headingTopInset: headingBox.top - surfaceBox.top,
+      tableFillsSurface: firstTableBox.width / paperBox.width
+    };
+  });
+  expect(reportGeometry.leftInset).toBeCloseTo(0, 0);
+  expect(reportGeometry.widthDifference).toBeGreaterThanOrEqual(0);
+  expect(reportGeometry.widthDifference).toBeLessThanOrEqual(16);
+  expect(reportGeometry.headingTopInset).toBeGreaterThanOrEqual(8);
+  expect(reportGeometry.headingTopInset).toBeLessThanOrEqual(15);
+  expect(reportGeometry.tableFillsSurface).toBeLessThan(0.95);
   await expect(paper).toContainText("3639 bar");
   await expect(paper).toContainText("905.0 m/s");
   await expect(paper).toContainText("MEASUREMENTS");
