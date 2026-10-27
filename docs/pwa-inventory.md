@@ -27,6 +27,7 @@ The release GUI runs in this Windows environment. Screenshot mode was used witho
 ## Database workflow
 
 - Calibers, projectiles, and propellants tables combine bundled project records, user-owned records, and an optional read-only original database.
+- The New load/Open load startup actions preserve the native 46 px button height and 24 px file/open icon emphasis.
 - Full-column filter; sortable dense tables; source and record counts.
 - New, copy, view/edit, delete, and JSON export. Only own records are mutable.
 - Projectile manufacturer bullet-file import (`*.csrbullets` and JSON), validation, duplicate filtering, and problem reporting.

@@ -915,6 +915,12 @@ test("styles the source-defined primary actions consistently", async ({ page }) 
   await expect(page.getByText("485 entries", { exact: true })).toBeVisible();
   const newLoad = page.getByRole("button", { name: /New load/ });
   await expectPrimary(newLoad);
+  await expect(newLoad.locator(".load-action-icon")).toHaveText("📄");
+  await expect(page.getByRole("button", { name: /Open load/ }).locator(".load-action-icon")).toHaveText("📂");
+  for (const button of [newLoad, page.getByRole("button", { name: /Open load/ })]) {
+    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(46);
+    expect(await button.locator(".load-action-icon").evaluate((element) => getComputedStyle(element).fontSize)).toBe("24px");
+  }
   await newLoad.click();
   const newLoadDialog = page.getByRole("dialog", { name: "New load" });
   const next = newLoadDialog.getByRole("button", { name: "Next >", exact: true });
