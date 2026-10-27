@@ -21,7 +21,7 @@ The release GUI runs in this Windows environment. Screenshot mode was used witho
 - Edit: contextual Undo and Redo for the active load.
 - View: System, Light, Dark, Gruvbox Light/Dark, Nord, Dracula and Catppuccin Latte/Frappé themes plus English/German/French/Italian language selection.
 - Tools: Burn rate table and Unit converter.
-- Help: bundled PDF user manual, online documentation and About dialog.
+- Help: bundled PDF user manual, online documentation and About dialog. The PWA additionally has a user-requested, directly clickable heart-marked Support entry in the top menu bar, with a locale-routed storefront dialog.
 - Splitter positions, table column widths, window geometry, recent files, optional session reopening, appearance, units, solver, database path, report, and logging settings persist through `QSettings`.
 
 ## Database workflow
@@ -86,3 +86,4 @@ The release GUI runs in this Windows environment. Screenshot mode was used witho
 - Browser print/PDF replaces Qt printing while preserving report content and pagination as closely as possible.
 - The service worker must cache the application shell. Project data may be cached only after its offline behavior and storage cost are measured.
 - The native executables remain test oracles only and are never a runtime dependency of the PWA.
+- The standalone top-level Support entry is an explicit PWA extension rather than a native-parity feature. It explains the ChamberSim PWA port before opening the German storefront for German sessions or the global storefront for every other language.

@@ -927,7 +927,8 @@ function menuBarHtml(current: LoadFile | undefined, canUndo: boolean, canRedo: b
     <a id="user-manual" role="menuitem" href="${escapeHtml(manualUrl)}" target="_blank" rel="noopener"><span>${tr("&User manual")}</span><kbd>F1</kbd></a>
     <a id="online-documentation" role="menuitem" href="https://schildkroet.github.io/ChamberSim-Reloaded/" target="_blank" rel="noopener"><span>${tr("&Online documentation")}</span></a>
     ${item("about", "&About ChamberSim Reloaded…")}
-  </div></details>`;
+  </div></details>
+  <button id="support-work" class="support-menu-action" type="button"><span class="support-menu-label"><span class="support-heart" aria-hidden="true">♥</span>${languagePreference.active === "de_DE" ? "Unterstützen" : "Support"}</span></button>`;
 }
 
 function localizeShell(): void {
@@ -1168,6 +1169,25 @@ function openAboutDialog(): void {
     anchor.target = "_blank";
     anchor.rel = "noopener";
   });
+  document.body.append(dialog);
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.showModal();
+}
+
+function openSupportDialog(): void {
+  const german = languagePreference.active === "de_DE";
+  const title = german ? "Meine Arbeit unterstützen" : "Support my work";
+  const text = german
+    ? "Ich portiere ChamberSim Reloaded als Progressive Web App (PWA). Wenn dir die PWA gefällt, kannst du meine Arbeit unterstützen und so die weitere Entwicklung fördern."
+    : "I am porting ChamberSim Reloaded as a Progressive Web App (PWA). If you find the PWA useful, you can support my work and help its continued development.";
+  const linkText = german ? "ChamberSim-PWA unterstützen" : "Support the ChamberSim PWA";
+  const url = german
+    ? "https://shop.strenuous.dev/Support-Unterstuetze-meine-Arbeit/SW10012"
+    : "https://shop.strenuous.dev/gb/Support-My-Work/SW10012";
+  const dialog = document.createElement("dialog");
+  dialog.className = "support-dialog";
+  dialog.setAttribute("aria-label", title);
+  dialog.innerHTML = `<form method="dialog"><div class="support-heading"><span class="support-heart" aria-hidden="true">♥</span><h2>${escapeHtml(title)}</h2></div><p>${escapeHtml(text)}</p><div class="dialog-buttons"><button>${standardButton("Close")}</button><a class="support-link" href="${escapeHtml(url)}" target="_blank" rel="noopener"><span aria-hidden="true">♥</span> ${escapeHtml(linkText)}</a></div></form>`;
   document.body.append(dialog);
   dialog.addEventListener("close", () => dialog.remove(), { once: true });
   dialog.showModal();
@@ -2660,6 +2680,7 @@ function bindEvents(): void {
   app.querySelector("#menu-print-preview")?.addEventListener("click", () => { const load = activeLoad(); if (load) { closeMenus(); openReportOutput(load, false); } });
   app.querySelector("#menu-print")?.addEventListener("click", () => { const load = activeLoad(); if (load) { closeMenus(); openReportOutput(load, true); } });
   app.querySelector("#menu-export-pdf")?.addEventListener("click", () => { const load = activeLoad(); if (load) { closeMenus(); openReportOutput(load, true, true); } });
+  app.querySelector("#support-work")?.addEventListener("click", () => { closeMenus(); openSupportDialog(); });
   app.querySelector("#about")?.addEventListener("click", () => { closeMenus(); openAboutDialog(); });
   app.querySelector("#burn-rate-table")?.addEventListener("click", (event) => {
     closeMenus();

@@ -335,3 +335,9 @@ Last updated: 2026-10-27
 **Decision:** Run core tests with `QTEST_GUILESS_MAIN`, which supplies the `QCoreApplication` required by Qt SQL without initializing GUI facilities. On Windows, run GUI CTest with the shipped `windows` QPA plugin; retain `offscreen` on platforms where that headless plugin is available. Close test-owned file handles before Windows deletion assertions.
 
 **Rationale:** `QTEST_APPLESS_MAIN` left the database tests without an application object and crashed once the QtTest link configuration was repaired. Conversely, the static MSYS2 Qt package does not ship an offscreen platform plugin, so forcing it aborted the GUI executable before fixture detection. These test-entry changes preserve production behavior, allow the same suite to start on the available platform, and distinguish genuine failures from the documented absence of the proprietary plain database.
+
+## D-055 — Keep support solicitation explicit and locale-routed
+
+**Decision:** Add the user-requested heart-marked Support action as a standalone, directly clickable entry in the PWA's top menu bar and document it as an extension beyond the native application. Open an explanatory dialog before navigation. Use German copy and the supplied German storefront only when the active application language is `de_DE`; use global English copy and the supplied global storefront for every other active language. Open the final destination in a new tab with `noopener`.
+
+**Rationale:** A dialog makes the destination and purpose clear before leaving the installed or browser app. Routing from the resolved active language also handles System-language sessions consistently, while a global fallback avoids incorrectly sending French, Italian or English users to the German product page. Recording this as an explicit user-authorized extension prevents it from being mistaken for original desktop behavior during later parity audits.

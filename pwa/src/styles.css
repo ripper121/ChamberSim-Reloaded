@@ -71,6 +71,18 @@ select { background: #202020; border: 1px solid #555; border-radius: 2px; paddin
 .menu-submenu > .submenu-popup { top: -4px; left: 100%; }
 .file-menu > .menu-popup { min-width: 285px; }
 .help-menu > .menu-popup { width: max-content; min-width: 260px; max-width: calc(100vw - 8px); }
+.menubar .support-menu-action { align-self: stretch; }
+.menubar .support-menu-action:hover { background: color-mix(in srgb, var(--palette-window) 78%, var(--palette-text)); }
+.support-menu-label { display: inline-flex; align-items: center; gap: 7px; }
+.support-heart { color: #d7374f; font-size: 1.15em; line-height: 1; }
+.support-dialog { width: min(560px, calc(100% - 32px)); }
+.support-dialog form { display: grid; gap: 14px; }
+.support-dialog p { margin: 0; line-height: 1.5; }
+.support-heading { display: flex; align-items: center; gap: 9px; }
+.support-heading h2 { margin: 0; }
+.support-heading .support-heart { font-size: 1.8rem; }
+.support-link { display: inline-block; padding: .42rem .75rem; border: 1px solid var(--palette-highlight); border-radius: 2px; color: var(--palette-highlighted-text); background: var(--palette-highlight); font-weight: 700; text-decoration: none; }
+.support-link:hover { color: var(--palette-highlighted-text); background: var(--palette-link); border-color: var(--palette-link); }
 .about-dialog { width: min(890px, calc(100% - 32px)); max-height: 85vh; overflow: hidden; }
 .about-dialog form { display: grid; grid-template-rows: minmax(0, 1fr) auto; max-height: calc(85vh - 2rem); }
 .about-layout { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; min-height: 0; overflow: auto; padding-right: 6px; }
@@ -715,8 +727,9 @@ tbody tr:nth-child(even),
 .component-title,
 .measurement-toolbar,
 .report-toolbar { color: var(--palette-text); background: var(--palette-base); }
-.splitter { background: var(--palette-window); }
-.splitter span { background: color-mix(in srgb, var(--palette-window) 62%, var(--palette-text)); }
+/* Keep the idle resize target distinct even when adjacent panes use the Window role. */
+.splitter { background: color-mix(in srgb, var(--palette-window) 78%, var(--palette-text)); }
+.splitter span { background: color-mix(in srgb, var(--palette-window) 52%, var(--palette-text)); }
 .splitter:hover,
 .splitter.dragging,
 .splitter:focus-visible { background: var(--palette-highlight); }

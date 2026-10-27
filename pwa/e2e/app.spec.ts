@@ -218,6 +218,16 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   await openMenu(page, "Help");
   await expect(page.locator("#user-manual")).toHaveAttribute("href", /\.pdf$/);
   await expect(page.locator("#online-documentation")).toHaveAttribute("href", "https://schildkroet.github.io/ChamberSim-Reloaded/");
+  await page.locator(".help-menu > summary").click();
+  await expect(page.locator(".menubar > #support-work")).toHaveText("♥Support");
+  await expect(page.locator("#support-work .support-heart")).toHaveText("♥");
+  await page.locator("#support-work").click();
+  const support = page.getByRole("dialog", { name: "Support my work" });
+  await expect(support).toContainText("porting ChamberSim Reloaded as a Progressive Web App (PWA)");
+  await expect(support.getByRole("link", { name: /Support the ChamberSim PWA/ })).toHaveAttribute("href", "https://shop.strenuous.dev/gb/Support-My-Work/SW10012");
+  await expect(support.getByRole("link", { name: /Support the ChamberSim PWA/ })).toHaveAttribute("target", "_blank");
+  await support.getByRole("button", { name: "Close", exact: true }).click();
+  await openMenu(page, "Help");
   const helpMenuFit = await page.locator(".help-menu > .menu-popup").evaluate((menu) => {
     const aboutButton = menu.querySelector<HTMLElement>("#about")!;
     const menuBox = menu.getBoundingClientRect(), buttonBox = aboutButton.getBoundingClientRect();
@@ -258,6 +268,21 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   expect(aboutSize.scrollbars).toEqual(["about-layout"]);
   if (process.env.PARITY_ABOUT_SCREENSHOT) await page.screenshot({ path: process.env.PARITY_ABOUT_SCREENSHOT });
   await about.getByRole("button", { name: "OK", exact: true }).click();
+});
+
+test("uses the German support message and storefront for a German session", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("csr-disclaimer-accepted", "yes");
+    localStorage.setItem("csr-ui-language", "de_DE");
+  });
+  await page.goto("/");
+  await expect(page.locator(".menubar > #support-work")).toHaveText("♥Unterstützen");
+  await page.locator(".menubar > #support-work").click();
+  const support = page.getByRole("dialog", { name: "Meine Arbeit unterstützen" });
+  await expect(support).toContainText("ChamberSim Reloaded als Progressive Web App (PWA)");
+  await expect(support.getByRole("link", { name: /ChamberSim-PWA unterstützen/ })).toHaveAttribute("href", "https://shop.strenuous.dev/Support-Unterstuetze-meine-Arbeit/SW10012");
+  await support.getByRole("button", { name: "Schließen", exact: true }).click();
+  await expect(support).toBeHidden();
 });
 
 test("sorts and filters the native burn-rate table and converts every unit group", async ({ page }) => {
@@ -1883,6 +1908,7 @@ test("switches and persists every native theme", async ({ page }) => {
       };
       return {
         window: color(".app-shell", "backgroundColor"),
+        splitter: color(".workspace > .splitter", "backgroundColor"),
         chart: color(".result-chart", "backgroundColor"),
         drawing: color(".technical-drawing", "backgroundColor"),
         alternate: color(".result-card", "backgroundColor"),
@@ -1890,7 +1916,9 @@ test("switches and persists every native theme", async ({ page }) => {
         highlightedText: color("button.primary:not(:disabled)", "color")
       };
     });
-    expect(colors).toEqual({ window: windowColor, chart: baseColor, drawing: baseColor, alternate: altColor, highlight: highlightColor, highlightedText });
+    const { splitter, ...surfaces } = colors;
+    expect(surfaces).toEqual({ window: windowColor, chart: baseColor, drawing: baseColor, alternate: altColor, highlight: highlightColor, highlightedText });
+    expect(splitter).not.toBe(windowColor);
   }
   const themedSettings = await openSettings(page);
   const checkboxColors = await themedSettings.evaluate((dialog) => {
