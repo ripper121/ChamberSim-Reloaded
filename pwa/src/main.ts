@@ -965,7 +965,7 @@ function render(): void {
   const menuBar = menuBarHtml(current, Boolean(currentHistory?.canUndo), Boolean(currentHistory?.canRedo));
   app.innerHTML = `<div class="app-shell"><nav class="menubar" aria-label="Application menu">${menuBar}</nav><div class="tabs" role="tablist">${tabs}</div>${current ? loadWorkspace(current) : databaseView()}<footer>${escapeHtml(status)}</footer></div><input id="file-picker" type="file" accept=".csrload,.grtload,application/xml,text/xml" multiple hidden /><input id="reference-picker" type="file" accept=".json,application/json" hidden /><input id="bullet-picker" type="file" accept=".csrbullets,.json,application/json" hidden /><input id="chronograph-picker" type="file" accept=".fit,.FIT,.csv,.CSV" hidden />`;
   const syncLabel = appSyncState === "outdated" ? "Update available" : appSyncState === "checking" ? "Checking for updates" : appSyncState === "updating" ? "Applying update" : "App is up to date";
-  app.querySelector(".menubar")?.insertAdjacentHTML("beforeend", `<div class="app-version-sync"><span class="app-versions" aria-label="PWA version ${escapeHtml(__PWA_VERSION__)}, ChamberSim version ${escapeHtml(__CSR_VERSION__)}" title="PWA build version · ChamberSim core version"><span>PWA ${escapeHtml(__PWA_VERSION__)}</span><span>ChamberSim ${escapeHtml(__CSR_VERSION__)}</span></span><button id="app-sync" class="app-sync ${appSyncState}" aria-label="${syncLabel}" title="${syncLabel}. Click to check for and load the latest app version." ${appSyncState === "checking" || appSyncState === "updating" ? "disabled" : ""}><span class="sync-dot" aria-hidden="true"></span><span>Sync</span></button></div>`);
+  app.querySelector(".menubar")?.insertAdjacentHTML("beforeend", `<div class="app-version-sync"><span class="app-versions" aria-label="PWA version ${escapeHtml(__PWA_VERSION__)}, ChamberSim version ${escapeHtml(__CSR_VERSION__)}" title="PWA build version · ChamberSim core version"><span>PWA ${escapeHtml(__PWA_VERSION__)}</span><span>ChamberSim ${escapeHtml(__CSR_VERSION__)}</span></span><button id="app-sync" class="app-sync ${appSyncState}" aria-label="${syncLabel}" title="${syncLabel}. Click to check for and load the latest app version." ${appSyncState === "checking" || appSyncState === "updating" ? "disabled" : ""}><span class="sync-dot" aria-hidden="true"></span><span>Update</span></button></div>`);
   localizeShell();
   bindEvents();
   persistSession();
@@ -2986,7 +2986,7 @@ async function syncLatestApp(): Promise<void> {
     await appServiceWorker?.update();
     if (appUpdateIsWaiting()) {
       appSyncState = "outdated";
-      status = "A newer app version is ready. Click Sync again to load it.";
+      status = "A newer app version is ready. Click Update again to load it.";
     } else {
       appSyncState = "latest";
       status = appServiceWorker ? "The app is up to date." : "The development app is up to date.";
@@ -3008,7 +3008,7 @@ const updateServiceWorker = registerSW({
   },
   onNeedRefresh() {
     appSyncState = "outdated";
-    status = "A newer app version is ready. Click Sync to load it.";
+    status = "A newer app version is ready. Click Update to load it.";
     render();
   }
 });

@@ -1873,6 +1873,7 @@ test("shows app update state at the right of the menu and checks on click", asyn
 
   const sync = page.getByRole("button", { name: "App is up to date" });
   await expect(sync).toBeVisible();
+  await expect(sync).toHaveText("Update");
   await expect(page.getByLabel("PWA version 0.1.0, ChamberSim version 0.13")).toHaveText("PWA 0.1.0ChamberSim 0.13");
   expect(await sync.evaluate((button) => button.parentElement?.lastElementChild === button)).toBe(true);
   expect(await sync.evaluate((button) => button.parentElement?.parentElement?.lastElementChild === button.parentElement)).toBe(true);
