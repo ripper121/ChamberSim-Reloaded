@@ -12,7 +12,12 @@ target_compile_definitions(tst_gui PRIVATE CSR_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
     CSR_QM_DIR="${CMAKE_BINARY_DIR}")  # the .qm files (embedded only into the program): the English plural forms
 add_dependencies(tst_gui release_translations)
 add_test(NAME gui COMMAND tst_gui)
-set_tests_properties(gui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+if(WIN32)
+    # The static MSYS2 Qt build ships only the Windows platform plugin; forcing the optional offscreen plugin aborts before the suite starts.
+    set_tests_properties(gui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+else()
+    set_tests_properties(gui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
 
 # the project's record files must all be usable
 add_test(NAME projectdata COMMAND csr_datacheck "${CMAKE_SOURCE_DIR}/data")

@@ -568,6 +568,7 @@ void CoreTest::loggingFiltersByLevel()
     QCOMPARE(csr::log::levelFromName(u"warning"_s), csr::log::Level::Warn);
     QCOMPARE(csr::log::levelFromName(u"WARN"_s), csr::log::Level::Warn);
     QVERIFY(!csr::log::levelFromName(u"loud"_s));
+    f.close();  // Windows cannot remove a file while this test still holds its read handle
     csr::log::clearFile();
     QVERIFY(!QFile::exists(path));
     csr::log::setConfig(before);
@@ -2772,5 +2773,5 @@ void CoreTest::sebertBetweenZeroAndOneIsKept()
     }
 }
 
-QTEST_APPLESS_MAIN(CoreTest)
+QTEST_GUILESS_MAIN(CoreTest)
 #include "tst_core.moc"

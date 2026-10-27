@@ -877,7 +877,7 @@ test("styles the source-defined primary actions consistently", async ({ page }) 
         minHeight: style.minHeight
       };
     })).toEqual({
-      background: "rgb(39, 140, 202)",
+      background: "rgb(48, 140, 198)",
       color: "rgb(255, 255, 255)",
       cursor: "pointer",
       fontWeight: "700",
@@ -1755,16 +1755,11 @@ test("keeps both load panes reachable at a narrow viewport", async ({ page }) =>
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await expect(page.locator(".inputs")).toBeVisible();
   await expect(page.locator(".output")).toBeVisible();
-  const boxes = await page.locator(".workspace").evaluate((workspace) => {
+  await expect.poll(() => page.locator(".workspace").evaluate((workspace) => {
     const inputs = workspace.querySelector(".inputs")?.getBoundingClientRect();
     const output = workspace.querySelector(".output")?.getBoundingClientRect();
-    return { inputs: inputs && { top: inputs.top, width: inputs.width, height: inputs.height }, output: output && { top: output.top, width: output.width, height: output.height } };
-  });
-  expect(boxes.inputs?.width).toBeGreaterThan(0);
-  expect(boxes.inputs?.height).toBeGreaterThan(0);
-  expect(boxes.output?.width).toBeGreaterThan(0);
-  expect(boxes.output?.height).toBeGreaterThan(0);
-  expect(boxes.output!.top).toBeGreaterThan(boxes.inputs!.top);
+    return Boolean(inputs && output && inputs.width > 0 && inputs.height > 0 && output.width > 0 && output.height > 0 && output.top > inputs.top);
+  })).toBe(true);
   await expect(page.getByRole("button", { name: "Results" })).toBeVisible();
 });
 
@@ -1867,18 +1862,58 @@ test("switches and persists every native theme", async ({ page }) => {
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await expect(page.locator(".result-chart")).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await expect(page.locator(".technical-svg .case-cavity")).toHaveCSS("fill", "rgb(244, 240, 230)");
-  for (const [name, mode, effective] of [
-    ["Gruvbox Light", "gruvbox-light", "light"], ["Gruvbox Dark", "gruvbox-dark", "dark"], ["Nord", "nord", "dark"],
-    ["Dracula", "dracula", "dark"], ["Catppuccin Latte", "catppuccin-latte", "light"], ["Catppuccin Frappé", "catppuccin-frappe", "dark"]
+  for (const [name, mode, effective, windowColor, baseColor, altColor, highlightColor, highlightedText] of [
+    ["Gruvbox Light", "gruvbox-light", "light", "rgb(235, 219, 178)", "rgb(251, 241, 199)", "rgb(242, 229, 188)", "rgb(69, 133, 136)", "rgb(251, 241, 199)"],
+    ["Gruvbox Dark", "gruvbox-dark", "dark", "rgb(40, 40, 40)", "rgb(29, 32, 33)", "rgb(60, 56, 54)", "rgb(69, 133, 136)", "rgb(235, 219, 178)"],
+    ["Nord", "nord", "dark", "rgb(59, 66, 82)", "rgb(46, 52, 64)", "rgb(67, 76, 94)", "rgb(94, 129, 172)", "rgb(236, 239, 244)"],
+    ["Dracula", "dracula", "dark", "rgb(40, 42, 54)", "rgb(33, 34, 44)", "rgb(52, 55, 70)", "rgb(68, 71, 90)", "rgb(248, 248, 242)"],
+    ["Catppuccin Latte", "catppuccin-latte", "light", "rgb(230, 233, 239)", "rgb(239, 241, 245)", "rgb(220, 224, 232)", "rgb(30, 102, 245)", "rgb(239, 241, 245)"],
+    ["Catppuccin Frappé", "catppuccin-frappe", "dark", "rgb(48, 52, 70)", "rgb(41, 44, 60)", "rgb(65, 69, 89)", "rgb(140, 170, 238)", "rgb(35, 38, 52)"]
   ] as const) {
     await openView();
     await page.getByRole("menuitemradio", { name, exact: true }).click();
+    await page.mouse.move(1435, 895);
     await expect(root).toHaveAttribute("data-theme-preference", mode);
     await expect(root).toHaveAttribute("data-theme", effective);
+    const colors = await page.evaluate(() => {
+      const color = (selector: string, property: "backgroundColor" | "color"): string => {
+        const element = document.querySelector(selector);
+        if (!element) throw new Error(`Missing themed element: ${selector}`);
+        return getComputedStyle(element)[property];
+      };
+      return {
+        window: color(".app-shell", "backgroundColor"),
+        chart: color(".result-chart", "backgroundColor"),
+        drawing: color(".technical-drawing", "backgroundColor"),
+        alternate: color(".result-card", "backgroundColor"),
+        highlight: color("button.primary:not(:disabled)", "backgroundColor"),
+        highlightedText: color("button.primary:not(:disabled)", "color")
+      };
+    });
+    expect(colors).toEqual({ window: windowColor, chart: baseColor, drawing: baseColor, alternate: altColor, highlight: highlightColor, highlightedText });
   }
+  const themedSettings = await openSettings(page);
+  const checkboxColors = await themedSettings.evaluate((dialog) => {
+    const rounded = getComputedStyle(dialog.querySelector("#settings-rounded-dialogs")!);
+    const disabled = getComputedStyle(dialog.querySelector("#settings-title-bar")!);
+    const table = getComputedStyle(document.querySelector(".result-top")!);
+    return {
+      appearance: rounded.appearance,
+      checkedBackground: rounded.backgroundColor,
+      disabledBackground: disabled.backgroundColor,
+      scrollbar: table.scrollbarColor
+    };
+  });
+  expect(checkboxColors).toEqual({
+    appearance: "none",
+    checkedBackground: "rgb(140, 170, 238)",
+    disabledBackground: "rgb(65, 69, 89)",
+    scrollbar: expect.not.stringMatching(/^auto$/)
+  });
+  await themedSettings.getByRole("button", { name: "Cancel", exact: true }).click();
   await openView();
   await page.getByRole("menuitemradio", { name: "Dark", exact: true }).click();
-  await expect(page.locator(".result-chart")).toHaveCSS("background-color", "rgb(32, 32, 32)");
+  await expect(page.locator(".result-chart")).toHaveCSS("background-color", "rgb(34, 39, 48)");
   await expect(page.locator(".technical-svg .case-cavity")).toHaveCSS("fill", "rgb(24, 28, 34)");
   await openView();
   await page.getByRole("menuitemradio", { name: "Light", exact: true }).click();
@@ -1889,7 +1924,7 @@ test("switches and persists every native theme", async ({ page }) => {
   await openView();
   await page.getByRole("menuitemradio", { name: "Dark", exact: true }).click();
   await expect(root).toHaveAttribute("data-theme", "dark");
-  await expect(page.locator(".app-shell")).toHaveCSS("background-color", "rgb(40, 40, 40)");
+  await expect(page.locator(".app-shell")).toHaveCSS("background-color", "rgb(43, 49, 59)");
 
   await openView();
   await page.locator('[data-theme-mode="system"]').click();

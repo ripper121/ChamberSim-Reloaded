@@ -323,3 +323,15 @@ Last updated: 2026-10-27
 **Decision:** Merge reviewed upstream native changes into the fork without resetting `main`, preserve a named pre-merge backup point, and audit every incoming behavior against the independent TypeScript/PWA implementation. Preserve fork-owned PWA, deployment and CMake resource fixes during conflict resolution. Record implementation status and repeatable evidence in `PORT_PROGRESS.md` and `parity-checklist.md` rather than keeping a separate one-off update plan.
 
 **Rationale:** The v0.13 comparison found substantial history on both sides: 29 upstream-only commits and 47 fork-only commits from their common ancestor. Merging C++/Qt/data changes cannot update browser-specific solver, storage, file, UI or service-worker code automatically. A reset or wholesale ours/theirs resolution would discard valid work, while a detached update document quickly becomes stale after implementation. The persistent port documents already define the authoritative checkpoint and verification contract.
+
+## D-053 — Map named themes through native palette roles
+
+**Decision:** Define the exact Window, Base, AlternateBase, Text, Link, Highlight, HighlightedText, PlaceholderText and Disabled colors from `src/app/theme.cpp` once for every explicit theme. Drive shell, control, table, selection, dialog, chart, drawing and primary-action surfaces from those roles; retain the native light/dark branch only for fixed drawing materials and QChart-style grid/label treatment. Use each explicit theme's Window color for browser chrome instead of collapsing named modes to generic light or dark.
+
+**Rationale:** The initial v0.13 theme port changed only the outer shell, menus, tabs and result cards. Named themes therefore left most base surfaces and controls in generic light/dark colors, unlike Qt where one `QPalette` reaches every widget. Role variables reproduce that propagation without duplicating per-theme selectors, preserve the source's fixed chart-series/material colors, and make exact browser assertions possible for representative downstream consumers.
+
+## D-054 — Keep native tests headless without removing their required application type
+
+**Decision:** Run core tests with `QTEST_GUILESS_MAIN`, which supplies the `QCoreApplication` required by Qt SQL without initializing GUI facilities. On Windows, run GUI CTest with the shipped `windows` QPA plugin; retain `offscreen` on platforms where that headless plugin is available. Close test-owned file handles before Windows deletion assertions.
+
+**Rationale:** `QTEST_APPLESS_MAIN` left the database tests without an application object and crashed once the QtTest link configuration was repaired. Conversely, the static MSYS2 Qt package does not ship an offscreen platform plugin, so forcing it aborted the GUI executable before fixture detection. These test-entry changes preserve production behavior, allow the same suite to start on the available platform, and distinguish genuine failures from the documented absence of the proprietary plain database.

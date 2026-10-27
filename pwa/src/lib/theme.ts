@@ -2,6 +2,16 @@ export type ThemeMode = "system" | "light" | "dark" | "gruvbox-light" | "gruvbox
 export type EffectiveTheme = "light" | "dark";
 
 const storageKey = "csr-theme";
+const windowColors: Record<Exclude<ThemeMode, "system">, string> = {
+  light: "#efefef",
+  dark: "#2b313b",
+  "gruvbox-light": "#ebdbb2",
+  "gruvbox-dark": "#282828",
+  nord: "#3b4252",
+  dracula: "#282a36",
+  "catppuccin-latte": "#e6e9ef",
+  "catppuccin-frappe": "#303446"
+};
 
 function storedTheme(storage: Storage): ThemeMode {
   const value = storage.getItem(storageKey);
@@ -42,6 +52,6 @@ export class ThemePreference {
     this.root.dataset.theme = effective;
     this.root.style.colorScheme = effective;
     const meta = this.root.ownerDocument?.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-    if (meta) meta.content = effective === "dark" ? "#2b313b" : "#efefef";
+    if (meta) meta.content = this.mode === "system" ? windowColors[effective] : windowColors[this.mode];
   }
 }

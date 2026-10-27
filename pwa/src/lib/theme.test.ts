@@ -50,13 +50,15 @@ describe("ThemePreference", () => {
   });
 
   it("restores every current native named scheme with its light/dark color class", () => {
-    for (const [mode, effective] of [["gruvbox-light", "light"], ["gruvbox-dark", "dark"], ["nord", "dark"],
-      ["dracula", "dark"], ["catppuccin-latte", "light"], ["catppuccin-frappe", "dark"]] as const) {
+    for (const [mode, effective, windowColor] of [["gruvbox-light", "light", "#ebdbb2"], ["gruvbox-dark", "dark", "#282828"],
+      ["nord", "dark", "#3b4252"], ["dracula", "dark", "#282a36"], ["catppuccin-latte", "light", "#e6e9ef"],
+      ["catppuccin-frappe", "dark", "#303446"]] as const) {
       localStorage.setItem("csr-theme", mode);
       const preference = new ThemePreference(localStorage, document.documentElement, new SystemTheme(false) as unknown as MediaQueryList);
       expect(preference.mode).toBe(mode);
       expect(preference.effective).toBe(effective);
       expect(document.documentElement.dataset.themePreference).toBe(mode);
+      expect(document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content).toBe(windowColor);
     }
   });
 

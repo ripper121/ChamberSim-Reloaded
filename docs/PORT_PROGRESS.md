@@ -4,11 +4,11 @@ Last updated: 2026-10-27
 
 ## Current objective
 
-Phase 2 — finish v0.13 visual parity after the functional refresh. The Results card/group layout is complete; compare and correct the remaining named-theme and fine native-shell palette/geometry differences without regressing the green functional workflows.
+Phase 2 — finish v0.13 visual parity after the functional refresh. Named-theme palette parity is complete; audit and correct the remaining fine native-shell widget/geometry differences without regressing the green functional workflows.
 
 ## Current state (working / failing / blocked)
 
-Working, not blocked. Upstream v0.13 and its PWA behavior port are merged on `main`; `backup-before-upstream-013` preserves the pre-merge point. Historical v0.10 build outputs are no longer retained. Their legacy CSR input is tracked independently at `tests/fixtures/223Rem_D0735_RWS.csrload`, while the previously recorded fresh v0.13 CLI goldens remain the numerical acceptance baseline. The PWA typecheck, all 175 unit tests and production build pass. The latest full Edge run passed 41/42; the sole unrelated menu-visibility timing failure passed immediately in isolation, and the preceding full gate was 42/42. Native `tst_core` currently cannot link because the available QtTest library/import mode does not match the configured static Qt build.
+Working, not blocked. Upstream v0.13 and its PWA behavior port are merged on `main`; `backup-before-upstream-013` preserves the pre-merge point. Historical v0.10 build outputs are no longer retained. Their legacy CSR input is tracked independently at `tests/fixtures/223Rem_D0735_RWS.csrload`, while the previously recorded fresh v0.13 CLI goldens remain the numerical acceptance baseline. The PWA typecheck, all 175 unit tests, production build, dependency audit and fresh 42/42 Edge suite pass after the named-theme palette work. A fresh static-Qt current-source build now passes all 6/6 CTest entries; the core executable reports 116 passed and 42 proprietary-database-dependent skips, while the GUI executable starts correctly but skips its suite because that same absent fixture is required.
 
 ### v0.13 refresh completed in this checkpoint
 
@@ -24,17 +24,17 @@ Working, not blocked. Upstream v0.13 and its PWA behavior port are merged on `ma
 
 ### Exact next steps
 
-1. Visually compare all new v0.13 theme palettes against `src/app/theme.cpp`, focusing on charts, drawings and secondary widgets while keeping the green functional gates.
-2. Resolve or document the static/dynamic QtTest link mismatch and run native `tst_core` when a matching QtTest build is available.
-3. Finish the remaining native-shell visual items, rerun the complete quality gate, and checkpoint the final Phase 2 evidence.
+1. Audit the remaining native-shell widget/geometry differences against the source and existing captures; prioritize visible clipping or interaction-impacting differences.
+2. Rerun the complete Edge, installability and comparison gates after the remaining shell review.
+3. Close the final production/visual rows only with fresh complete evidence, retaining the native proprietary-fixture limitation explicitly.
 
 **Historical pre-v0.13 baseline:** The original Qt application and both packaged release CLIs ran locally, and the PWA passed 165 units, 42 Edge scenarios, installability and audit gates before the upstream merge. The detailed milestone history below remains useful evidence for unchanged workflows, but its v0.10 counts and numerical goldens are superseded by the checkpoint above.
 
 ## Completion estimate (2026-10-26 audit)
 
 - **Phase 1 functional parity: 100% complete against the current discoverable inventory (high confidence).** Core simulation, file compatibility, editing, databases, measurements, fitting, reporting, settings, localization, persistence, installability and browser workflows are implemented and verified. The final powder-fit difference was traced to missing physical resources in the native CLI target, fixed, and matched directly from a rebuilt current-source executable.
-- **Phase 2 visual parity: approximately 85% complete (medium confidence, ±8%).** Major layouts, charts, property tables, dialogs, drawings, primary actions and the v0.13 Results structure have direct browser evidence; fine named-theme and widget palette/geometry differences remain.
-- **Overall definition of done: approximately 96% complete (medium confidence, ±3%).** This weights functional parity more heavily than visual polish. The parity checklist has 46 `PASS` and 3 `IN PROGRESS` rows after this checkpoint; no `TODO`, `DIFF`, or `BLOCKED` row remains.
+- **Phase 2 visual parity: approximately 90% complete (medium confidence, ±6%).** Major layouts, charts, property tables, dialogs, drawings, primary actions, the v0.13 Results structure and every named palette have direct source/browser evidence; fine native-shell widget/geometry differences remain.
+- **Overall definition of done: approximately 97% complete (medium confidence, ±2%).** This weights functional parity more heavily than visual polish. The parity checklist has 47 `PASS` and 2 `IN PROGRESS` rows after this checkpoint; no `TODO`, `DIFF`, or `BLOCKED` row remains.
 
 ## Upstream v0.13 integration record
 
@@ -49,15 +49,15 @@ The comparison used upstream release notes, CMake version metadata, commit histo
 | BLT/OBT and Results | Port calculations, reports, four key cards and Barrel/Projectile/Propellant groups | PASS |
 | Database/search/import | Current record data, exact/prefix/substring relevance, missing-caliber fallback and atomic deduplicated bullet import | PASS |
 | Reports/exports/help/metadata | Twist and jump fields, suffix behavior, Online documentation, translations and v0.13 About/version | PASS |
-| Added themes | Gruvbox Light/Dark, Nord, Dracula and Catppuccin Latte/Frappé with persistence and source palettes | IN PROGRESS: behavior passes; fine palette comparison remains |
+| Added themes | Gruvbox Light/Dark, Nord, Dracula and Catppuccin Latte/Frappé with persistence and source palettes | PASS: every source palette role is mapped and representative shell/chart/drawing/card/action surfaces are browser-verified |
 | Final regression/visual gate | Full PWA gates plus remaining native-shell/theme review | IN PROGRESS |
 
-Milestones M0-M3 are complete: the reviewed merge, solver/current-source baselines, resources/database/search/import behavior, and BLT/OBT/Results/report/export work all pass. M4 remains open only for fine theme and visual parity. M5 has the merge, documentation and functional gates complete; it closes after the final visual review and fresh complete regression.
+Milestones M0-M4 are complete: the reviewed merge, solver/current-source baselines, resources/database/search/import behavior, BLT/OBT/Results/report/export work, and named-theme palette parity all pass. M5 has the merge, documentation and functional gates complete; it closes after the remaining fine shell review and fresh complete regression.
 
 Remaining validation work:
 
-- Compare every added theme's charts, drawings, dialogs, menus, result cards and secondary widgets directly with `src/app/theme.cpp`.
-- Run native `tst_core` when a QtTest build matching the configured static Qt toolchain is available; the current link-mode mismatch is environmental.
+- Audit remaining native-shell widget geometry and any visible clipping against source/captures; named-theme role mapping is complete.
+- Retain the native GUI-suite limitation as a documented proprietary-fixture skip; the test executable and Windows platform plugin now launch correctly.
 - After the final visual changes, rerun typecheck, all unit and Edge tests, production build, installability, dependency audit and comparison capture.
 
 Regression-sensitive invariants retained from the update review:
@@ -70,6 +70,11 @@ Regression-sensitive invariants retained from the update review:
 
 ## Completed since previous checkpoint
 
+- Replaced the partial named-theme override with the exact nine native `QPalette` roles from `src/app/theme.cpp`. Window/Base/AlternateBase/Text/Link/Highlight/HighlightedText/Placeholder/Disabled colors now propagate through shell, forms, tables, selections, dialogs, charts, technical drawings, result cards and primary actions; explicit browser chrome uses the selected theme's Window color.
+- Added exact browser assertions for all six v0.13 named themes across representative shell/chart/drawing/card/action surfaces and added unit coverage for every named browser-chrome color. A fresh 1280×800 production capture was inspected after the refactor.
+- Made the narrow-layout geometry check atomic and retryable across the existing service-worker-triggered whole-workspace rerender, preventing a detached zero-width sample between a visibility assertion and a later bounding-box read.
+- Extended the palette-role mapping to native-style scrollbars plus checkbox/radio frames, checked marks and disabled states. Focused Edge checks assert the exact Catppuccin Frappé highlight/alternate-base roles and five existing checkbox-driven workflows remain green.
+- Restored the native test harness on this Windows/static-Qt environment: core tests now use a non-GUI `QCoreApplication`, close their log read handle before the Windows removal check, and GUI CTest selects the available Windows platform plugin instead of forcing the absent offscreen plugin. All six configured CTest entries pass; the fixture-dependent skips remain visible and documented.
 - Made the Help popup wide enough for its localized About action and removed the About dialog shell's redundant vertical scrolling, leaving the inner rich-content area as the sole scrollbar.
 - Added independent `PWA 0.1.0` and `ChamberSim 0.13` version labels beside Sync, sourced at build time from `pwa/package.json` and root `CMakeLists.txt`; documented that startup registration/browser handling and explicit Sync clicks check updates, while the app schedules no periodic check.
 - Autosized the Cartridge, Projectile and Propellant Property/Value/Unit columns from their current rendered content, with responsive constrained minimums on input-pane resize; explicit pointer/keyboard sizing remains shared and persistent, and double-click returns to automatic sizing.
@@ -234,9 +239,9 @@ Regression-sensitive invariants retained from the update review:
 
 ## Next actions (ordered, directly actionable)
 
-1. Compare Gruvbox Light/Dark, Nord, Dracula and Catppuccin Latte/Frappé palettes against `src/app/theme.cpp`, including chart, drawing, menu, dialog and result-card surfaces.
-2. Continue the Phase 2 fine-widget pass through dialogs, database tables and secondary workspaces while rerunning focused functional browser checks after each visual change.
-3. Close the production quality gate only after the visual checklist is complete and every final native/PWA/PWA-installability gate has been rerun.
+1. Continue the Phase 2 fine-widget/geometry pass through dialogs, database tables and secondary workspaces while rerunning focused functional browser checks after each change.
+2. Compare the resulting production capture with the native source/manual references and correct only source-backed differences.
+3. Close the production quality gate only after every final native/PWA/PWA-installability gate has been rerun.
 
 ## How to run (working commands, directories, server URL/port if known)
 
@@ -259,6 +264,14 @@ To regenerate native references from the repository root, first configure/build 
 
 ```text
 tests/fixtures/223Rem_D0735_RWS.csrload
+```
+
+The current ignored `build/current-reference` tree uses the MSYS2 static-Qt toolchain with dynamic import libraries for zlib, PNG, FreeType, JPEG, TIFF and OpenSSL. With that tree configured, the repeatable Windows test command is:
+
+```powershell
+$env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
+& 'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe' --build build/current-reference
+& 'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\ctest.exe' --test-dir build/current-reference --output-on-failure
 ```
 
 ## Tests and parity verification (commands, results, known failures)
@@ -295,13 +308,16 @@ tests/fixtures/223Rem_D0735_RWS.csrload
 - Release failure/warning matrix on `tests/fixtures/8x57is.grtload`: `csr_sim --profile <physical|published|original> --charge 0 --format csv` returns `invalid_input`/exit 1; charge 4 returns `charge_too_high`/exit 1; charge 0.1 returns `bullet_stuck`/exit 1 only for Physical and succeeds for Published/Original. Accepted overpressure goldens are 4406.7 bar (Physical 3 g), 4321.84 bar (Published 3.5 g), and 4932.09 bar (Original 3.5 g), against 3900 bar permitted.
 - `npm run capture:comparison`: PASS; produced 1280×800 Edge captures of the main window, database, record editor, burn-rate table and unit converter from the production bundle for manual comparison.
 
-- v0.13 integration gate on 2026-10-26: `npm run typecheck` PASS; `npm test -- --run` PASS (30 files, 175 tests); `npm run build` PASS with 27 Workbox entries / 4,508.53 KiB; focused affected Edge rerun PASS (9/9); fresh `npm run test:e2e` PASS (42/42 in 3.8 minutes), including current counts, v0.13 About/Help, primer-adjusted native goldens, BLT/OBT, atomic import, missing-caliber infrastructure, updated translations and all nine themes; `npm run test:install` PASS with `beforeinstallprompt`, zero installability errors and standalone app-window mode; `npm audit` PASS with zero vulnerabilities. Fresh native `csr_sim`/`csr_fitpowder` targets build and the legacy CSR baseline is recorded above. `tst_core` did not link due the local static/dynamic QtTest mismatch and remains an environment blocker.
+- v0.13 integration gate on 2026-10-26: `npm run typecheck` PASS; `npm test -- --run` PASS (30 files, 175 tests); `npm run build` PASS with 27 Workbox entries / 4,508.53 KiB; focused affected Edge rerun PASS (9/9); fresh `npm run test:e2e` PASS (42/42 in 3.8 minutes), including current counts, v0.13 About/Help, primer-adjusted native goldens, BLT/OBT, atomic import, missing-caliber infrastructure, updated translations and all nine themes; `npm run test:install` PASS with `beforeinstallprompt`, zero installability errors and standalone app-window mode; `npm audit` PASS with zero vulnerabilities. Fresh native `csr_sim`/`csr_fitpowder` targets build and the legacy CSR baseline is recorded above. The native QtTest environment issue recorded at that time was resolved on 2026-10-27 by the current-source gate below.
 - v0.13 Results-layout gate on 2026-10-27: `npm run typecheck` PASS; `npm test -- --run` PASS (30 files, 175 tests); repeated production builds PASS; focused normal-result and invalid/capacity/stuck/overpressure Edge scenarios PASS. A full Edge run passed 41/42 in 4.0 minutes; its sole unchanged menu-visibility timing failure passed immediately alone. `npm run capture:comparison` PASS after moving the CSR input into `tests/fixtures`; the 1280×800 production capture was inspected and all four key cards remain visible at the constrained split-pane width. `npm run test:install` PASS with a real install prompt, zero installability errors and standalone app-window mode; `npm audit` PASS with zero vulnerabilities.
 - Report-diagram correction gate on 2026-10-27: `npm run typecheck` PASS; `npm test -- --run` PASS (30 files, 175 tests); production build PASS; focused Edge Report workflow PASS. The browser test decodes the actual embedded curve SVG and verifies no-fill paths plus blue caution and red danger pressure-band rules.
 - Drawing-hover correction gate on 2026-10-27: `npm run typecheck` PASS; `npm test -- --run` PASS (30 files, 175 tests); production build PASS; focused Edge native-panel workflow PASS. Edge verifies inactive SVG dimensions are not visible and hovered Cartridge/Chamber L3 rows reveal exactly one labeled measurement; fresh 1440×900 captures were inspected.
 - Property-column autosize gate on 2026-10-27: `npm run typecheck` PASS; `npm test -- --run --reporter=dot` PASS (30 files, 175 tests); production build PASS; focused Edge native-panel and splitter workflows PASS (2/2). Edge verifies automatic panel-filling minimum-constrained widths independently on Cartridge, Projectile and Propellant, then verifies the existing shared manual sizing/persistence and double-click return to automatic sizing.
 - Sync-version display gate on 2026-10-27: `npm run build` PASS (including typecheck); focused Edge update workflow PASS. Edge verifies exact `PWA 0.1.0` and `ChamberSim 0.13` labels at the menu's right edge, green current state and the explicit update check.
 - Help/About overflow correction gate on 2026-10-27: `npm run build` PASS (including typecheck); focused Edge menu workflows PASS (3/3). Edge geometry verifies the Help popup contains the complete About action and text, no horizontal About overflow, and exactly one active vertical scrollbar inside the About dialog.
+- Named-theme palette gate on 2026-10-27: focused theme unit tests PASS (4/4); production build/typecheck PASS with 27 Workbox entries / 4,520.72 KiB; full unit suite PASS (30 files, 175 tests); `npm audit` PASS with zero vulnerabilities; fresh `npx playwright test --reporter=line` PASS (42/42 in 3.8 minutes). Two preceding full attempts each passed 41/42 and exposed a stale former-accent assertion plus the existing service-worker rerender race in the narrow-layout geometry sample; both were corrected before the final green run. `npm run capture:comparison` PASS and the 1280×800 Light result was inspected.
+- Palette-control gate on 2026-10-27: production build/typecheck PASS with 27 Workbox entries / 4,522.44 KiB; final unit rerun PASS (30 files, 175 tests); focused named-theme Edge coverage PASS; five checkbox-using component-replacement, powder-fit, chronograph-import, Appearance and Settings transaction workflows PASS; `npm run test:install` PASS with a real install prompt, expected app id, zero installability errors and standalone mode.
+- Native current-source gate on 2026-10-27: static-Qt `tst_core` links and PASSes with 116 passed, 42 skips requiring the absent proprietary plain database and 0 failures. The GUI target links and launches under the Windows QPA plugin; it self-skips because the same fixture is absent. The complete CTest wrapper PASSes 6/6 (`core`, `gui`, `projectdata`, `sim_cli`, `sim_cli_missing_file`, `fitpowder_cli_physical`) in 11.73 seconds. The earlier QtTest link-mode blocker is closed.
 
 ## Known issues and blockers
 
@@ -309,6 +325,7 @@ tests/fixtures/223Rem_D0735_RWS.csrload
 - The packaged release `csr_fitpowder.exe` remains a historical reference that omits the current physical-data resource. Current source now embeds it, has a CTest regression, and matches the PWA exactly; see D-024.
 - Browsers expose PDF creation through the print destination chooser, so Export PDF cannot reproduce the desktop application's direct path-writing dialog. It opens the A4 report in the browser print dialog and tells the user to choose Save as PDF; report content and scale are shared with preview/print.
 - The proprietary Original GRT database is intentionally absent. Import was verified with the exact native SQLite table shape and the 578/5,659/683 counts used by native tests, but compatibility with a user's particular GRT release can only be exercised when that user supplies their own decrypted copy.
+- The current native core run skips 42 proprietary-database-dependent cases and the native GUI suite skips at initialization for the same absent `tools/GordonsReloadingTool.plain.db`; this is a fixture limitation, not a build, linkage or platform-plugin failure.
 - Manifest icon descriptors and actual 192/512 image dimensions are verified in Edge. Persistent-profile automation now observes Edge's real install-promotion event and zero installability errors; the browser-owned modal acceptance itself is intentionally not scripted, while a separate Edge app-mode launch verifies standalone-window behavior.
 - Native screenshot mode produced two usable screenshots; one concurrent screenshot process did not exit and was stopped after its executable path was verified.
 - No blockers require user input.
