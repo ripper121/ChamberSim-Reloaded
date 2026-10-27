@@ -70,6 +70,7 @@ Regression-sensitive invariants retained from the update review:
 
 ## Completed since previous checkpoint
 
+- Added independent `PWA 0.1.0` and `ChamberSim 0.13` version labels beside Sync, sourced at build time from `pwa/package.json` and root `CMakeLists.txt`; documented that startup registration/browser handling and explicit Sync clicks check updates, while the app schedules no periodic check.
 - Autosized the Cartridge, Projectile and Propellant Property/Value/Unit columns from their current rendered content, with responsive constrained minimums on input-pane resize; explicit pointer/keyboard sizing remains shared and persistent, and double-click returns to automatic sizing.
 - Corrected report-local SVG styling so curve and vivacity paths have no fill and the pressure caution/danger bands retain their blue/red fills when embedded as standalone report images.
 - Corrected Cartridge/Chamber dimension hover rendering: explicitly hide inactive SVG measurement groups, show only the hovered source-mapped dimension, and include its native-style label and formatted value on the drawing.
@@ -298,6 +299,7 @@ tests/fixtures/223Rem_D0735_RWS.csrload
 - Report-diagram correction gate on 2026-10-27: `npm run typecheck` PASS; `npm test -- --run` PASS (30 files, 175 tests); production build PASS; focused Edge Report workflow PASS. The browser test decodes the actual embedded curve SVG and verifies no-fill paths plus blue caution and red danger pressure-band rules.
 - Drawing-hover correction gate on 2026-10-27: `npm run typecheck` PASS; `npm test -- --run` PASS (30 files, 175 tests); production build PASS; focused Edge native-panel workflow PASS. Edge verifies inactive SVG dimensions are not visible and hovered Cartridge/Chamber L3 rows reveal exactly one labeled measurement; fresh 1440×900 captures were inspected.
 - Property-column autosize gate on 2026-10-27: `npm run typecheck` PASS; `npm test -- --run --reporter=dot` PASS (30 files, 175 tests); production build PASS; focused Edge native-panel and splitter workflows PASS (2/2). Edge verifies automatic panel-filling minimum-constrained widths independently on Cartridge, Projectile and Propellant, then verifies the existing shared manual sizing/persistence and double-click return to automatic sizing.
+- Sync-version display gate on 2026-10-27: `npm run build` PASS (including typecheck); focused Edge update workflow PASS. Edge verifies exact `PWA 0.1.0` and `ChamberSim 0.13` labels at the menu's right edge, green current state and the explicit update check.
 
 ## Known issues and blockers
 

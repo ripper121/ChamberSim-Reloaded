@@ -170,9 +170,9 @@ Last updated: 2026-10-27
 
 ## D-027 — Make PWA updates explicit in the application shell
 
-**Decision:** Expose the prompt-style Workbox update lifecycle as a right-aligned Sync control. Green represents the currently loaded application version, red represents a waiting service worker, a green click calls `ServiceWorkerRegistration.update()`, and a red click activates the waiting worker and reloads through `virtual:pwa-register`.
+**Decision:** Expose the prompt-style Workbox update lifecycle as a right-aligned Sync control. Green represents the currently loaded application version, red represents a waiting service worker, a green click calls `ServiceWorkerRegistration.update()`, and a red click activates the waiting worker and reloads through `virtual:pwa-register`. Display the independently sourced PWA package version and ChamberSim core version immediately beside the control.
 
-**Rationale:** A cache-first installable application can otherwise leave users unsure whether they are running the deployed version. Reusing the generated service worker's waiting/activation lifecycle avoids bypassing Workbox or clearing offline caches, while explicit click-to-activate behavior prevents an update from interrupting unsaved load edits without a user gesture.
+**Rationale:** A cache-first installable application can otherwise leave users unsure whether they are running the deployed version. The service worker registers on every page startup and the browser performs its normal update handling then; the app deliberately adds no periodic timer, while Sync provides a deterministic explicit check. Reusing the generated service worker's waiting/activation lifecycle avoids bypassing Workbox or clearing offline caches, while explicit click-to-activate behavior prevents an update from interrupting unsaved load edits without a user gesture. Showing both versions distinguishes the independently released browser shell from the simulation/core compatibility version.
 
 ## D-028 — Store theme preference separately from its effective palette
 
@@ -248,7 +248,7 @@ Last updated: 2026-10-27
 
 ## D-040 — Build About from native rich text and the authoritative CMake version
 
-**Decision:** Port the complete rich-text blocks from `about.cpp` through the existing Qt-catalog reader and render them as trusted repository-owned HTML. Generate localized Project, Personal and Original database counts from live browser state, escape the user-supplied Original filename, and map Qt/OS runtime details to the browser user agent while retaining the translated build date. Read `CSR_VERSION` from the root `CMakeLists.txt` during the Vite build and inject that value into About, reports and startup logging.
+**Decision:** Port the complete rich-text blocks from `about.cpp` through the existing Qt-catalog reader and render them as trusted repository-owned HTML. Generate localized Project, Personal and Original database counts from live browser state, escape the user-supplied Original filename, and map Qt/OS runtime details to the browser user agent while retaining the translated build date. Read `CSR_VERSION` from the root `CMakeLists.txt` during the Vite build and inject that value into About, reports and startup logging; independently inject the browser-shell version from `pwa/package.json` for the Sync-area version display.
 
 **Rationale:** The former abbreviated dialog omitted user-visible feature, accuracy, safety, disclaimer, license and database information and independently reported package version 0.1.0 instead of native version 0.10. `CMakeLists.txt` explicitly defines itself as the single application-version source. Build-time injection preserves that invariant without coupling browser runtime code to CMake parsing. Catalog HTML is maintained source content, while all dynamic strings are escaped and external links receive browser-safe new-tab behavior. Qt version fields have no honest PWA equivalent, so browser/runtime identity is the documented platform mapping.
 
