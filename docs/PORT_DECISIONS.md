@@ -1,6 +1,6 @@
 # PWA Port Decisions
 
-Last updated: 2026-10-26
+Last updated: 2026-10-27
 
 ## D-001 — Keep the PWA isolated under `pwa/`
 
@@ -317,3 +317,9 @@ Last updated: 2026-10-26
 **Decision:** Keep the legacy input as the tracked `tests/fixtures/223Rem_D0735_RWS.csrload` compatibility fixture, independent of disposable build output, but do not use historical executables or their outputs as v0.13 acceptance goldens. Build the merged source in an ignored current-reference directory when regenerating numerical comparisons, and normalize old loads through the same `ensureSebert`/`ensurePrimer` path as the GUI. Browser tests perform a native comparison only when this fresh executable exists.
 
 **Rationale:** The checked-in package is version 0.10 while the merged source and PWA identify as 0.13. Primer offsets and refitted physical resources intentionally change Physical results, so retaining v0.10 output assertions would reject correct v0.13 behavior. The old load remains valuable for backward-compatible parsing and migration.
+
+## D-052 — Integrate upstream without treating the PWA as generated output
+
+**Decision:** Merge reviewed upstream native changes into the fork without resetting `main`, preserve a named pre-merge backup point, and audit every incoming behavior against the independent TypeScript/PWA implementation. Preserve fork-owned PWA, deployment and CMake resource fixes during conflict resolution. Record implementation status and repeatable evidence in `PORT_PROGRESS.md` and `parity-checklist.md` rather than keeping a separate one-off update plan.
+
+**Rationale:** The v0.13 comparison found substantial history on both sides: 29 upstream-only commits and 47 fork-only commits from their common ancestor. Merging C++/Qt/data changes cannot update browser-specific solver, storage, file, UI or service-worker code automatically. A reset or wholesale ours/theirs resolution would discard valid work, while a detached update document quickly becomes stale after implementation. The persistent port documents already define the authoritative checkpoint and verification contract.

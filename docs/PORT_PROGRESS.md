@@ -36,6 +36,38 @@ Working, not blocked. Upstream v0.13 and its PWA behavior port are merged on `ma
 - **Phase 2 visual parity: approximately 85% complete (medium confidence, ±8%).** Major layouts, charts, property tables, dialogs, drawings, primary actions and the v0.13 Results structure have direct browser evidence; fine named-theme and widget palette/geometry differences remain.
 - **Overall definition of done: approximately 96% complete (medium confidence, ±3%).** This weights functional parity more heavily than visual polish. The parity checklist has 46 `PASS` and 3 `IN PROGRESS` rows after this checkpoint; no `TODO`, `DIFF`, or `BLOCKED` row remains.
 
+## Upstream v0.13 integration record
+
+The 2026-10-26 comparison found the fork 29 upstream commits behind and 47 fork-only commits ahead of `Schildkroet/ChamberSim-Reloaded/main`, with common ancestor `f57118e8d227ae3d5cb0f95d9ca6d1aff37cd20b`. Upstream v0.11-v0.13 was therefore merged without resetting the fork or replacing its independent PWA. The merge is now on `main`; `backup-before-upstream-013` preserves the pre-merge point.
+
+The comparison used upstream release notes, CMake version metadata, commit history and the relevant solver, load-builder, load-view and theme sources. GitHub's comparison file list was truncated at 300 files, so the feature inventory and direct source/runtime checks—not that truncated list—were used as acceptance evidence.
+
+| Upstream area | Required PWA outcome | Current state |
+| --- | --- | --- |
+| Primer pressure and Sebert compatibility | Physical applies the primer delta from 250 bar; Original/Published retain stored pressure; Sebert accepts 0..1 | PASS |
+| Physical powder/data revisions | Regenerate current data and compare with a fresh v0.13 native build, never the v0.10 package | PASS |
+| BLT/OBT and Results | Port calculations, reports, four key cards and Barrel/Projectile/Propellant groups | PASS |
+| Database/search/import | Current record data, exact/prefix/substring relevance, missing-caliber fallback and atomic deduplicated bullet import | PASS |
+| Reports/exports/help/metadata | Twist and jump fields, suffix behavior, Online documentation, translations and v0.13 About/version | PASS |
+| Added themes | Gruvbox Light/Dark, Nord, Dracula and Catppuccin Latte/Frappé with persistence and source palettes | IN PROGRESS: behavior passes; fine palette comparison remains |
+| Final regression/visual gate | Full PWA gates plus remaining native-shell/theme review | IN PROGRESS |
+
+Milestones M0-M3 are complete: the reviewed merge, solver/current-source baselines, resources/database/search/import behavior, and BLT/OBT/Results/report/export work all pass. M4 remains open only for fine theme and visual parity. M5 has the merge, documentation and functional gates complete; it closes after the final visual review and fresh complete regression.
+
+Remaining validation work:
+
+- Compare every added theme's charts, drawings, dialogs, menus, result cards and secondary widgets directly with `src/app/theme.cpp`.
+- Run native `tst_core` when a QtTest build matching the configured static Qt toolchain is available; the current link-mode mismatch is environmental.
+- After the final visual changes, rerun typecheck, all unit and Edge tests, production build, installability, dependency audit and comparison capture.
+
+Regression-sensitive invariants retained from the update review:
+
+- A native-source merge does not automatically port behavior into `pwa/src/lib/*.ts` or `pwa/src/main.ts`; every future upstream change needs an explicit PWA impact review.
+- Recalibrated data invalidates historical numeric goldens even when equations are unchanged. Use fresh current-source native output and retain v0.10 results only as historical evidence.
+- CSR/GRT round trips must preserve unknown XML while supporting primer fields, zero Sebert, missing-caliber fallback and new report keys.
+- Preserve the fork's `pwa/`, deployment resources and the `csr_fitpowder` project-data resource fix during future upstream merges.
+- Do not weaken golden tolerances or mark skipped/stale checks as passing to finish an update.
+
 ## Completed since previous checkpoint
 
 - Read the original source tree, manuals, build files, CLI sources, load-file structures, and key UI paths.
