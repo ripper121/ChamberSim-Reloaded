@@ -21,7 +21,7 @@ function setEntry(entries: readonly Entry[], name: string, value: string): Entry
 
 describe("SimInput::fromLoad parity", () => {
   it("maps the release load fields, physical values, clamps, and defaults", () => {
-    const load = fixture("build/release/223Rem_D0735_RWS.csrload");
+    const load = fixture("tests/fixtures/223Rem_D0735_RWS.csrload");
     const input = simInputFromLoad(load);
     expect(input).toMatchObject({
       caseLengthMm: 44.7,
@@ -104,7 +104,7 @@ describe("SimInput::fromLoad parity", () => {
   });
 
   it("invalidates physical values when their original burn reference changes", () => {
-    const load = fixture("build/release/223Rem_D0735_RWS.csrload");
+    const load = fixture("tests/fixtures/223Rem_D0735_RWS.csrload");
     const entries = [...load.propellant, ...load.physical];
     expect(readPhysicalBurn(entries)).toBeDefined();
     expect(readPhysicalBurn(setEntry(entries, "Ba", "0.7"))).toBeUndefined();

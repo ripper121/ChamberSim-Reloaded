@@ -8,7 +8,7 @@ const repositoryRoot = resolve(import.meta.dirname, "../../..");
 
 describe("load-file compatibility", () => {
   it("reads the release CSR load and decodes its textual values", () => {
-    const path = resolve(repositoryRoot, "build/release/223Rem_D0735_RWS.csrload");
+    const path = resolve(repositoryRoot, "tests/fixtures/223Rem_D0735_RWS.csrload");
     const load = parseLoadXml(readFileSync(path, "utf8"), "223Rem_D0735_RWS.csrload");
     expect(load.source).toBe("reload");
     expect(load.title).toContain("223 Rem.");
@@ -33,7 +33,7 @@ describe("load-file compatibility", () => {
   });
 
   it("round-trips edited CSR fields, textual encoding, unknown entries, and appendix XML", () => {
-    const path = resolve(repositoryRoot, "build/release/223Rem_D0735_RWS.csrload");
+    const path = resolve(repositoryRoot, "tests/fixtures/223Rem_D0735_RWS.csrload");
     const source = readFileSync(path, "utf8")
       .replace("<ChamberSimReloaded ", '<ChamberSimReloaded futureAttribute="kept" ')
       .replace("<appendix>", '<FutureTop answer="outside"/><appendix>')
@@ -55,7 +55,7 @@ describe("load-file compatibility", () => {
   });
 
   it("exports original GRT without CSR-only sections and enables friction", () => {
-    const path = resolve(repositoryRoot, "build/release/223Rem_D0735_RWS.csrload");
+    const path = resolve(repositoryRoot, "tests/fixtures/223Rem_D0735_RWS.csrload");
     const load = parseLoadXml(readFileSync(path, "utf8"), "reference.csrload");
     const xml = serializeLoadXml(load, "original");
     expect(xml).toContain("<GordonsReloadingTool");

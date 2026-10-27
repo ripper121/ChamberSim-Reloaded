@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { parseLoadXml } from "./loadfile";
 import { editLoadValue, LoadHistory } from "./loadedit";
 
-const path = resolve(import.meta.dirname, "../../../build/release/223Rem_D0735_RWS.csrload");
+const path = resolve(import.meta.dirname, "../../../tests/fixtures/223Rem_D0735_RWS.csrload");
 const load = () => parseLoadXml(readFileSync(path, "utf8"), path);
 const value = (document: ReturnType<typeof load>, section: "caliber" | "projectile", name: string): number =>
   Number(document[section].find((entry) => entry.name === name)?.value);

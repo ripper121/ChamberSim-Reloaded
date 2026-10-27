@@ -314,6 +314,6 @@ Last updated: 2026-10-26
 
 ## D-051 — Treat `build/release` as a historical v0.10 package after the v0.13 merge
 
-**Decision:** Keep `build/release/223Rem_D0735_RWS.csrload` as a legacy compatibility input, but do not use the executables or their outputs as v0.13 acceptance goldens. Build the merged source in ignored `build/current-reference`, normalize old loads through the same `ensureSebert`/`ensurePrimer` path as the GUI, and use that CLI for current numerical comparisons. Browser tests perform a native comparison only when this fresh executable exists.
+**Decision:** Keep the legacy input as the tracked `tests/fixtures/223Rem_D0735_RWS.csrload` compatibility fixture, independent of disposable build output, but do not use historical executables or their outputs as v0.13 acceptance goldens. Build the merged source in an ignored current-reference directory when regenerating numerical comparisons, and normalize old loads through the same `ensureSebert`/`ensurePrimer` path as the GUI. Browser tests perform a native comparison only when this fresh executable exists.
 
 **Rationale:** The checked-in package is version 0.10 while the merged source and PWA identify as 0.13. Primer offsets and refitted physical resources intentionally change Physical results, so retaining v0.10 output assertions would reject correct v0.13 behavior. The old load remains valuable for backward-compatible parsing and migration.

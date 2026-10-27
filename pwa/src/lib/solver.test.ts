@@ -21,7 +21,7 @@ import {
 
 const repositoryRoot = resolve(import.meta.dirname, "../../..");
 
-function input(path = "build/release/223Rem_D0735_RWS.csrload"): SimInput {
+function input(path = "tests/fixtures/223Rem_D0735_RWS.csrload"): SimInput {
   const absolute = resolve(repositoryRoot, path);
   return simInputFromLoad(parseLoadXml(readFileSync(absolute, "utf8"), absolute));
 }
@@ -217,7 +217,7 @@ describe("Original numerical model", () => {
 describe("Physical numerical model", () => {
   it.each([
     {
-      path: "build/release/223Rem_D0735_RWS.csrload",
+      path: "tests/fixtures/223Rem_D0735_RWS.csrload",
       expected: {
         maxPressureBar: 3614.471964703715,
         muzzlePressureBar: 1114.82251593548,

@@ -1,14 +1,14 @@
 # PWA Port Progress
 
-Last updated: 2026-10-26
+Last updated: 2026-10-27
 
 ## Current objective
 
-Phase 1 — v0.13 functional-parity refresh after merging upstream v0.11–0.13. Preserve the completed v0.10-era workflows while validating primer semantics, current data/resources, BLT/OBT, missing-caliber fallback, relevance sorting and atomic bullet imports against the merged source. Resume final visual work only after this refresh is green.
+Phase 2 — finish v0.13 visual parity after the functional refresh. The Results card/group layout is complete; compare and correct the remaining named-theme and fine native-shell palette/geometry differences without regressing the green functional workflows.
 
 ## Current state (working / failing / blocked)
 
-Working, not blocked. Upstream v0.13 is merged on `integrate-upstream-013`; `backup-before-upstream-013` preserves the pre-merge point. The checked-in `build/release` package is version 0.10 and is now classified only as a legacy input/visual reference. A fresh ignored `build/current-reference/csr_sim.exe` is the v0.13 numerical oracle. The PWA typecheck, all 175 unit tests, production build, all 42 Edge scenarios, install-promotion/app-window verification and dependency audit pass. Native `csr_sim` and `csr_fitpowder` build; native `tst_core` currently cannot link because the available QtTest library/import mode does not match the configured static Qt build.
+Working, not blocked. Upstream v0.13 and its PWA behavior port are merged on `main`; `backup-before-upstream-013` preserves the pre-merge point. Historical v0.10 build outputs are no longer retained. Their legacy CSR input is tracked independently at `tests/fixtures/223Rem_D0735_RWS.csrload`, while the previously recorded fresh v0.13 CLI goldens remain the numerical acceptance baseline. The PWA typecheck, all 175 unit tests and production build pass. The latest full Edge run passed 41/42; the sole unrelated menu-visibility timing failure passed immediately in isolation, and the preceding full gate was 42/42. Native `tst_core` currently cannot link because the available QtTest library/import mode does not match the configured static Qt build.
 
 ### v0.13 refresh completed in this checkpoint
 
@@ -19,26 +19,28 @@ Working, not blocked. Upstream v0.13 is merged on `integrate-upstream-013`; `bac
 - Updated to 485 calibers, 3,120 projectiles and 249 propellants; added exact/prefix/substring search relevance, missing-`caliberfile` fallback, in-file bullet deduplication and one-transaction atomic import.
 - Added all v0.13 theme choices with native System persistence, updated translations/metadata, Help > Online documentation, report twist/jump fields and current About version.
 - Corrected `csr_sim` so legacy loads use the same `ensureSebert`/`ensurePrimer` normalization as the native GUI.
+- Replaced the pre-v0.13 Results summary with the exact four key cards (maximum pressure, muzzle velocity, projectile energy and barrel time) and Barrel/Projectile/Propellant groups; preserved all failure dashes and value-only overpressure highlighting.
+- Moved the legacy CSR input out of generated `build/release` output into the tracked test fixtures and updated every unit, browser and comparison-capture consumer.
 
 ### Exact next steps
 
-1. Update the Results layout from the prior three-column form to v0.13's four key cards and Barrel/Projectile/Propellant groups; visually compare all new theme palettes while keeping the green functional gates.
+1. Visually compare all new v0.13 theme palettes against `src/app/theme.cpp`, focusing on charts, drawings and secondary widgets while keeping the green functional gates.
 2. Resolve or document the static/dynamic QtTest link mismatch and run native `tst_core` when a matching QtTest build is available.
-3. Review commit `9978229` on the integration branch, finish the remaining visual items, then merge it to `main` through the normal reviewed workflow.
+3. Finish the remaining native-shell visual items, rerun the complete quality gate, and checkpoint the final Phase 2 evidence.
 
 **Historical pre-v0.13 baseline:** The original Qt application and both packaged release CLIs ran locally, and the PWA passed 165 units, 42 Edge scenarios, installability and audit gates before the upstream merge. The detailed milestone history below remains useful evidence for unchanged workflows, but its v0.10 counts and numerical goldens are superseded by the checkpoint above.
 
 ## Completion estimate (2026-10-26 audit)
 
 - **Phase 1 functional parity: 100% complete against the current discoverable inventory (high confidence).** Core simulation, file compatibility, editing, databases, measurements, fitting, reporting, settings, localization, persistence, installability and browser workflows are implemented and verified. The final powder-fit difference was traced to missing physical resources in the native CLI target, fixed, and matched directly from a rebuilt current-source executable.
-- **Phase 2 visual parity: approximately 75% complete (medium confidence, ±10%).** Major layouts, charts, property tables, dialogs, themes, drawings and primary actions have direct native/PWA comparison evidence, but finer widget geometry/style differences remain. Phase 2 is now active.
-- **Overall definition of done: approximately 95% complete (medium confidence, ±3%).** This weights functional parity more heavily than visual polish. The parity checklist has 44 `PASS` and 2 `IN PROGRESS` rows (44/46, or 95.7%, if every broad row is counted equally); no `TODO`, `DIFF`, or `BLOCKED` row remains. The open rows are the fine native-shell visual pass and the final production quality gate.
+- **Phase 2 visual parity: approximately 85% complete (medium confidence, ±8%).** Major layouts, charts, property tables, dialogs, drawings, primary actions and the v0.13 Results structure have direct browser evidence; fine named-theme and widget palette/geometry differences remain.
+- **Overall definition of done: approximately 96% complete (medium confidence, ±3%).** This weights functional parity more heavily than visual polish. The parity checklist has 46 `PASS` and 3 `IN PROGRESS` rows after this checkpoint; no `TODO`, `DIFF`, or `BLOCKED` row remains.
 
 ## Completed since previous checkpoint
 
 - Read the original source tree, manuals, build files, CLI sources, load-file structures, and key UI paths.
 - Ran `csr_sim.exe --help` and `csr_fitpowder.exe --help`; both exited 0.
-- Captured physical and original-profile results for `build/release/223Rem_D0735_RWS.csrload`.
+- Historically captured physical and original-profile results for the legacy CSR input when it was stored at `build/release/223Rem_D0735_RWS.csrload`; the same input is now tracked under `tests/fixtures`.
 - Ran the native GUI screenshot mode and inspected the database and measurements layouts.
 - Added `docs/pwa-inventory.md` and the initial full-feature `docs/parity-checklist.md`.
 - Added a Vite/TypeScript PWA shell under `pwa/`, using the original icon and a generated Workbox service worker.
@@ -195,8 +197,8 @@ Working, not blocked. Upstream v0.13 is merged on `integrate-upstream-013`; `bac
 
 ## Next actions (ordered, directly actionable)
 
-1. Begin the Phase 2 fine-widget pass with a fresh native/PWA comparison of the main load workspace and correct the highest-impact source-visible geometry differences.
-2. Continue through dialogs, database tables and secondary workspaces while rerunning focused functional browser checks after each visual change.
+1. Compare Gruvbox Light/Dark, Nord, Dracula and Catppuccin Latte/Frappé palettes against `src/app/theme.cpp`, including chart, drawing, menu, dialog and result-card surfaces.
+2. Continue the Phase 2 fine-widget pass through dialogs, database tables and secondary workspaces while rerunning focused functional browser checks after each visual change.
 3. Close the production quality gate only after the visual checklist is complete and every final native/PWA/PWA-installability gate has been rerun.
 
 ## How to run (working commands, directories, server URL/port if known)
@@ -216,12 +218,10 @@ npm run dev
 
 The Vite development server was verified at `http://127.0.0.1:5173/`. The E2E command starts production preview at `http://127.0.0.1:4173/`. Do not assume either process survives a session; use the exact URL printed on restart.
 
-Native references from the repository root:
+To regenerate native references from the repository root, first configure/build a current-source output directory; historical `build/release` executables are no longer retained. The tracked browser compatibility input is:
 
 ```text
-.\build\release\csr_sim.exe --format json .\build\release\223Rem_D0735_RWS.csrload
-.\build\release\csr_sim.exe --profile original --format table .\build\release\223Rem_D0735_RWS.csrload
-.\build\release\ChamberSimReloaded.exe <load> --screenshot <png> --language en_US
+tests/fixtures/223Rem_D0735_RWS.csrload
 ```
 
 ## Tests and parity verification (commands, results, known failures)
@@ -259,6 +259,7 @@ Native references from the repository root:
 - `npm run capture:comparison`: PASS; produced 1280×800 Edge captures of the main window, database, record editor, burn-rate table and unit converter from the production bundle for manual comparison.
 
 - v0.13 integration gate on 2026-10-26: `npm run typecheck` PASS; `npm test -- --run` PASS (30 files, 175 tests); `npm run build` PASS with 27 Workbox entries / 4,508.53 KiB; focused affected Edge rerun PASS (9/9); fresh `npm run test:e2e` PASS (42/42 in 3.8 minutes), including current counts, v0.13 About/Help, primer-adjusted native goldens, BLT/OBT, atomic import, missing-caliber infrastructure, updated translations and all nine themes; `npm run test:install` PASS with `beforeinstallprompt`, zero installability errors and standalone app-window mode; `npm audit` PASS with zero vulnerabilities. Fresh native `csr_sim`/`csr_fitpowder` targets build and the legacy CSR baseline is recorded above. `tst_core` did not link due the local static/dynamic QtTest mismatch and remains an environment blocker.
+- v0.13 Results-layout gate on 2026-10-27: `npm run typecheck` PASS; `npm test -- --run` PASS (30 files, 175 tests); repeated production builds PASS; focused normal-result and invalid/capacity/stuck/overpressure Edge scenarios PASS. A full Edge run passed 41/42 in 4.0 minutes; its sole unchanged menu-visibility timing failure passed immediately alone. `npm run capture:comparison` PASS after moving the CSR input into `tests/fixtures`; the 1280×800 production capture was inspected and all four key cards remain visible at the constrained split-pane width. `npm run test:install` PASS with a real install prompt, zero installability errors and standalone app-window mode; `npm audit` PASS with zero vulnerabilities.
 
 ## Known issues and blockers
 
@@ -279,7 +280,7 @@ Native references from the repository root:
 - File semantics: `src/core/loadfile.cpp`, `src/core/measurement.cpp`, `src/core/loadspec.h`
 - Solver: `src/core/solver.cpp`, `src/core/simconfig.cpp`
 - UI: `src/app/mainwindow.cpp`, `src/app/loadview.cpp`, `src/app/measurementview.cpp`, `src/app/reportview.cpp`, `src/app/reporttemplatedialog.cpp`
-- Reference loads: `build/release/223Rem_D0735_RWS.csrload`, `tests/fixtures/8x57is.grtload`
+- Reference loads: `tests/fixtures/223Rem_D0735_RWS.csrload`, `tests/fixtures/8x57is.grtload`
 - Native visual references: `docs/manual/images/main.png`, `docs/manual/images/measurements.png`, ignored local screenshots under `PWA_COMPARISON/`
 
 ## Relevant decisions (link to PORT_DECISIONS.md)

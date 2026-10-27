@@ -11,7 +11,7 @@ import { systemUnit } from "./units";
 const repositoryRoot = resolve(import.meta.dirname, "../../..");
 
 function reference() {
-  const path = resolve(repositoryRoot, "build/release/223Rem_D0735_RWS.csrload");
+  const path = resolve(repositoryRoot, "tests/fixtures/223Rem_D0735_RWS.csrload");
   const load = parseLoadXml(readFileSync(path, "utf8"), path);
   const input = simInputFromLoad(load);
   return { load, input, result: simulate(input, calibrationFor("physical")) };

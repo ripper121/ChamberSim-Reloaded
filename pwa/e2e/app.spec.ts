@@ -7,7 +7,7 @@ import initSqlJs from "sql.js";
 
 const pwaRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const repositoryRoot = resolve(pwaRoot, "..");
-const referenceLoad = resolve(repositoryRoot, "build/release/223Rem_D0735_RWS.csrload");
+const referenceLoad = resolve(repositoryRoot, "tests/fixtures/223Rem_D0735_RWS.csrload");
 const originalLoad = resolve(repositoryRoot, "tests/fixtures/8x57is.grtload");
 const measurementLoad = resolve(repositoryRoot, "tests/fixtures/measurements.grtload");
 const bulletFile = resolve(repositoryRoot, "tests/fixtures/example.csrbullets");
@@ -1062,7 +1062,15 @@ test("runs verified Physical and Original simulations in the results view", asyn
   await expect(vivacity.locator(".vivacity-x-tick")).toHaveCount(6);
   await expect(vivacity.locator(".vivacity-y-tick")).toHaveCount(5);
   expect(Math.round((await vivacity.boundingBox())!.width)).toBe(260);
-  expect(await page.locator(".result-summary dd").first().evaluate((node) => getComputedStyle(node).fontWeight)).toBe("700");
+  const resultCards = page.locator(".result-cards .result-card");
+  await expect(resultCards).toHaveCount(4);
+  await expect(resultCards.locator("dt")).toHaveText(["Maximum pressure", "Muzzle velocity", "Projectile energy", "Barrel time (BT)"]);
+  expect(await resultCards.locator("dd").first().evaluate((node) => getComputedStyle(node).fontWeight)).toBe("700");
+  expect(await resultCards.locator(".result-card-number").first().evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThan(25);
+  await expect(page.locator(".result-details .result-group > h3")).toHaveText(["Barrel", "Projectile", "Propellant"]);
+  await expect(page.locator(".result-details .result-group").nth(0).locator("dd")).toHaveCount(4);
+  await expect(page.locator(".result-details .result-group").nth(1).locator("dd")).toHaveCount(3);
+  await expect(page.locator(".result-details .result-group").nth(2).locator("dd")).toHaveCount(5);
   await expect(page.locator(".event-marker")).toHaveCount(4);
 
   const chart = page.getByRole("img", { name: "Pressure, energy and velocity over bullet travel" });
@@ -1282,8 +1290,8 @@ test("shows native invalid, capacity, stuck-bullet, ladder, and overpressure sta
   const selectProfile = async (profile: "physical" | "published" | "original"): Promise<void> => setSolverProfile(page, profile);
   const expectClearedSummary = async (): Promise<void> => {
     const values = page.locator(".result-summary dd");
-    await expect(values).toHaveCount(14);
-    expect(await values.allTextContents()).toEqual(Array(14).fill("—"));
+    await expect(values).toHaveCount(16);
+    expect(await values.allTextContents()).toEqual(Array(16).fill("—"));
   };
 
   await setCharge("0");

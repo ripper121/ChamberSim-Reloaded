@@ -11,7 +11,7 @@ const edgeCandidates = [
 const executablePath = edgeCandidates.find(existsSync);
 const outputDirectory = resolve("test-results");
 const outputPath = resolve(outputDirectory, "main-current.png");
-const loadPath = resolve("..", "build", "release", "223Rem_D0735_RWS.csrload");
+const loadPath = resolve("..", "tests", "fixtures", "223Rem_D0735_RWS.csrload");
 
 mkdirSync(outputDirectory, { recursive: true });
 let server;
@@ -27,7 +27,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
   await page.goto("http://127.0.0.1:4173/");
   await page.getByRole("button", { name: "I understand" }).click();
-  await page.getByText("484 entries", { exact: true }).waitFor();
+  await page.getByText("485 entries", { exact: true }).waitFor();
   await page.screenshot({ path: resolve(outputDirectory, "database-current.png") });
   await page.locator(".tools-menu > summary").click();
   await page.locator("#burn-rate-table").click();
@@ -47,7 +47,7 @@ try {
   await page.screenshot({ path: resolve(outputDirectory, "record-current.png") });
   await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
   await page.locator("#file-picker").setInputFiles(loadPath);
-  await page.getByText("3,614 bar", { exact: true }).waitFor();
+  await page.getByText("3,639 bar", { exact: true }).waitFor();
   await page.screenshot({ path: outputPath });
   console.log(outputPath);
 } finally {

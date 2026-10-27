@@ -4,10 +4,10 @@ This inventory started from the Qt/C++ source, manual and packaged v0.10 release
 
 ## Reference executables and deterministic baseline
 
-- Historical packaged GUI/CLIs: `build/release/` (**v0.10 input/visual compatibility references, not v0.13 numerical oracles**)
+- Historical packaged GUI/CLIs: no longer retained under `build/release/`; prior v0.10 observations remain documentation evidence, not v0.13 numerical oracles
 - Current-source v0.13 simulator CLI: ignored local build `build/current-reference/csr_sim.exe`
 - Current-source v0.13 powder-fit CLI: ignored local build `build/current-reference/csr_fitpowder.exe`
-- Reference load: `build/release/223Rem_D0735_RWS.csrload`
+- Reference load: `tests/fixtures/223Rem_D0735_RWS.csrload`
 - Current v0.13 default Physical result for that legacy input after load normalization: 3639.3882505989213 bar peak pressure, 905.0165289447478 m/s muzzle velocity, 1379.9205132572683 J muzzle energy, 0.748939922616817 ms barrel time, 0.7464788122880305 ms BLT, and 0.7472620234750001 ms OBT at node 5.
 - `original` reference result: 3546.47 bar peak pressure, 872.578 m/s muzzle velocity, 1282.77 J muzzle energy, 0.802893 ms barrel time.
 

@@ -1,11 +1,11 @@
 # ChamberSim Reloaded — Upstream Sync and PWA Update Plan
 
-**Comparison date:** 2026-10-26  
+**Comparison date:** 2026-10-27
 **Original (upstream):** [`Schildkroet/ChamberSim-Reloaded`](https://github.com/Schildkroet/ChamberSim-Reloaded), `main`  
 **Fork:** [`ripper121/ChamberSim-Reloaded`](https://github.com/ripper121/ChamberSim-Reloaded), `main`  
 **Purpose:** Bring the fork's native application and its independently implemented PWA up to the latest upstream behavior **without losing PWA work**.
 
-> **Status: IMPLEMENTATION IN PROGRESS.** Upstream v0.13 was merged into `integrate-upstream-013` on 2026-10-26; `backup-before-upstream-013` preserves the pre-merge state. M1 and M2 are implemented and verified. M3's BLT/OBT/report behavior is implemented, while the new card/group Results layout remains. M4 theme choices and Online documentation are functional, with fine palette/layout comparison remaining. All 175 unit tests, 42 Edge scenarios, production build, installability gate and dependency audit pass. Native `tst_core` is blocked by the local QtTest link-mode mismatch. `build/release` is the old v0.10 package; current numeric acceptance uses a fresh ignored `build/current-reference` build.
+> **Status: IMPLEMENTATION IN PROGRESS.** Upstream v0.13 and the PWA behavior port are merged into `main`; `backup-before-upstream-013` preserves the pre-merge state. M1-M3 are implemented and verified, including BLT/OBT/report behavior and the v0.13 four-card plus Barrel/Projectile/Propellant Results layout. M4 theme choices and Online documentation are functional, with fine palette/layout comparison remaining. All 175 unit tests and the production build pass; the latest full Edge run passed 41/42, with its one unrelated menu-timing failure passing immediately in isolation (the preceding complete run was 42/42). Native `tst_core` remains blocked by the local QtTest link-mode mismatch. Obsolete v0.10 build artifacts were removed; the legacy CSR compatibility input is now the tracked `tests/fixtures/223Rem_D0735_RWS.csrload` fixture.
 
 ## 1. Git state
 
@@ -90,17 +90,17 @@ git grep -n 'CSR_VERSION' -- CMakeLists.txt
 
 ## 5. Definition of done / validation plan
 
-- [ ] Upstream is merged into an integration branch, with PWA and fork-only resources intact.
+- [x] Upstream is merged into `main`, with PWA and fork-only resources intact.
 - [ ] Native Qt app and current `csr_sim`/`csr_fitpowder` build; retain the fork's physical resource fix.
 - [ ] Capture **new native 0.13** baselines for CSR, GRT, primer variants, no-caliber GRT, Sebert zero, BLT/OBT and failure/warning cases.
-- [ ] Update `pwa/src/lib/siminput.ts`, `solver.ts`, `loadbuilder.ts`, `loadedit.ts`, `loadfile.ts` as needed and compare against current native goldens.
-- [ ] Import new source data; assert counts and selected record fields/validation marks without assuming the old record totals.
-- [ ] Update `bulletfile.ts` so duplicate entries and failure paths reproduce current-source all-or-nothing semantics.
-- [ ] Add BLT/OBT to result contract, rendering, reports and tests.
-- [ ] Update Results to the current upstream cards/groups and compare native/PWA at matched viewport, theme and fixture.
+- [x] Update `pwa/src/lib/siminput.ts`, `solver.ts`, `loadbuilder.ts`, `loadedit.ts`, `loadfile.ts` as needed and compare against current native goldens.
+- [x] Import new source data; assert counts and selected record fields/validation marks without assuming the old record totals.
+- [x] Update `bulletfile.ts` so duplicate entries and failure paths reproduce current-source all-or-nothing semantics.
+- [x] Add BLT/OBT to result contract, rendering, reports and tests.
+- [x] Update Results to the current upstream cards/groups and compare the production PWA at standard and constrained desktop viewports.
 - [ ] Add all new themes, localization, persistence, drawings/charts and screenshot tests.
-- [ ] Update search ranking and no-caliber-file fallback, with unit and browser scenarios.
-- [ ] Update report placeholders/default template, export suffixes, docs, About and Help actions.
+- [x] Update search ranking and no-caliber-file fallback, with unit and browser scenarios.
+- [x] Update report placeholders/default template, export suffixes, docs, About and Help actions.
 - [ ] Update `docs/pwa-inventory.md`, `docs/parity-checklist.md`, `docs/PORT_DECISIONS.md`, `docs/PORT_PROGRESS.md` to distinguish legacy 0.10 parity from 0.13 parity.
 - [ ] Run the complete browser/PWA quality gates and review failures rather than weakening golden tolerances.
 
@@ -126,9 +126,9 @@ Run appropriate native CMake/CTest targets configured in the working tree too. T
 | M0 | Git backup, integration branch and reviewed upstream merge | PASS |
 | M1 | Solver, primer, Sebert and current-source numeric baselines | PASS (native `tst_core` link environment blocked) |
 | M2 | Resources, database, search, caliber fallback and import atomicity | PASS |
-| M3 | BLT/OBT, Results UI, reports and exports | IN PROGRESS — behavior/report PASS; v0.13 card layout remains |
+| M3 | BLT/OBT, Results UI, reports and exports | PASS |
 | M4 | Themes, i18n, Help/manual and fine visual parity | IN PROGRESS — choices/Help PASS; fine palette comparison remains |
-| M5 | Full regression suite, updated docs, PR merge | IN PROGRESS — gates/docs/commit PASS; review and PR merge remain |
+| M5 | Full regression suite, updated docs, PR merge | IN PROGRESS — merge to `main` and functional gates PASS; final visual review/gate remain |
 
 ## 7. Evidence and limitations
 
@@ -136,4 +136,4 @@ Run appropriate native CMake/CTest targets configured in the working tree too. T
 - Read upstream `RELEASE_NOTES.md` and `CMakeLists.txt`; reviewed commit subjects for all 29 upstream-only commits and relevant per-file history for solver, builder, load file, load view and theme.
 - Used the uploaded parity checklist, port decisions and progress log as the **fork's self-reported baseline**; did not assume that they prove compatibility with later upstream source.
 - GitHub compare enumerated 300 files in its truncated changed-file list; therefore this review prioritizes feature-level changes documented by upstream rather than asserting an exhaustive file-level merge analysis.
-- **No repository was modified, no merge was attempted and no code/test execution was performed as part of this review.**
+- The initial comparison was read-only; implementation, merge, fixture relocation and the validation evidence above were subsequently completed in this repository.
