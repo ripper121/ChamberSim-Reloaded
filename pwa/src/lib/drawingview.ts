@@ -106,15 +106,21 @@ function hoverMeasure(mode: DrawingMode, key: string, round: RoundShape): Measur
   return across[key] ? { diameter: true, a: across[key]![0], b: across[key]![1] } : undefined;
 }
 
-function hoverSvg(mode: DrawingMode, rows: readonly Row[], round: RoundShape, X: (value: number) => number, Y: (value: number) => number, dimensionX: number): string {
+function xmlText(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function hoverSvg(mode: DrawingMode, rows: readonly Row[], round: RoundShape, preferences: UnitPreferences, X: (value: number) => number, Y: (value: number) => number, dimensionX: number): string {
   return rows.map((row) => {
     const measure = hoverMeasure(mode, row.key, round);
     if (!measure || !(measure.b > 0)) return "";
+    const text = xmlText(`${row.label}  ${formatValue(row, round.dims[row.key] ?? measure.b, preferences)}`);
     if (measure.diameter) {
       const y = Y(measure.a), x0 = X(-measure.b / 2), x1 = X(measure.b / 2);
-      return `<g data-drawing-measure="${row.key}" hidden><line x1="${n(x0)}" x2="${n(x1)}" y1="${n(y)}" y2="${n(y)}"/><line x1="${n(x0)}" x2="${n(x0)}" y1="${n(y - 4)}" y2="${n(y + 4)}"/><line x1="${n(x1)}" x2="${n(x1)}" y1="${n(y - 4)}" y2="${n(y + 4)}"/></g>`;
+      return `<g data-drawing-measure="${row.key}" hidden><line x1="${n(x0)}" x2="${n(x1)}" y1="${n(y)}" y2="${n(y)}"/><line x1="${n(x0)}" x2="${n(x0)}" y1="${n(y - 4)}" y2="${n(y + 4)}"/><line x1="${n(x1)}" x2="${n(x1)}" y1="${n(y - 4)}" y2="${n(y + 4)}"/><text class="hover-measure-label" x="${n(X(0))}" y="${n(y - 7)}" text-anchor="middle">${text}</text></g>`;
     }
-    return `<g data-drawing-measure="${row.key}" hidden><line class="guide" x1="${n(X(0))}" x2="${n(dimensionX)}" y1="${n(Y(measure.a))}" y2="${n(Y(measure.a))}"/><line class="guide" x1="${n(X(0))}" x2="${n(dimensionX)}" y1="${n(Y(measure.b))}" y2="${n(Y(measure.b))}"/><line x1="${n(dimensionX)}" x2="${n(dimensionX)}" y1="${n(Y(measure.a))}" y2="${n(Y(measure.b))}"/></g>`;
+    const middle = (Y(measure.a) + Y(measure.b)) / 2;
+    return `<g data-drawing-measure="${row.key}" hidden><line class="guide" x1="${n(X(0))}" x2="${n(dimensionX)}" y1="${n(Y(measure.a))}" y2="${n(Y(measure.a))}"/><line class="guide" x1="${n(X(0))}" x2="${n(dimensionX)}" y1="${n(Y(measure.b))}" y2="${n(Y(measure.b))}"/><line x1="${n(dimensionX)}" x2="${n(dimensionX)}" y1="${n(Y(measure.a))}" y2="${n(Y(measure.b))}"/><text class="hover-measure-label" x="${n(dimensionX + 7)}" y="${n(middle)}" text-anchor="middle" transform="rotate(-90 ${n(dimensionX + 7)} ${n(middle)})">${text}</text></g>`;
   }).join("");
 }
 
@@ -143,7 +149,7 @@ export function technicalDrawingView(load: LoadFile, mode: DrawingMode, preferen
     const top = Math.max(bulletTip(round), round.dims.L6 ?? 0, caseLength(round));
     const scale = Math.min(270 / (top + 2), 150 / Math.max(round.dims.R1 ?? 0, 14));
     const X = (value: number): number => 150 + value * scale, Y = (value: number): number => 288 - value * scale;
-    svg = `${defs(prefix)}${roundSvg(round, X, Y, prefix)}${dimensionLine(14, Y(0), Y(bulletTip(round)), `A  ${length(bulletTip(round))}`)}${dimensionLine(39, Y(0), Y(caseLength(round)), `B  ${length(caseLength(round))}`)}${dimensionLine(64, Y(bulletBase(round)), Y(caseLength(round)), `C  ${length(round.depth)}`)}${hoverSvg(mode, rows, round, X, Y, 228)}`;
+    svg = `${defs(prefix)}${roundSvg(round, X, Y, prefix)}${dimensionLine(14, Y(0), Y(bulletTip(round)), `A  ${length(bulletTip(round))}`)}${dimensionLine(39, Y(0), Y(caseLength(round)), `B  ${length(caseLength(round))}`)}${dimensionLine(64, Y(bulletBase(round)), Y(caseLength(round)), `C  ${length(round.depth)}`)}${hoverSvg(mode, rows, round, preferences, X, Y, 228)}`;
     measureRows = [
       ["A", `${tr("CartridgeView", "Overall length")} ${length(bulletTip(round))}`],
       ["B", `${tr("CartridgeView", "Case length")} ${length(caseLength(round))}`],
@@ -158,7 +164,7 @@ export function technicalDrawingView(load: LoadFile, mode: DrawingMode, preferen
       const X = (value: number): number => 140 + value * scale, Y = (value: number): number => 278 - value * scale;
       const block = `M${n(X(-halfWidth))} ${n(Y(topY))} H${n(X(halfWidth))} V${n(Y(0))} H${n(X(-halfWidth))} Z ${closedSymmetricPath(geometry.cavity, X, Y)}`;
       const grooves = geometry.grooves > geometry.lands && geometry.lands > 0 ? [-1, 1].map((sign) => `<line class="groove-line" x1="${n(X(sign * geometry.grooves / 2))}" x2="${n(X(sign * geometry.grooves / 2))}" y1="${n(Y(geometry.throatY + 1))}" y2="${n(Y(topY))}"/>`).join("") : "";
-      svg = `${defs(prefix)}<path class="steel-block" fill-rule="evenodd" d="${block}" fill="url(#${prefix}-steel)" stroke="#c8ccd2"/><rect class="bolt" x="${n(X(-halfWidth))}" y="${n(Y(0))}" width="${n(2 * halfWidth * scale)}" height="${n(4 * scale)}" fill="#4a525e"/>${roundSvg(round, X, Y, prefix)}${grooves}${dimensionLine(18, Y(0), Y(round.dims.c_L3 ?? 0), `A  ${length(round.dims.c_L3 ?? 0)}`)}${hoverSvg(mode, rows, round, X, Y, 226)}`;
+      svg = `${defs(prefix)}<path class="steel-block" fill-rule="evenodd" d="${block}" fill="url(#${prefix}-steel)" stroke="#c8ccd2"/><rect class="bolt" x="${n(X(-halfWidth))}" y="${n(Y(0))}" width="${n(2 * halfWidth * scale)}" height="${n(4 * scale)}" fill="#4a525e"/>${roundSvg(round, X, Y, prefix)}${grooves}${dimensionLine(18, Y(0), Y(round.dims.c_L3 ?? 0), `A  ${length(round.dims.c_L3 ?? 0)}`)}${hoverSvg(mode, rows, round, preferences, X, Y, 226)}`;
       measureRows = [["A", tr("ChamberView", "Chamber length %1", length(round.dims.c_L3 ?? 0))]];
     }
   }
