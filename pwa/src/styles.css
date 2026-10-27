@@ -54,7 +54,8 @@ select { background: #202020; border: 1px solid #555; border-radius: 2px; paddin
 .menu-submenu > summary[aria-disabled="true"] { color: #858585; pointer-events: none; }
 .menu-submenu > .submenu-popup { top: -4px; left: 100%; }
 .file-menu > .menu-popup { min-width: 285px; }
-.about-dialog { width: min(890px, calc(100% - 32px)); max-height: 85vh; }
+.help-menu > .menu-popup { width: max-content; min-width: 260px; max-width: calc(100vw - 8px); }
+.about-dialog { width: min(890px, calc(100% - 32px)); max-height: 85vh; overflow: hidden; }
 .about-dialog form { display: grid; grid-template-rows: minmax(0, 1fr) auto; max-height: calc(85vh - 2rem); }
 .about-layout { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; min-height: 0; overflow: auto; padding-right: 6px; }
 .about-layout img { width: 64px; height: 64px; }

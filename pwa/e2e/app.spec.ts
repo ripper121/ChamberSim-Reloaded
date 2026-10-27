@@ -218,6 +218,15 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   await openMenu(page, "Help");
   await expect(page.locator("#user-manual")).toHaveAttribute("href", /\.pdf$/);
   await expect(page.locator("#online-documentation")).toHaveAttribute("href", "https://schildkroet.github.io/ChamberSim-Reloaded/");
+  const helpMenuFit = await page.locator(".help-menu > .menu-popup").evaluate((menu) => {
+    const aboutButton = menu.querySelector<HTMLElement>("#about")!;
+    const menuBox = menu.getBoundingClientRect(), buttonBox = aboutButton.getBoundingClientRect();
+    return {
+      containsButton: buttonBox.left >= menuBox.left && buttonBox.right <= menuBox.right,
+      containsText: aboutButton.scrollWidth <= aboutButton.clientWidth
+    };
+  });
+  expect(helpMenuFit).toEqual({ containsButton: true, containsText: true });
   await page.locator("#about").click();
   const about = page.getByRole("dialog", { name: "About ChamberSim Reloaded" });
   await expect(about).toContainText("Interior ballistics for handloaders");
@@ -232,10 +241,21 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   await expect(about.getByRole("link", { name: "GNU General Public License" })).toHaveAttribute("target", "_blank");
   const aboutSize = await about.evaluate((element) => {
     const scroller = element.querySelector<HTMLElement>(".about-layout")!;
-    return { width: element.getBoundingClientRect().width, scrollWidth: scroller.scrollWidth, clientWidth: scroller.clientWidth };
+    const hasVerticalScrollbar = (node: HTMLElement): boolean => {
+      const overflow = getComputedStyle(node).overflowY;
+      return (overflow === "auto" || overflow === "scroll") && node.scrollHeight > node.clientHeight;
+    };
+    return {
+      width: element.getBoundingClientRect().width,
+      scrollWidth: scroller.scrollWidth,
+      clientWidth: scroller.clientWidth,
+      scrollbars: [element, element.querySelector<HTMLElement>("form")!, scroller, element.querySelector<HTMLElement>(".about-content")!]
+        .filter(hasVerticalScrollbar).map((node) => node.className || node.tagName.toLowerCase())
+    };
   });
   expect(aboutSize.width).toBeGreaterThanOrEqual(700);
   expect(aboutSize.scrollWidth).toBeLessThanOrEqual(aboutSize.clientWidth);
+  expect(aboutSize.scrollbars).toEqual(["about-layout"]);
   if (process.env.PARITY_ABOUT_SCREENSHOT) await page.screenshot({ path: process.env.PARITY_ABOUT_SCREENSHOT });
   await about.getByRole("button", { name: "OK", exact: true }).click();
 });

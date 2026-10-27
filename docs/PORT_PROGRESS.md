@@ -70,6 +70,7 @@ Regression-sensitive invariants retained from the update review:
 
 ## Completed since previous checkpoint
 
+- Made the Help popup wide enough for its localized About action and removed the About dialog shell's redundant vertical scrolling, leaving the inner rich-content area as the sole scrollbar.
 - Added independent `PWA 0.1.0` and `ChamberSim 0.13` version labels beside Sync, sourced at build time from `pwa/package.json` and root `CMakeLists.txt`; documented that startup registration/browser handling and explicit Sync clicks check updates, while the app schedules no periodic check.
 - Autosized the Cartridge, Projectile and Propellant Property/Value/Unit columns from their current rendered content, with responsive constrained minimums on input-pane resize; explicit pointer/keyboard sizing remains shared and persistent, and double-click returns to automatic sizing.
 - Corrected report-local SVG styling so curve and vivacity paths have no fill and the pressure caution/danger bands retain their blue/red fills when embedded as standalone report images.
@@ -300,6 +301,7 @@ tests/fixtures/223Rem_D0735_RWS.csrload
 - Drawing-hover correction gate on 2026-10-27: `npm run typecheck` PASS; `npm test -- --run` PASS (30 files, 175 tests); production build PASS; focused Edge native-panel workflow PASS. Edge verifies inactive SVG dimensions are not visible and hovered Cartridge/Chamber L3 rows reveal exactly one labeled measurement; fresh 1440×900 captures were inspected.
 - Property-column autosize gate on 2026-10-27: `npm run typecheck` PASS; `npm test -- --run --reporter=dot` PASS (30 files, 175 tests); production build PASS; focused Edge native-panel and splitter workflows PASS (2/2). Edge verifies automatic panel-filling minimum-constrained widths independently on Cartridge, Projectile and Propellant, then verifies the existing shared manual sizing/persistence and double-click return to automatic sizing.
 - Sync-version display gate on 2026-10-27: `npm run build` PASS (including typecheck); focused Edge update workflow PASS. Edge verifies exact `PWA 0.1.0` and `ChamberSim 0.13` labels at the menu's right edge, green current state and the explicit update check.
+- Help/About overflow correction gate on 2026-10-27: `npm run build` PASS (including typecheck); focused Edge menu workflows PASS (3/3). Edge geometry verifies the Help popup contains the complete About action and text, no horizontal About overflow, and exactly one active vertical scrollbar inside the About dialog.
 
 ## Known issues and blockers
 
