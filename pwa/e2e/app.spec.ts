@@ -704,8 +704,17 @@ test("opens the release CSR load and exposes its native panels", async ({ page }
   await expect(page.getByRole("button", { name: /223Rem_D0735_RWS/ })).toBeVisible();
   await expect(page.locator(".component-title span")).toHaveText("223 Rem. (.223 Rem.)");
   await expect(page.locator(".property-section th")).toHaveText(["Caliber / cartridge", "Gun"]);
-  const propertyColumns = await page.locator(".property-table").evaluate((table) => [...table.querySelectorAll("thead th")].map((cell) => Math.round(cell.getBoundingClientRect().width)));
-  expect(propertyColumns.slice(1)).toEqual([96, 60]);
+  const expectAutosizedPropertyColumns = async (): Promise<void> => {
+    await expect(page.locator(".property-table")).toHaveAttribute("data-property-sizing", "auto");
+    await expect.poll(async () => page.locator(".property-table").evaluate((table) => {
+      const widths = [...table.querySelectorAll("thead th")].map((cell) => cell.getBoundingClientRect().width);
+      return {
+        fillsPanel: Math.abs(widths.reduce((sum, width) => sum + width, 0) - table.parentElement!.clientWidth) <= 2,
+        minimums: widths[0]! >= 80 && widths[1]! >= 50 && widths[2]! >= 40
+      };
+    })).toEqual({ fillsPanel: true, minimums: true });
+  };
+  await expectAutosizedPropertyColumns();
   await expect(page.getByText("Case Volume", { exact: true })).toBeVisible();
   const settings = await openSettings(page);
   await expect(settings.locator("#settings-unit-system")).toHaveValue("original");
@@ -717,9 +726,11 @@ test("opens the release CSR load and exposes its native panels", async ({ page }
   await page.locator('[data-input="projectile"]').click();
   await expect(page.locator(".component-title span")).toHaveText("RWS, Scorion Hpbt-Match 2313343, 0.224, 52.00 grain");
   await expect(page.locator(".property-section th")).toHaveText(["Projectile"]);
+  await expectAutosizedPropertyColumns();
   await page.locator('[data-input="propellant"]').click();
   await expect(page.locator(".component-title span")).toHaveText("Lovex D073.4");
   await expect(page.locator(".property-section th")).toHaveText(["Propellant"]);
+  await expectAutosizedPropertyColumns();
   await page.locator('[data-input="cartridge"]').click();
   await expect(page.getByRole("img", { name: "Loaded cartridge technical drawing" })).toBeVisible();
   await expect(page.locator(".technical-svg .case-outline")).toBeVisible();
@@ -828,6 +839,7 @@ test("resizes and remembers native-style workspace splitters", async ({ page }) 
   await expect.poll(async () => (await page.locator(".property-table thead th").first().boundingBox())!.width).toBeCloseTo(originalColumnWidth + 30, 0);
   await page.getByRole("separator", { name: "Resize Property column" }).dblclick();
   expect(await page.evaluate(() => localStorage.getItem("csr-layout-property-columns"))).toBeNull();
+  await expect(page.locator(".property-table")).toHaveAttribute("data-property-sizing", "auto");
   await main.dblclick();
   expect(await page.evaluate(() => localStorage.getItem("csr-layout-main"))).toBeNull();
 });

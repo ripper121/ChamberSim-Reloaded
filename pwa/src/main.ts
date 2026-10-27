@@ -61,6 +61,7 @@ let appServiceWorker: ServiceWorkerRegistration | undefined;
 let status = "Loading project database…";
 let propertyRenderTimer: number | undefined;
 let propertyPointerTarget: HTMLElement | undefined;
+let propertyColumnObserver: ResizeObserver | undefined;
 const simulationCache = new WeakMap<LoadFile, Map<CalibrationProfile, LadderResult[]>>();
 const ladderFocus = new WeakMap<LoadFile, number>();
 const measurementSeriesSelections = new WeakMap<LoadFile, number>();
@@ -270,9 +271,9 @@ function propertyColumnStyle(): string {
   try {
     const widths = JSON.parse(localStorage.getItem("csr-layout-property-columns") ?? "null") as unknown;
     if (Array.isArray(widths) && widths.length === 2 && widths.every((width) => Number.isFinite(width) && width >= 30))
-      return ` style="--property-name-width:${Math.round(Number(widths[0]))}px;--property-value-width:${Math.round(Number(widths[1]))}px;--property-unit-width:auto"`;
+      return ` data-property-sizing="user" style="--property-name-width:${Math.round(Number(widths[0]))}px;--property-value-width:${Math.round(Number(widths[1]))}px;--property-unit-width:auto"`;
   } catch { /* damaged layout state falls back to the source defaults */ }
-  return "";
+  return ` data-property-sizing="auto"`;
 }
 
 function table(sections: readonly PropertySection[]): string {
@@ -2463,7 +2464,45 @@ function bindSplitters(root: ParentNode = app): void {
   });
 }
 
+function autosizePropertyColumns(table: HTMLTableElement): void {
+  if (table.dataset.propertySizing === "user" || table.offsetParent === null) return;
+  const context = document.createElement("canvas").getContext("2d");
+  if (!context) return;
+  const textWidth = (element: Element, value: string): number => {
+    context.font = getComputedStyle(element).font;
+    return context.measureText(value).width;
+  };
+  const heading = Array.from(table.querySelectorAll<HTMLElement>("thead th"));
+  const labels = Array.from(table.querySelectorAll<HTMLElement>("tbody td:first-child label"));
+  const values = Array.from(table.querySelectorAll<HTMLInputElement | HTMLSelectElement>("tbody td:nth-child(2) input, tbody td:nth-child(2) select"));
+  const units = Array.from(table.querySelectorAll<HTMLSelectElement>("tbody td:nth-child(3) select"));
+  const widest = <T extends Element>(elements: readonly T[], value: (element: T) => string, extra: number): number =>
+    Math.ceil(Math.max(0, ...elements.map((element) => textWidth(element, value(element)))) + extra);
+  const desired = [
+    Math.max(80, widest(labels, (label) => label.textContent ?? "", 14), heading[0] ? Math.ceil(textWidth(heading[0], heading[0].childNodes[0]?.textContent ?? "") + 18) : 80),
+    Math.max(50, widest(values, (control) => control instanceof HTMLSelectElement ? control.selectedOptions[0]?.textContent ?? "" : control.value, 28), heading[1] ? Math.ceil(textWidth(heading[1], heading[1].childNodes[0]?.textContent ?? "") + 18) : 50),
+    Math.max(40, widest(units, (control) => control.selectedOptions[0]?.textContent ?? "", 28), heading[2] ? Math.ceil(textWidth(heading[2], heading[2].textContent ?? "") + 12) : 40)
+  ];
+  const available = Math.max(170, Math.floor(table.parentElement?.clientWidth ?? table.getBoundingClientRect().width));
+  let name = desired[0]!, value = desired[1]!, unit = desired[2]!;
+  const total = name + value + unit;
+  if (total <= available) name += available - total;
+  else {
+    unit = Math.min(unit, available - 130);
+    const flexible = Math.max(130, available - unit);
+    const nameNeed = Math.max(0, name - 80), valueNeed = Math.max(0, value - 50), need = nameNeed + valueNeed;
+    const extra = flexible - 130;
+    name = 80 + (need ? extra * nameNeed / need : extra);
+    value = flexible - name;
+  }
+  table.style.setProperty("--property-name-width", `${Math.round(name)}px`);
+  table.style.setProperty("--property-value-width", `${Math.round(value)}px`);
+  table.style.setProperty("--property-unit-width", `${Math.round(unit)}px`);
+  heading.slice(0, 2).forEach((cell, index) => cell.querySelector<HTMLElement>("[data-property-column]")?.setAttribute("aria-valuenow", String(Math.round(index ? value : name))));
+}
+
 function bindPropertyColumns(root: ParentNode = app): void {
+  if (root === app) propertyColumnObserver?.disconnect();
   root.querySelectorAll<HTMLElement>("[data-property-column]").forEach((handle) => {
     const table = handle.closest<HTMLTableElement>(".property-table");
     const headings = table?.querySelectorAll<HTMLElement>("thead th");
@@ -2476,6 +2515,7 @@ function bindPropertyColumns(root: ParentNode = app): void {
       table.style.setProperty("--property-name-width", `${Math.round(current[0])}px`);
       table.style.setProperty("--property-value-width", `${Math.round(current[1])}px`);
       table.style.setProperty("--property-unit-width", "auto");
+      if (persist) table.dataset.propertySizing = "user";
       handle.setAttribute("aria-valuemax", String(Math.round(table.getBoundingClientRect().width - current[1 - index] - 30)));
       handle.setAttribute("aria-valuenow", String(Math.round(current[index])));
       if (persist) localStorage.setItem("csr-layout-property-columns", JSON.stringify(current.map(Math.round)));
@@ -2505,9 +2545,18 @@ function bindPropertyColumns(root: ParentNode = app): void {
     handle.addEventListener("dblclick", () => {
       localStorage.removeItem("csr-layout-property-columns");
       table.style.removeProperty("--property-name-width"); table.style.removeProperty("--property-value-width"); table.style.removeProperty("--property-unit-width");
-      requestAnimationFrame(() => handle.setAttribute("aria-valuenow", String(Math.round(widths()[index]))));
+      table.dataset.propertySizing = "auto";
+      requestAnimationFrame(() => autosizePropertyColumns(table));
     });
   });
+  if (root === app) {
+    const table = app.querySelector<HTMLTableElement>(".property-table");
+    if (table) {
+      propertyColumnObserver = new ResizeObserver(() => autosizePropertyColumns(table));
+      propertyColumnObserver.observe(table.parentElement ?? table);
+      requestAnimationFrame(() => autosizePropertyColumns(table));
+    }
+  }
 }
 
 function menuItems(popup: HTMLElement): HTMLElement[] {
