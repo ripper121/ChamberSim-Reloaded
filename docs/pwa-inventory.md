@@ -59,6 +59,7 @@ The release GUI runs in this Windows environment. Screenshot mode was used witho
 ## Measurements and powder fitting
 
 - Multiple named measurement series per load.
+- The default Measurements split follows the native 260:480 charge/detail ratio and 330 px shot-panel seed; all splits remain user-resizable and persistent.
 - Named charges containing shot velocity and optional pressure plus per-charge notes.
 - Add/remove charge, add all ladder charges, add/remove/paste shots, and Delete shortcut.
 - Sample statistics over positive measurements: count, mean, sample SD (`n - 1`), and extreme spread.

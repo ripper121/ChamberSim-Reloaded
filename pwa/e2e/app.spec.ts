@@ -868,12 +868,15 @@ test("resizes and remembers native-style workspace splitters", async ({ page }) 
   await expect.poll(async () => (await input.boundingBox())?.width ?? 0).toBeCloseTo(draggedWidth, 0);
   const measurementTop = page.locator(".measurement-top");
   const originalMeasurementHeight = (await measurementTop.boundingBox())!.height;
+  const measurementViewHeight = (await page.locator(".measurement-view").boundingBox())!.height;
+  expect(originalMeasurementHeight).toBeCloseTo((measurementViewHeight - 7) * 260 / 740, 0);
   const measurement = page.getByRole("separator", { name: "Resize measurement charges and shot details" });
   await measurement.focus(); await measurement.press("ArrowDown");
   await expect.poll(async () => (await measurementTop.boundingBox())!.height).toBeCloseTo(originalMeasurementHeight + 10, 0);
 
   const shots = page.locator(".measurement-shots");
   const originalShotWidth = (await shots.boundingBox())!.width;
+  expect(originalShotWidth).toBeCloseTo(330, 0);
   const measurementBottom = page.getByRole("separator", { name: "Resize shot table and measurement chart" });
   await measurementBottom.focus(); await measurementBottom.press("ArrowRight");
   await expect.poll(async () => (await shots.boundingBox())!.width).toBeCloseTo(originalShotWidth + 10, 0);
