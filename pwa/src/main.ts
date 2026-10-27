@@ -655,6 +655,7 @@ function storedReportTemplate(): string { return localStorage.getItem(reportTemp
 
 const reportSvgStyle = `<style>
   svg{background:#fff;color:#111;font-family:Segoe UI,Arial,sans-serif} .grid{stroke:#ddd!important;stroke-width:1}.axis{stroke:#555!important}
+  .result-chart path,.vivacity-chart path{fill:none;stroke-width:2}.pressure-band{opacity:.48}.pressure-band.caution{fill:#4070b0}.pressure-band.danger{fill:#a03030}
   .axis-label,.axis-title,.marker-label,text{fill:#222!important}.pressure-curve{stroke:#c43d3d!important}.energy-curve{stroke:#168b78!important}
   .velocity-curve{stroke:#4057c5!important}.ladder-curve{opacity:.3}.permitted-line{stroke:#9c3c8c!important}.event-marker{stroke:#777!important}
   .measurement-sim-velocity{fill:none;stroke:#2465a6;stroke-width:2}.measurement-sim-pressure{fill:none;stroke:#c43d3d;stroke-width:2;stroke-dasharray:7 4}

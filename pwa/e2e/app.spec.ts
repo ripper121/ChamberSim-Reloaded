@@ -1403,6 +1403,10 @@ test("renders, customizes, scales, previews and prints the active-load report", 
   await expect(paper).toContainText("MEASUREMENTS");
   await expect(paper.locator("img")).toHaveCount(5);
   await expect(paper).not.toContainText("[result.");
+  const curveDiagram = decodeURIComponent((await paper.locator("img").first().getAttribute("src")) ?? "");
+  expect(curveDiagram).toContain(".result-chart path,.vivacity-chart path{fill:none;stroke-width:2}");
+  expect(curveDiagram).toContain(".pressure-band.caution{fill:#4070b0}");
+  expect(curveDiagram).toContain(".pressure-band.danger{fill:#a03030}");
 
   await setUnitSystem(page, "imperial");
   await expect(paper).toContainText("psi");
