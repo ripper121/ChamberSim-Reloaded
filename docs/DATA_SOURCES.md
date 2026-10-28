@@ -16,8 +16,8 @@ rebuilt and checked. Records made from estimates say so in their `descr` field.
   others from the case (base diameter, case type; `scripts/data/cipdata/caliber_primers.py`).
 - **Projectiles (2470)**: the product pages of 16 manufacturers (Berger, Nosler, Speer, Hornady, Sierra, Barnes, Sellier & Bellot,
   Lapua, Norma, RWS, PPU, Federal, Winchester, Remington, H&N, Sako) and, from the listing of the reloading shop grauwolf.net (`grauwolf_fetch.py`, title only: maker, type,
-  diameter, weight), 709 bullets of Fox, Sax, Degol, DK Bullets, LOS, Brenneke, GECO, Magtech, CopperBear, Frontier, GPA, Cutting Edge, Ballistix Academy,
-  North Fork, Leader and Wi-La-Tech (366 lengths measured on the product photos, the rest estimated and scaled with the maker's photo ratio: Sax x1.29, Fox x1.18), read with `scripts/data/bulletdata/*_fetch.py`: weight,
+  diameter, weight), 709 bullets of Fox, Degol, DK Bullets, LOS, Brenneke, GECO, Magtech, CopperBear, Frontier, GPA, Cutting Edge, Ballistix Academy,
+  North Fork, Leader and Wi-La-Tech (lengths measured on the product photos, the rest estimated and scaled with the maker's photo ratio: Fox x1.18). Sax publishes weight, diameter, length and BC of every bullet on sax-munition.de: the 89 bullets are read from there (`sax_fetch.py`, validated), read with `scripts/data/bulletdata/*_fetch.py`: weight,
   diameter and, where published, ballistic coefficients. Only Berger, Nosler and Speer publish the bullet length; for the others
   it is estimated from mass, diameter and bullet type (`estimate_length.py`, about 5-10 % uncertain; lead bullets by their shape: 8.1 - 9.0 g/cm3 effective density, measured on photos).
   The lengths of the 64 H&N bullets (hn-sport.de) are measured on the product photo of the single standing bullet (`hn_photos_fetch.py`,
@@ -56,7 +56,7 @@ rebuilt and checked. Records made from estimates say so in their `descr` field.
   Western Powders Handloading Guide 8.0 publish pressures as well (the Barnes Bullets load data PDFs, 3,904 start and maximum loads of 56 cartridges, give velocities only: H414, Supreme 780, IMR 4007 SSC and IMR 7977 were added from them together with the Hodgdon manual); the fit uses velocities and pressures (velocity error 3-6 % rms,
   pressure error 10-20 % rms; each record's `descr` states its numbers). None of them publishes the explosion heat or the bulk
   density: Qex is a typical value of a single-base (3800 kJ/kg) or double-base (4300 kJ/kg) powder (Lovex: S = single, D = double
-  base by name; the others: the type that fits the velocities better), pcd is 900 kg/m3.
+  base by name; the others: the type that fits the velocities better), pcd is 900 kg/m3 unless a value is known: 130 records have a bulk density from the maker's guides (Vihtavuori, Shooters World, Lee, Nosler) or the original program's record, as collected by github.com/fbastin/tireur_reloaded (MIT; `apply_bulk_densities.py`; the source is in `descr`). The solver uses it only for the load ratio and the charge-too-high check, not for velocity or pressure.
   k and the material density are typical values everywhere; the form function (a0, z1, z2) is not published, it is the combination
   that reproduces the velocities best and the data hardly determine it. Pistol and shotgun powders are included as well (Lovex S011-D037.2, Reload Swiss RS12-RS80,
   ADI AP/APS, Hodgdon Titegroup, Universal, Clays, HS-6, W231, ..., Vectan A1, AS, Ba6-Ba10; velocity error 7-19 %, pressure error 20-35 %, a low `Qlty`:

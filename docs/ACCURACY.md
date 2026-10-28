@@ -112,6 +112,16 @@ fixed): peak pressure bias -8.5 % -> +10 %, velocity unchanged (-4.5 %), and 77 
 overshoots the pressure of deeply seated bullets: it counts everything seated in the case as a full cylinder, although the narrower nose of the bullet
 is inside it (not corrected yet). The velocity shortfall of lead bullets (-4.5 %) is not a length effect.
 
+*Velocity against barrel length (2026-10-26):* 11 published cut-down series with a known powder and charge (three 7 mm Rem. Mag. and two .338 Lapua Mag. of
+Rifleshooter.com, six .223 Rem. of Hodgdon's 2026 laboratory test; 16 or 17 to 24 or 30 inches; collected by github.com/fbastin/tireur_reloaded, bullet lengths
+estimated) give a measured exponent of v on barrel length of 0.211 on average; the Physical Model has 0.242, so it loses about 1 % more velocity at 16 than at 24 inches
+(median error of v(L) / v(longest) 0.97 %, a fixed exponent of 0.167 gives 0.88 %). Absolute velocity at the longest barrel: -1 to +7.5 % (the .223 loads too fast). The
+exponent is controlled by `heatTransferFactor` (more heat loss on a longer barrel flattens the gain): 1.0 gives 0.203 and 0.49 %. Compensated with `impetusFactor` and
+with the burn rate refitted per powder on 24,000 published rifle and pistol loads it makes the fit worse: velocity rms 4.48 % -> 4.89 %, pressure bias +1.5 % -> +4.9 %,
+start-load velocity bias +0.05 % -> -1.4 % (0.75: 4.79 % / +4.3 %). The published loads keep 0.5, so it stays; `kineticFactor` and `burnRateScale` have no effect in the
+Physical Model, friction and spin none on the exponent. The simulated peak pressure does not change with the barrel length (Hodgdon's measured pressures scatter by 3-4 %
+without a trend). Open: a heat loss that depends on time or gas temperature.
+
 ## Against the original program's runs
 
 <!-- accuracy:start -->
@@ -119,47 +129,49 @@ is inside it (not corrected yet). The velocity shortfall of lead bullets (-4.5 %
 
 | Test set | Runs | Peak pressure: mean error | max | Muzzle velocity: mean error | max | Curve shape: mean deviation |
 |---|---:|---:|---:|---:|---:|---:|
-| Other cartridges (caliber sweep) | 28 | 1.3 % | 4.0 % | 1.2 % | 10.9 % | 4.5 % |
-| Powders (40 powders, one cartridge) | 39 | 2.0 % | 6.4 % | 0.9 % | 6.3 % | 4.0 % |
-| Charge, bullet weight, start pressure, case volume | 24 | 1.6 % | 4.4 % | 0.7 % | 3.4 % | 3.4 % |
-| Barrel length, twist, Sebert factor | 10 | 1.0 % | 2.8 % | 0.4 % | 1.8 % | 2.6 % |
-| Powder temperature | 26 | 0.5 % | 1.0 % | 0.3 % | 0.4 % | 2.3 % |
-| Bullet friction | 11 | 1.2 % | 3.9 % | 0.8 % | 2.4 % | 2.8 % |
-| Almost closed vessel (very heavy bullet) | 9 | 2.8 % | 7.2 % | 1.1 % | 2.4 % | 3.6 % |
-| Fast powders (burn rate, step length, form function) | 21 | 1.4 % | 5.2 % | 0.6 % | 0.9 % | 3.6 % |
-| Fast-powder probes on the 8x57 (Ba 1..8, form function, start pressure, gas, charge) | 32 | 2.9 % | 30.7 % | 0.8 % | 3.9 % | 3.4 % |
-| Powder probes on a 9 mm Luger (Ba 1..32, form function, start pressure, gas, charge) | 34 | 5.4 % | 23.5 % | 1.2 % | 8.0 % | 7.7 % |
-| Pistol and revolver loads with fast powders | 28 | 3.0 % | 8.1 % | 0.9 % | 2.8 % | 4.1 % |
-| Slow powders at low pressure (9 mm Luger: bullet mass, barrel, charge, start pressure, ...) | 34 | 6.3 % | 12.6 % | 0.8 % | 10.3 % | 31.0 % |
-| Bullet jump (0.25 ... 4 mm, 8x57 and 9 mm) | 18 | 2.8 % | 8.0 % | 0.9 % | 2.0 % | 3.0 % |
-| Powder and start-pressure variations of the 8x57 (shotshell batch, flag off) | 12 | 2.4 % | 7.0 % | 0.7 % | 2.2 % | 5.5 % |
-| Loading density (charge, case volume, powder density, Qex) | 22 | 3.4 % | 13.9 % | 0.7 % | 3.4 % | 4.8 % |
-| Other | 1 | 9.2 % | 9.2 % | 0.7 % | 0.7 % | 6.6 % |
-| **All runs** | 349 | 2.8 % | 30.7 % | 0.8 % | 10.9 % | 6.8 % |
+| Other cartridges (caliber sweep) | 28 | 1.9 % | 5.3 % | 1.7 % | 10.1 % | 6.2 % |
+| Powders (40 powders, one cartridge) | 40 | 2.0 % | 8.0 % | 1.5 % | 6.8 % | 5.9 % |
+| Charge, bullet weight, start pressure, case volume | 24 | 1.6 % | 5.2 % | 1.7 % | 4.4 % | 6.5 % |
+| Barrel length, twist, Sebert factor | 6 | 0.4 % | 0.4 % | 1.6 % | 1.6 % | 6.6 % |
+| Powder temperature | 27 | 0.5 % | 1.4 % | 1.6 % | 1.9 % | 6.5 % |
+| Bullet friction | 12 | 0.9 % | 2.3 % | 1.1 % | 2.0 % | 5.2 % |
+| Almost closed vessel (very heavy bullet) | 9 | 2.8 % | 7.2 % | 1.0 % | 2.4 % | 3.5 % |
+| Fast powders (burn rate, step length, form function) | 22 | 1.4 % | 8.7 % | 0.6 % | 1.1 % | 3.8 % |
+| Fast-powder probes on the 8x57 (Ba 1..8, form function, start pressure, gas, charge) | 14 | 2.4 % | 17.1 % | 0.7 % | 1.2 % | 3.5 % |
+| Powder probes on a 9 mm Luger (Ba 1..32, form function, start pressure, gas, charge) | 34 | 6.1 % | 23.6 % | 1.7 % | 9.8 % | 9.3 % |
+| Pistol and revolver loads with fast powders | 28 | 3.7 % | 10.5 % | 1.6 % | 5.1 % | 5.7 % |
+| Slow powders at low pressure (9 mm Luger: bullet mass, barrel, charge, start pressure, ...) | 34 | 6.1 % | 14.3 % | 0.9 % | 10.7 % | 31.2 % |
+| Bullet jump (0.25 ... 4 mm, 8x57 and 9 mm) | 18 | 3.1 % | 9.3 % | 1.7 % | 3.5 % | 5.5 % |
+| Powder and start-pressure variations of the 8x57 (shotshell batch, flag off) | 12 | 2.4 % | 8.1 % | 1.0 % | 2.4 % | 7.0 % |
+| Loading density (charge, case volume, powder density, Qex) | 22 | 3.6 % | 14.1 % | 1.4 % | 4.4 % | 6.8 % |
+| Slow powders, barrel 150 ... 7620 mm, load ratio 0.6 / 0.95 (burnout batch) | 171 | 2.7 % | 11.3 % | 2.1 % | 21.6 % | 11.3 % |
+| Other | 1 | 3.1 % | 3.1 % | 0.1 % | 0.1 % | 5.9 % |
+| **All runs** | 502 | 2.9 % | 23.6 % | 1.6 % | 21.6 % | 9.6 % |
 
 **Physical Model** (the default), for comparison: how far its results are from the same runs of the original. The Physical Model is not fitted to the original program but to published load data, so these deviations are differences between two models, not errors of the Physical Model (its accuracy against published loads is given below):
 
 | Test set | Runs | Peak pressure: mean error | max | Muzzle velocity: mean error | max | Curve shape: mean deviation |
 |---|---:|---:|---:|---:|---:|---:|
 | Other cartridges (caliber sweep) | 28 | 51.4 % | 100.2 % | 10.1 % | 19.1 % | 36.0 % |
-| Powders (40 powders, one cartridge) | 39 | 37.1 % | 81.1 % | 7.5 % | 22.0 % | 27.3 % |
+| Powders (40 powders, one cartridge) | 40 | 37.5 % | 81.1 % | 7.6 % | 22.0 % | 27.4 % |
 | Charge, bullet weight, start pressure, case volume | 24 | 54.6 % | 114.8 % | 7.9 % | 16.2 % | 31.5 % |
-| Barrel length, twist, Sebert factor | 10 | 55.9 % | 71.5 % | 10.6 % | 26.9 % | 38.3 % |
-| Powder temperature | 26 | 54.2 % | 59.1 % | 8.0 % | 9.5 % | 30.7 % |
-| Bullet friction | 11 | 61.9 % | 81.3 % | 7.6 % | 19.1 % | 38.3 % |
+| Barrel length, twist, Sebert factor | 6 | 56.8 % | 71.5 % | 7.9 % | 10.6 % | 31.6 % |
+| Powder temperature | 27 | 54.3 % | 59.1 % | 8.0 % | 9.5 % | 30.7 % |
+| Bullet friction | 12 | 59.7 % | 81.3 % | 7.1 % | 19.1 % | 37.4 % |
 | Almost closed vessel (very heavy bullet) | 9 | 4.8 % | 17.1 % | 6.3 % | 14.6 % | 12.3 % |
-| Fast powders (burn rate, step length, form function) | 21 | 11.0 % | 73.5 % | 1.3 % | 7.0 % | 13.2 % |
-| Fast-powder probes on the 8x57 (Ba 1..8, form function, start pressure, gas, charge) | 32 | 8.7 % | 41.4 % | 1.5 % | 6.8 % | 9.7 % |
+| Fast powders (burn rate, step length, form function) | 22 | 10.7 % | 73.5 % | 1.3 % | 7.0 % | 13.0 % |
+| Fast-powder probes on the 8x57 (Ba 1..8, form function, start pressure, gas, charge) | 14 | 11.1 % | 41.4 % | 1.5 % | 6.8 % | 9.9 % |
 | Powder probes on a 9 mm Luger (Ba 1..32, form function, start pressure, gas, charge) | 34 | 27.2 % | 129.4 % | 3.8 % | 12.5 % | 18.2 % |
 | Pistol and revolver loads with fast powders | 28 | 22.3 % | 62.6 % | 3.8 % | 12.6 % | 19.9 % |
 | Slow powders at low pressure (9 mm Luger: bullet mass, barrel, charge, start pressure, ...) | 33 | 78.7 % | 116.3 % | 1.1 % | 18.1 % | 42.7 % |
 | Bullet jump (0.25 ... 4 mm, 8x57 and 9 mm) | 18 | 34.8 % | 71.1 % | 5.5 % | 10.4 % | 22.9 % |
 | Powder and start-pressure variations of the 8x57 (shotshell batch, flag off) | 12 | 46.4 % | 83.2 % | 5.9 % | 11.5 % | 29.5 % |
 | Loading density (charge, case volume, powder density, Qex) | 22 | 44.8 % | 136.5 % | 6.0 % | 13.3 % | 27.5 % |
+| Slow powders, barrel 150 ... 7620 mm, load ratio 0.6 / 0.95 (burnout batch) | 171 | 70.7 % | 116.7 % | 11.8 % | 49.5 % | 48.6 % |
 | Other | 1 | 17.6 % | 17.6 % | 4.3 % | 4.3 % | 24.5 % |
-| **All runs** | 348 | 39.5 % | 136.5 % | 5.4 % | 26.9 % | 26.2 % |
+| **All runs** | 501 | 51.2 % | 136.5 % | 7.7 % | 49.5 % | 34.2 % |
 
-_Absolute deviations against 349 runs of the original program; updated 2026-10-23 with `tools/update_accuracy.py`. "Curve shape" is the rms relative pressure error along the barrel (where the pressure is above 5 % of its maximum). The charge-too-high rule matches the original for all tested loads._
+_Absolute deviations against 502 runs of the original program; updated 2026-10-27 with `tools/update_accuracy.py`. "Curve shape" is the rms relative pressure error along the barrel (where the pressure is above 5 % of its maximum). The charge-too-high rule matches the original for all tested loads._
 <!-- accuracy:end -->
 
 Unusual loads, other powders and other cartridges than the ones tested can deviate more. The known weak spot is
