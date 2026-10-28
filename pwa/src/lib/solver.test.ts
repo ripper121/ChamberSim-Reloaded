@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { parseLoadXml } from "./loadfile";
 import { simInputFromLoad, type SimInput } from "./siminput";
 import {
+  activeCalibrationFor,
   bulletIntrusionM3,
   bulletIntrusionPhysicalM3,
   calibrationFor,
@@ -51,6 +52,17 @@ describe("solver public contract", () => {
     expect(physical).toMatchObject({ model: "physical", burnRateScale: 0.84, capacityFactor: 1.15, handgunStartFraction: 0.3,
       burnIntercept: 1.09171, burnSlopeA0: 0.434982,
       phase2: [-0.0867208, -0.0659705, -0.461006], phase3: [-0.103524, -0.0695024, 0.00958064] });
+  });
+
+  it("keeps shotshells on the Original calibration for every active GUI profile", () => {
+    const shotshell = { ...input(), shotshell: true };
+    const original = calibrationFor("original");
+    for (const profile of ["original", "published", "physical"] as const) {
+      expect(activeCalibrationFor(profile, shotshell)).toEqual(original);
+      expect(simulate(shotshell, activeCalibrationFor(profile, shotshell)).maxPressureBar)
+        .toBe(simulate(shotshell, original).maxPressureBar);
+    }
+    expect(activeCalibrationFor("published", input())).toEqual(calibrationFor("published"));
   });
 });
 
@@ -159,6 +171,9 @@ describe("Original numerical model", () => {
       muzzleVelocityMs: 861.8915450232494,
       muzzleEnergyJ: 1251.5444806393325,
       muzzleTimeMs: 0.7947894431577519,
+      bulletLeadTimeMs: 0.7144123480017133,
+      optimalBarrelTimeMs: 0.7098716013275002,
+      optimalBarrelNode: 4.5,
       burntFraction: 0.6720414782203425,
       efficiency: 0.1775373004866863,
       loadRatio: 1.0013959895165505
@@ -202,6 +217,9 @@ describe("Original numerical model", () => {
       muzzleVelocityMs: 668.700594563762,
       muzzleEnergyJ: 2839.600179329313,
       muzzleTimeMs: 1.5789737217897648,
+      bulletLeadTimeMs: 1.5789737217897648,
+      optimalBarrelTimeMs: 1.6145724871604725,
+      optimalBarrelNode: 9,
       burntFraction: 0.9125592892555234,
       efficiency: 0.2752966927167548,
       loadRatio: 0.8484414183132671
@@ -220,6 +238,9 @@ describe("Original numerical model", () => {
       muzzleVelocityMs: 882.1141429365516,
       muzzleEnergyJ: 1310.9635564192108,
       muzzleTimeMs: 0.751060438872482,
+      bulletLeadTimeMs: 0.7212027188465262,
+      optimalBarrelTimeMs: 0.7098716013275002,
+      optimalBarrelNode: 4.5,
       burntFraction: 0.8500633359483085,
       efficiency: 0.1859661677579355,
       loadRatio: 1.0013959895165505
@@ -285,6 +306,21 @@ describe("Physical numerical model", () => {
         expect(Math.abs(browser[key] - native[key]) / scale, `${native.index}.${key}`).toBeLessThan(6e-6);
       }
     }
+  });
+
+  it("keeps the native derived-output and physical energy relations", () => {
+    const value = input();
+    const result = simulate(value, calibrationFor("physical"));
+    const chargeKg = value.chargeG * 1e-3;
+    const bulletKg = value.bulletMassG * 1e-3;
+    expect(result.propellantEnergyJ).toBeCloseTo(value.heatQexKjKg * 1e3 * chargeKg * result.burntFraction, 10);
+    expect(result.projectileImpulseNs).toBeCloseTo(bulletKg * result.muzzleVelocityMs, 12);
+    expect(result.recoilImpulseNs).toBeCloseTo(
+      result.projectileImpulseNs + result.propellantImpulseNs + result.gasImpulseNs, 12);
+    expect(result.meanRecoilForceN).toBeCloseTo(result.recoilImpulseNs / (result.muzzleTimeMs * 1e-3), 10);
+    expect(result.heatLossJ).toBeGreaterThan(0);
+    expect(result.muzzleFrictionEnergyJ).toBeGreaterThan(0);
+    expect(result.muzzleEnergyJ + result.heatLossJ + result.muzzleFrictionEnergyJ).toBeLessThan(result.propellantEnergyJ);
   });
 
   it("dispatches every positive ladder charge through the selected model", () => {

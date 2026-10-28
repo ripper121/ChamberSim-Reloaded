@@ -282,6 +282,15 @@ export function calibrationFor(profile: CalibrationProfile): Calibration {
   return calibration;
 }
 
+// The native GUI passes its globally active calibration by reference. Its
+// effectiveCalibration() then keeps shotshells on the Original calibration,
+// regardless of the profile selected in Settings. Explicit calibrations used
+// by command-line/calibration tools remain untouched, so keep this distinction
+// at the PWA application boundary as well.
+export function activeCalibrationFor(profile: CalibrationProfile, input: Pick<SimInput, "shotshell">): Calibration {
+  return calibrationFor(input.shotshell ? "original" : profile);
+}
+
 export function bulletIntrusionM3(input: SimInput): number {
   const diameter = input.bulletDiameterMm * 1e-3;
   const depth = input.seatingDepthMm * 1e-3;

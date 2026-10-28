@@ -20,7 +20,7 @@ import { buildReportData } from "./lib/reportdata";
 import { defaultReportTemplate, renderReport, reportImage, reportUnitForSystem, type ReportData, type ReportValue } from "./lib/report";
 import { copyRecordValues, parseRecordNumber, recordFields, shownRecordNumber, type RecordField } from "./lib/recordfields";
 import { simInputFromLoad, type SimInput } from "./lib/siminput";
-import { calibrationFor, simulate, simulateLadder, vivacityCurve, type CalibrationProfile, type LadderResult, type SimPoint, type SimResult } from "./lib/solver";
+import { activeCalibrationFor, simulate, simulateLadder, vivacityCurve, type CalibrationProfile, type LadderResult, type SimPoint, type SimResult } from "./lib/solver";
 import { formatLocaleNumber, formatUnit, parseToBase, quantityOfFileUnit, setNumberLocale, toDisplay, UnitPreferences, unitsOf, type Quantity, type UnitSystem } from "./lib/units";
 import { applyPowderFit, defaultPowderFitParams, fitPowderAll, powderFitQuality, powderFitSamples, type PowderFitParam, type PowderFitResult } from "./lib/powderfit";
 import { parseReferenceRun, referenceNumber, type ReferenceRun } from "./lib/reference";
@@ -314,6 +314,7 @@ function measurementSuggestedCharges(load: LoadFile): number[] {
 
 function measurementResult(load: LoadFile, chargeG: number): SimResult {
   const profile = profileFor(load);
+  const input = { ...simInputFromLoad(load), chargeG };
   let profiles = measurementSimulationCache.get(load);
   if (!profiles) { profiles = new Map(); measurementSimulationCache.set(load, profiles); }
   let charges = profiles.get(profile);
@@ -321,7 +322,7 @@ function measurementResult(load: LoadFile, chargeG: number): SimResult {
   const key = Math.round(chargeG * 1e6);
   let result = charges.get(key);
   if (!result) {
-    result = simulate({ ...simInputFromLoad(load), chargeG }, calibrationFor(profile));
+    result = simulate(input, activeCalibrationFor(profile, input));
     charges.set(key, result);
   }
   return result;
@@ -455,7 +456,7 @@ function chartView(result: SimResult, otherResults: readonly SimResult[], input:
 }
 
 function vivacityView(input: SimInput, profile: CalibrationProfile): string {
-  const values = vivacityCurve(input, calibrationFor(profile));
+  const values = vivacityCurve(input, activeCalibrationFor(profile, input));
   if (values.length === 0) return "";
   const maximum = Math.max(Math.max(...values) * 1.1, 0.1);
   const left = 36, right = 250, top = 26, bottom = 148;
@@ -483,7 +484,8 @@ function simulationFor(load: LoadFile): LadderResult[] {
   }
   let result = profiles.get(profile);
   if (!result) {
-    result = simulateLadder(simInputFromLoad(load), calibrationFor(profile));
+    const input = simInputFromLoad(load);
+    result = simulateLadder(input, activeCalibrationFor(profile, input));
     profiles.set(profile, result);
   }
   return result;
@@ -704,7 +706,7 @@ function reportDataFor(load: LoadFile): ReportData {
   const baseInput = simInputFromLoad(load);
   const input = focused ? { ...baseInput, chargeG: focused.chargeG } : baseInput;
   const effectiveProfile = profileFor(load);
-  const result = focused?.result ?? simulate(input, calibrationFor(effectiveProfile));
+  const result = focused?.result ?? simulate(input, activeCalibrationFor(effectiveProfile, input));
   const otherResults = ladder.filter((_, index) => index !== focus).map((candidate) => candidate.result);
   const seriesIndex = clampInteger(measurementSeriesSelections.get(load) ?? 0, 0, Math.max(load.measurements.length - 1, 0));
   const measurement = load.measurements[seriesIndex];

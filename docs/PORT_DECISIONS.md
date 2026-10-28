@@ -71,3 +71,7 @@ The heart-marked top-level Support action is user-requested behavior beyond the 
 ## D-056 — Separate production dependency evidence from build advisories
 
 Require `npm audit --omit=dev` to pass for shipped dependencies and retain full `npm audit` findings for follow-up. Do not force an incompatible downgrade for findings confined to the current PWA build toolchain when no compatible patched release exists.
+
+## D-058 — Preserve active-profile shotshell calibration semantics
+
+The native GUI passes its globally active calibration by reference, and `effectiveCalibration()` consequently forces every shotshell load to the Original calibration even when Published or Physical is selected. Keep explicit solver calibrations available for deterministic tools, but route every user-facing PWA calculation through `activeCalibrationFor()` so results, measurement predictions, reports and vivacity curves reproduce the native GUI rule.

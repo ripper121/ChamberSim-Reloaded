@@ -4,14 +4,20 @@ Last updated: 2026-10-28
 
 ## Current objective (Phase 1 or Phase 2)
 
-The ChamberSim Reloaded 0.14 upstream update is ported and its Phase 1 functional parity gate is complete. Continue with a fresh inventory/checklist audit for any remaining discoverable Phase 1 gaps before considering Phase 2 visual work.
+Phase 1 calculation/solver parity against the current ChamberSim Reloaded 0.14 source is re-audited and verified. Continue the remaining source-inventory audit for non-solver functional gaps before considering Phase 2 visual work.
 
 ## Current state (working / failing / blocked)
 
-Working and not blocked. The PWA builds, all current automated gates pass, and every checklist item reopened by the 0.14 merge is back to `PASS` with current evidence.
+Working and not blocked. The solver audit found and fixed one active-profile shotshell discrepancy; the PWA now builds and all current native, unit and browser gates pass with the corrected behavior.
 
 ## Completed since previous checkpoint
 
+- Compared `src/core/solver.h`, `solver.cpp`, `simconfig.cpp`, `primer.cpp` and OBT behavior against the TypeScript solver/input/primer implementations and current native CLI outputs.
+- Fixed active GUI shotshell calibration parity: the PWA now uses Original constants for shotshell results, measurement predictions, reports and vivacity curves under all selected profiles, matching native `effectiveCalibration()` semantics. Before the fix, the same browser case changed from 1,442 bar under Original to 2,191 bar under Published.
+- Added a direct solver regression for Original/Published/Physical shotshell invariance and an Edge workflow that verifies identical pressure under all three selected profiles.
+- Expanded current-CLI goldens with BLT/OBT/node values for Original CSR/GRT and Published CSR cases, plus physical-model derived energy, impulse and recoil relations.
+- Re-ran the current v0.14 CLI failure matrix: 0 g is `invalid_input`, 4 g is `charge_too_high` for every profile, and Physical 0.1 g is `bullet_stuck`.
+- Updated the stale v0.13/count statements in `docs/pwa-inventory.md` and recorded decision D-058.
 - Ported the 2026-10-27 burnout-batch Original calibration while retaining the older burn-law constants for Published and Physical.
 - Rebased CSR/GRT Original summary and representative curve goldens against the freshly built 0.14 `csr_sim`.
 - Rechecked powder fitting against current `csr_fitpowder`: Original Ba `0.58140 -> 12.83749` in 15 iterations; Physical remains `0.48838 -> 50`.
@@ -26,11 +32,11 @@ Working and not blocked. The PWA builds, all current automated gates pass, and e
 
 ## In-progress work (files/functions and exact remaining steps)
 
-None for the 0.14 update. The worktree contains the completed PWA implementation, tests and documentation; it has not been committed in this session.
+None. The solver correction, regression tests and documentation are complete but uncommitted.
 
 ## Next actions (ordered, directly actionable)
 
-1. Audit the full parity checklist and current native UI/source for any still-undiscovered Phase 1 functionality; keep cosmetic work deferred if a functional gap is found.
+1. Continue the full parity checklist/current native source audit outside the now-verified calculation/solver area; keep cosmetic work deferred if another functional gap is found.
 2. If no Phase 1 gaps remain, explicitly record the Phase 2 transition and perform source/native visual comparison from the current 0.14 baseline.
 3. Commit the coherent 0.14 PWA update and tracking files when appropriate.
 
@@ -66,13 +72,13 @@ $env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
 Current 0.14 evidence:
 
 - `npm run typecheck`: PASS.
-- `npm test -- --run`: PASS, 30 files / 178 tests (final rerun after the data-invariant audit; the earlier 176-test run is in `unit-014-final.log`).
+- `npm test -- --run`: PASS, 30 files / 180 tests after the solver audit.
 - `npm run build`: PASS; Workbox generated 27 precache entries. Existing large project-database chunk advisory remains non-failing. Log: `build-014-final.log`.
-- `npx playwright test`: PASS, 44/44 Edge workflows in 4.0 minutes. Log: `e2e-014-final.log`.
+- `npx playwright test --reporter=line`: PASS, 44/44 Edge workflows in 4.3 minutes after the shotshell solver correction; the focused shotshell profile case also passed independently.
 - Enhanced German, French and Italian New Load localization cases: targeted PASS after the full run.
 - `npm run test:install`: PASS; `beforeinstallprompt`, zero installability errors, stable app id and standalone launch. Log: `install-014-final.log`.
 - `npm audit --omit=dev`: PASS, zero vulnerabilities.
-- Native CTest after the upstream merge: PASS, 6/6; native code was unchanged by the PWA follow-up.
+- Native CTest after the solver audit: PASS, 6/6; native code remains the reference and was not changed.
 
 Fresh native/PWA Original references:
 
@@ -102,4 +108,4 @@ Fresh native/PWA Original references:
 
 ## Relevant decisions (link to PORT_DECISIONS.md)
 
-See [PORT_DECISIONS.md](PORT_DECISIONS.md).
+See [PORT_DECISIONS.md](PORT_DECISIONS.md), especially D-008 and D-058 for solver parity.

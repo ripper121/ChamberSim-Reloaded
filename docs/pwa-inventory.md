@@ -1,15 +1,15 @@
 # PWA source application inventory
 
-This inventory started from the Qt/C++ source, manual and packaged v0.10 release on 2026-10-21. It was updated after merging upstream v0.13 on 2026-10-26. An item being listed here does not by itself mean that it has been ported.
+This inventory started from the Qt/C++ source, manual and packaged v0.10 release on 2026-10-21. It was updated for the current upstream v0.14 source and calculation audit on 2026-10-28. An item being listed here does not by itself mean that it has been ported.
 
 ## Reference executables and deterministic baseline
 
-- Historical packaged GUI/CLIs: no longer retained under `build/release/`; prior v0.10 observations remain documentation evidence, not v0.13 numerical oracles
-- Current-source v0.13 simulator CLI: ignored local build `build/current-reference/csr_sim.exe`
-- Current-source v0.13 powder-fit CLI: ignored local build `build/current-reference/csr_fitpowder.exe`
+- Historical packaged GUI/CLIs: no longer retained under `build/release/`; prior v0.10 observations remain documentation evidence, not v0.14 numerical oracles
+- Current-source v0.14 simulator CLI: ignored local build `build/current-reference/csr_sim.exe`
+- Current-source v0.14 powder-fit CLI: ignored local build `build/current-reference/csr_fitpowder.exe`
 - Reference load: `tests/fixtures/223Rem_D0735_RWS.csrload`
-- Current v0.13 default Physical result for that legacy input after load normalization: 3639.3882505989213 bar peak pressure, 905.0165289447478 m/s muzzle velocity, 1379.9205132572683 J muzzle energy, 0.748939922616817 ms barrel time, 0.7464788122880305 ms BLT, and 0.7472620234750001 ms OBT at node 5.
-- `original` reference result: 3546.47 bar peak pressure, 872.578 m/s muzzle velocity, 1282.77 J muzzle energy, 0.802893 ms barrel time.
+- Current v0.14 default Physical result for that legacy input after load normalization: 3639.3882505989213 bar peak pressure, 905.0165289447478 m/s muzzle velocity, 1379.9205132572683 J muzzle energy, 0.748939922616817 ms barrel time, 0.7464788122880305 ms BLT, and 0.7472620234750001 ms OBT at node 5.
+- Current v0.14 Original result: 3634.479989981062 bar peak pressure, 861.8915450232494 m/s muzzle velocity, 1251.5444806393325 J muzzle energy, 0.7947894431577519 ms barrel time, 0.7144123480017133 ms BLT, and 0.7098716013275002 ms OBT at node 4.5.
 
 The release GUI runs in this Windows environment. Screenshot mode was used without elevated privileges. `csr_sim --help` and `csr_fitpowder --help` both exit successfully with code 0.
 
@@ -32,7 +32,7 @@ The release GUI runs in this Windows environment. Screenshot mode was used witho
 - New, copy, view/edit, delete, and JSON export. Only own records are mutable.
 - Projectile manufacturer bullet-file import (`*.csrbullets` and JSON), validation, duplicate filtering, and problem reporting.
 - Record dialogs expose typed fields, descriptions, provenance, dates, and propellant overview/detail photos.
-- Current v0.13 project data contains 485 calibers, 3,120 projectiles, and 249 propellants. The packaged v0.10 database counts were 484/3,010/245.
+- Current v0.14 project data contains 485 calibers, 3,145 projectiles, and 249 propellants. The packaged v0.10 database counts were 484/3,010/245.
 
 ## Load creation, editing, and files
 

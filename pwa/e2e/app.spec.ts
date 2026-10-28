@@ -1627,6 +1627,12 @@ test("adds and edits native shotshell pressure groups", async ({ page }) => {
   await page.getByRole("button", { name: "I understand" }).click();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await page.getByLabel("Shotshell").selectOption("true");
+  await setSolverProfile(page, "original");
+  const originalPressure = await page.locator(".result-cards dd").first().textContent();
+  await setSolverProfile(page, "published");
+  await expect(page.locator(".result-cards dd").first()).toHaveText(originalPressure!);
+  await setSolverProfile(page, "physical");
+  await expect(page.locator(".result-cards dd").first()).toHaveText(originalPressure!);
   await expect(page.getByLabel("Shotshell Hull")).toBeVisible();
   await expect(page.getByLabel("Shotshell Wad")).toBeVisible();
   await expect(page.getByLabel("Shotshell Primer")).toBeVisible();
