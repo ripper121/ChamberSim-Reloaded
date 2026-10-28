@@ -1,6 +1,6 @@
 # PWA Port Decisions
 
-Last updated: 2026-10-27
+Last updated: 2026-10-28
 
 ## D-001 — Keep the PWA isolated under `pwa/`
 
@@ -341,3 +341,9 @@ Last updated: 2026-10-27
 **Decision:** Add the user-requested heart-marked Support action as a standalone, directly clickable entry in the PWA's top menu bar and document it as an extension beyond the native application. Open an explanatory dialog before navigation. Use German copy and the supplied German storefront only when the active application language is `de_DE`; use global English copy and the supplied global storefront for every other active language. Open the final destination in a new tab with `noopener`.
 
 **Rationale:** A dialog makes the destination and purpose clear before leaving the installed or browser app. Routing from the resolved active language also handles System-language sessions consistently, while a global fallback avoids incorrectly sending French, Italian or English users to the German product page. Recording this as an explicit user-authorized extension prevents it from being mistaken for original desktop behavior during later parity audits.
+
+## D-056 — Separate production dependency evidence from build-tool advisories
+
+**Decision:** Keep both dependency checks visible: require `npm audit --omit=dev` to pass for the shipped PWA dependency graph, and record rather than suppress any findings from full `npm audit`. Do not force npm's proposed breaking downgrade when the finding exists only in the current latest-compatible PWA build toolchain and no patched compatible release exists.
+
+**Rationale:** The generated browser application does not ship `vite-plugin-pwa`, Workbox's build package, Rollup's resolver or `deepmerge`; they execute only while producing the bundle. A zero-finding production audit therefore establishes the runtime exposure accurately, while retaining the full-audit finding ensures it is revisited when upstream publishes a compatible fix instead of hiding it or destabilizing the build with an unrelated downgrade.
