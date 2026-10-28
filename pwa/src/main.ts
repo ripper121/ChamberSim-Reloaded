@@ -766,11 +766,10 @@ function selectedDatabaseRecord(): ProjectRecord | undefined {
 function databaseStatus(): string {
   if (!projectDatabase) return "Loading project database…";
   const count = (table: ProjectTable): number => projectDatabase!.projectCounts[table] + ownRecords[table].length + originalRecords[table].length;
-  const own = ownRecords.caliber.length + ownRecords.projectile.length + ownRecords.propellant.length;
-  const original = originalDatabaseInfo
-    ? `${originalDatabaseInfo.fileName}: ${originalDatabaseInfo.counts.caliber} calibers, ${originalDatabaseInfo.counts.projectile} projectiles, ${originalDatabaseInfo.counts.propellant} propellants`
-    : "no original database";
-  return `Database: ${count("caliber")} calibers, ${count("projectile")} projectiles, ${count("propellant")} propellants (${own} personal); ${original}`;
+  const counts = i18n.text("MainWindow", "%1 calibers, %2 projectiles, %3 propellants", count("caliber"), count("projectile"), count("propellant"));
+  return originalDatabaseInfo
+    ? i18n.text("MainWindow", "%1: %2", originalDatabaseInfo.fileName, counts)
+    : i18n.text("MainWindow", "No original database (choose it in File ▸ Settings…): %1", counts);
 }
 
 function databaseRowHtml(record: ProjectRecord, columns: readonly DatabaseColumn[], table: ProjectTable = activeDatabaseTable, selectedId = databaseSelections[table], focusable = selectedId === record.id): string {

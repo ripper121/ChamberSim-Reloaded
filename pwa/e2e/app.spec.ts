@@ -677,12 +677,12 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
   });
   await expect(settings.getByText("Original database ready to apply.", { exact: true })).toBeVisible();
   await expect(settings.getByText("578 calibers, 5659 projectiles, 683 propellants. New records are stored in the Personal database.", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Database: 485 calibers, 3120 projectiles, 249 propellants.*no original database/)).toBeVisible();
+  await expect(page.locator("footer")).toHaveText("No original database (choose it in File ▸ Settings…): 485 calibers, 3120 projectiles, 249 propellants");
   if (process.env.PARITY_ORIGINAL_SCREENSHOT) await page.screenshot({ path: process.env.PARITY_ORIGINAL_SCREENSHOT });
   await settings.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(settings.getByText("Original database imported.", { exact: true })).toBeVisible();
   await settings.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByText(/Database: 1063 calibers, 8779 projectiles, 932 propellants.*GordonsReloadingTool\.plain\.db/)).toBeVisible();
+  await expect(page.locator("footer")).toHaveText("GordonsReloadingTool.plain.db: 1063 calibers, 8779 projectiles, 932 propellants");
   await openMenu(page, "Help");
   await page.locator("#about").click();
   const importedAbout = page.getByRole("dialog", { name: "About ChamberSim Reloaded" });
@@ -725,7 +725,7 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
   await settings.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(settings.getByText("The browser's imported copy was removed. The original file was not changed.", { exact: true })).toBeVisible();
   await settings.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByText(/Database: 485 calibers, 3120 projectiles, 250 propellants.*no original database/)).toBeVisible();
+  await expect(page.locator("footer")).toHaveText("No original database (choose it in File ▸ Settings…): 485 calibers, 3120 projectiles, 250 propellants");
 
   await page.reload();
   await page.getByRole("tab", { name: "Propellants" }).click();
@@ -802,7 +802,7 @@ test("opens the release CSR load and exposes its native panels", async ({ page }
   if (process.env.PARITY_DRAWING_DIR) await page.screenshot({ path: resolve(process.env.PARITY_DRAWING_DIR, "chamber-current.png") });
   await page.getByRole("button", { name: "Measurements", exact: true }).click();
   await expect(page.getByLabel("Shot 1 velocity")).toHaveValue("900.5");
-  await expect(page.locator("footer")).toContainText(/Database: 485 calibers, 3120 projectiles, 249 propellants.*no original database/);
+  await expect(page.locator("footer")).toHaveText("No original database (choose it in File ▸ Settings…): 485 calibers, 3120 projectiles, 249 propellants");
   expect(errors).toEqual([]);
 });
 
@@ -1709,7 +1709,7 @@ test("filters, persists, downloads, and clears the browser log", async ({ page }
   await logging.getByLabel("Write to the log file").check();
   await settings.getByRole("button", { name: "OK", exact: true }).click();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
-  await expect(page.locator("footer")).toContainText(/Database: 485 calibers, 3120 projectiles, 249 propellants.*no original database/);
+  await expect(page.locator("footer")).toHaveText("No original database (choose it in File ▸ Settings…): 485 calibers, 3120 projectiles, 249 propellants");
 
   settings = await openSettings(page);
   const firstDownload = page.waitForEvent("download");
@@ -2205,6 +2205,10 @@ test("renders representative French and Italian database and load surfaces", asy
     await expect(sourceCell).toHaveText(sample.project);
     await expect(sourceCell).toHaveAttribute("title", sample.projectTitle);
     await expect(page.locator("#new-load [data-load-action-label]")).toHaveText(sample.newLoad);
+    const databaseStatus = sample.locale === "fr_FR"
+      ? "Aucune base de données d'origine (à choisir dans Fichier ▸ Paramètres…) : 485 calibres, 3120 projectiles, 249 poudres"
+      : "Nessuna banca dati originale (da scegliere in File ▸ Impostazioni…): 485 calibri, 3120 proiettili, 249 polveri";
+    await expect(page.locator("footer")).toHaveText(databaseStatus);
     const settings = await openSettings(page);
     await expect(settings.getByRole("group", { name: sample.units })).toBeVisible();
     await expect(settings.locator("#settings-unit-system")).toContainText(sample.metric);
@@ -2226,6 +2230,7 @@ test("renders representative French and Italian database and load surfaces", asy
 
     await setUnitSystem(page, "metric");
     await page.locator("#file-picker").setInputFiles(referenceLoad);
+    await expect(page.locator("footer")).toHaveText(databaseStatus);
     await expect(page.getByRole("button", { name: sample.cartridge, exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: sample.results, exact: true })).toBeVisible();
     await expect(page.getByText(sample.maximumPressure, { exact: true })).toBeVisible();
