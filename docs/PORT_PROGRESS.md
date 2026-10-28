@@ -4,11 +4,18 @@ Last updated: 2026-10-28
 
 ## Current objective
 
-Phase 2 — finish v0.13 visual parity after the functional refresh. Named-theme palette parity is complete; audit and correct the remaining fine native-shell widget/geometry differences without regressing the green functional workflows.
+Phase 2 complete for the discoverable v0.13 inventory. Preserve the verified functional and visual baseline, and reopen parity work only for new upstream behavior or new reference evidence.
 
 ## Current state (working / failing / blocked)
 
-Working, not blocked. Upstream v0.13 and its PWA behavior port are merged on `main`; `backup-before-upstream-013` preserves the pre-merge point. Historical v0.10 build outputs are no longer retained. Their legacy CSR input is tracked independently at `tests/fixtures/223Rem_D0735_RWS.csrload`, while the previously recorded fresh v0.13 CLI goldens remain the numerical acceptance baseline. The current PWA typecheck, all 175 unit tests, production build, fresh 43/43 Edge suite, persistent-profile installability/app-window gate, comparison capture and production dependency audit pass. Full `npm audit` reports four low-severity development-build-chain findings with no compatible patched release yet; `npm audit --omit=dev` reports zero production vulnerabilities. A fresh static-Qt current-source build passes all 6/6 CTest entries; the core executable reports 116 passed and 42 proprietary-fixture skips, while the GUI executable starts correctly but skips its suite because that same absent fixture is required.
+Working, not blocked; no parity-checklist gap remains. Upstream v0.13 and its PWA behavior port are merged on `main`; `backup-before-upstream-013` preserves the pre-merge point. Historical v0.10 build outputs are no longer retained. Their legacy CSR input is tracked independently at `tests/fixtures/223Rem_D0735_RWS.csrload`, while the previously recorded fresh v0.13 CLI goldens remain the numerical acceptance baseline. The current PWA typecheck, all 175 unit tests, production build, persistent-profile installability/app-window gate, comparison capture and production dependency audit pass. The final geometry regression ran 42/43 Edge scenarios green; the sole unrelated menu-open timing miss passed immediately on an unchanged targeted retry, while the preceding complete run remains 43/43 green. Full `npm audit` reports four low-severity development-build-chain findings with no compatible patched release yet; `npm audit --omit=dev` reports zero production vulnerabilities. A fresh static-Qt current-source build passes all 6/6 CTest entries; the core executable reports 116 passed and 42 proprietary-fixture skips, while the GUI executable starts correctly but skips its suite because that same absent fixture is required.
+
+### Final native-shell geometry milestone
+
+- Reproduced the source's Results splitter seed `{520, 380}` and `CurveChart` 300 px minimum while compacting only the SVG coordinate system so the pressure/energy/velocity plot still fills its source-sized pane.
+- Reproduced the cartridge and chamber drawing widgets' 340 px minimum height, retaining the source's 420:1200 main split and persistent user-adjustable load-workspace geometry.
+- Reproduced the Report Template dialog's `{560, 640}` split and its native per-dialog lifetime: keyboard/pointer resizing remains available, but the dialog no longer persists that transient split between openings.
+- Added browser assertions for every new ratio/minimum/lifetime rule and inspected a fresh 1280×800 production capture for clipping and plot-width regressions.
 
 ### v0.13 refresh completed in this checkpoint
 
@@ -25,17 +32,17 @@ Working, not blocked. Upstream v0.13 and its PWA behavior port are merged on `ma
 
 ### Exact next steps
 
-1. Audit the remaining native-shell widget/geometry differences against the source and existing captures; prioritize visible clipping or interaction-impacting differences.
-2. Batch the remaining related shell corrections with focused checks, then rerun the complete Edge, installability and comparison gates once at the milestone.
-3. Close the final production/visual rows only with fresh complete evidence, retaining the native proprietary-fixture limitation explicitly.
+1. Keep the completed v0.13 baseline stable; do not add cosmetic work without new source or runtime evidence.
+2. Recheck the four development-only audit findings when a compatible PWA build-tool release becomes available.
+3. If the proprietary native fixture becomes available, rerun the currently skipped native GUI cases and record the additional evidence without changing existing browser semantics speculatively.
 
 **Historical pre-v0.13 baseline:** The original Qt application and both packaged release CLIs ran locally, and the PWA passed 165 units, 42 Edge scenarios, installability and audit gates before the upstream merge. The detailed milestone history below remains useful evidence for unchanged workflows, but its v0.10 counts and numerical goldens are superseded by the checkpoint above.
 
-## Completion estimate (2026-10-26 audit)
+## Completion estimate (2026-10-28 final audit)
 
 - **Phase 1 functional parity: 100% complete against the current discoverable inventory (high confidence).** Core simulation, file compatibility, editing, databases, measurements, fitting, reporting, settings, localization, persistence, installability and browser workflows are implemented and verified. The final powder-fit difference was traced to missing physical resources in the native CLI target, fixed, and matched directly from a rebuilt current-source executable.
-- **Phase 2 visual parity: approximately 90% complete (medium confidence, ±6%).** Major layouts, charts, property tables, dialogs, drawings, primary actions, the v0.13 Results structure and every named palette have direct source/browser evidence; fine native-shell widget/geometry differences remain.
-- **Overall definition of done: approximately 98% complete (medium confidence, ±2%).** This weights functional parity more heavily than visual polish. The parity checklist has 49 `PASS` and 1 `IN PROGRESS` row after this checkpoint; no `TODO`, `DIFF`, or `BLOCKED` row remains.
+- **Phase 2 visual parity: 100% complete against the discoverable inventory (high confidence).** Major and fine shell geometry, charts, property tables, dialogs, drawings, primary actions, the v0.13 Results structure and every named palette have direct source/browser evidence. Browser-platform deviations remain documented rather than hidden.
+- **Overall definition of done: complete against the current v0.13 inventory (high confidence).** The parity checklist has 50 `PASS` rows and no `TODO`, `IN PROGRESS`, `DIFF`, or `BLOCKED` row. The absent proprietary native fixture limits additional GUI-suite evidence but does not identify an unimplemented behavior.
 
 ## Upstream v0.13 integration record
 
@@ -51,15 +58,11 @@ The comparison used upstream release notes, CMake version metadata, commit histo
 | Database/search/import | Current record data, exact/prefix/substring relevance, missing-caliber fallback and atomic deduplicated bullet import | PASS |
 | Reports/exports/help/metadata | Twist and jump fields, suffix behavior, Online documentation, translations and v0.13 About/version | PASS |
 | Added themes | Gruvbox Light/Dark, Nord, Dracula and Catppuccin Latte/Frappé with persistence and source palettes | PASS: every source palette role is mapped and representative shell/chart/drawing/card/action surfaces are browser-verified |
-| Final regression/visual gate | Full PWA gates plus remaining native-shell/theme review | IN PROGRESS |
+| Final regression/visual gate | Full PWA gates plus remaining native-shell/theme review | PASS |
 
-Milestones M0-M4 are complete: the reviewed merge, solver/current-source baselines, resources/database/search/import behavior, BLT/OBT/Results/report/export work, and named-theme palette parity all pass. M5 has the merge, documentation and functional gates complete; it closes after the remaining fine shell review and fresh complete regression.
+Milestones M0-M5 are complete: the reviewed merge, solver/current-source baselines, resources/database/search/import behavior, BLT/OBT/Results/report/export work, named-theme palette parity, source-backed shell geometry and final browser/installability gates all pass.
 
-Remaining validation work:
-
-- Audit remaining native-shell widget geometry and any visible clipping against source/captures; named-theme role mapping is complete.
-- Retain the native GUI-suite limitation as a documented proprietary-fixture skip; the test executable and Windows platform plugin now launch correctly.
-- After the final visual changes, rerun typecheck, all unit and Edge tests, production build, installability, dependency audit and comparison capture.
+No current parity validation item remains open. Retain the native GUI-suite limitation as a documented proprietary-fixture skip; the test executable and Windows platform plugin launch correctly, and those skipped cases can add evidence if the fixture becomes available.
 
 Regression-sensitive invariants retained from the update review:
 
@@ -233,7 +236,7 @@ Regression-sensitive invariants retained from the update review:
 
 - `pwa/src/lib/loadfile.ts`: read, lossless CSR update/download and compatible GRT export work. Native direct-path atomic replacement is intentionally mapped to an explicit browser download.
 - The manifest exposes verified 192/256/512 px PNGs. Persistent Edge now verifies browser install promotion, zero installability errors, a computed app id and standalone app-window launch through the repeatable `npm run test:install` gate.
-- `pwa/src/main.ts` now implements the native menu hierarchy, complete About dialog, chart interactions and source-derived cartridge/chamber/shotshell drawings. Direct screenshot comparisons were performed; the main input/output split reproduces the source's 420:1200 seed and 360 px input minimum, and every `markPrimary` action shares the source's accent-button treatment. Unavailable recent-path reuse/browser Quit and finer widget/style differences keep the broader shell row `IN PROGRESS`.
+- `pwa/src/main.ts` now implements the native menu hierarchy, complete About dialog, chart interactions and source-derived cartridge/chamber/shotshell drawings. Direct screenshot comparisons were performed; the main input/output split reproduces the source's 420:1200 seed and 360 px input minimum, drawings preserve their 340 px native minimum, Results preserve the 520:380 seed and 300 px chart minimum, and Report Template preserves its transient 560:640 split. Unavailable recent-path reuse and browser Quit are documented platform constraints; the broader shell row is verified `PASS`.
 - The Results summary, vivacity plot and main curve chart now match the source's content, axes, ranges, status/control ownership, legend series, palette and pane-filling geometry; their checklist row is verified `PASS` against native/source, numerical and browser evidence.
 - The editable input PropertyPanel surface now matches native section grouping, component headings, dense row/column geometry, help, unknown-choice preservation and persistent shared column sizing; its checklist row is verified `PASS`.
 - Input validation, dependent recalculation, dirty/history behavior and the PropertyPanel commit/focus boundary now have direct unit and live keyboard/pointer evidence; the input-editing checklist row is verified `PASS`.
@@ -248,9 +251,9 @@ Regression-sensitive invariants retained from the update review:
 
 ## Next actions (ordered, directly actionable)
 
-1. Continue the Phase 2 fine-widget/geometry pass through dialogs, database tables and secondary workspaces while rerunning focused functional browser checks after each change.
-2. Compare the resulting production capture with the native source/manual references and correct only source-backed differences.
-3. Close the production quality gate only after every final native/PWA/PWA-installability gate has been rerun.
+1. No active port gap: preserve the completed v0.13 checkpoint and begin a new parity item only when upstream or reference evidence changes.
+2. Revisit development-build dependency advisories when a compatible patched toolchain exists.
+3. Rerun the skipped native GUI cases if their proprietary fixture becomes available.
 
 ## How to run (working commands, directories, server URL/port if known)
 

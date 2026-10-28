@@ -854,12 +854,16 @@ test("resizes and remembers native-style workspace splitters", async ({ page }) 
 
   const properties = page.locator(".property-scroll");
   const originalPropertyHeight = (await properties.boundingBox())!.height;
+  expect((await page.locator(".drawing-panel").boundingBox())!.height).toBeGreaterThanOrEqual(340);
   const left = page.getByRole("separator", { name: "Resize input fields and technical drawing" });
   await left.focus(); await left.press("ArrowUp");
   await expect.poll(async () => (await properties.boundingBox())!.height).toBeCloseTo(originalPropertyHeight - 10, 0);
 
   const resultTop = page.locator(".result-top");
   const originalResultHeight = (await resultTop.boundingBox())!.height;
+  const resultViewHeight = (await page.locator(".result-view").boundingBox())!.height;
+  expect(originalResultHeight).toBeCloseTo((resultViewHeight - 7) * 520 / 900, 0);
+  expect((await page.locator(".result-chart-pane").boundingBox())!.height).toBeGreaterThanOrEqual(300);
   const results = page.getByRole("separator", { name: "Resize result summary and chart" });
   await results.focus(); await results.press("ArrowDown");
   await expect.poll(async () => (await resultTop.boundingBox())!.height).toBeCloseTo(originalResultHeight + 10, 0);
@@ -1153,7 +1157,7 @@ test("runs verified Physical and Original simulations in the results view", asyn
   const chart = page.getByRole("img", { name: "Pressure, energy and velocity over bullet travel" });
   const box = await chart.boundingBox();
   expect(box).not.toBeNull();
-  await expect(chart).toHaveAttribute("viewBox", "0 0 1000 320");
+  await expect(chart).toHaveAttribute("viewBox", "0 0 1000 240");
   const plotWidthRatio = await chart.evaluate((svg) => {
     const matrix = svg.getScreenCTM();
     if (!matrix) return 0;
@@ -1518,10 +1522,12 @@ test("renders, customizes, scales, previews and prints the active-load report", 
   const editor = page.getByRole("dialog", { name: "Edit report template" });
   const templatePane = editor.getByLabel("Report template");
   const originalEditorWidth = (await templatePane.boundingBox())!.width;
+  const editorSplitWidth = (await editor.locator(".report-editor-split").boundingBox())!.width;
+  expect(originalEditorWidth).toBeCloseTo((editorSplitWidth - 7) * 560 / 1200, 0);
   const editorSplitter = editor.getByRole("separator", { name: "Resize template editor and preview" });
   await editorSplitter.focus(); await editorSplitter.press("ArrowLeft");
   await expect.poll(async () => (await templatePane.boundingBox())!.width).toBeCloseTo(originalEditorWidth - 10, 0);
-  expect(await page.evaluate(() => localStorage.getItem("csr-layout-report-editor"))).not.toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem("csr-layout-report-editor"))).toBeNull();
   await editor.getByLabel("Report template").fill("====== Compact ======\n~~work.CaliberName~~ · ~~result.MaxPressure~~");
   await expect(editor.locator(".report-editor-preview")).toContainText("Compact");
   await editor.getByRole("button", { name: "OK" }).click();
