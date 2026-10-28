@@ -16,6 +16,10 @@ The fork's `main` branch was merged with the latest original repository state:
 
 The upstream-only range contains 10 commits, from `5309ba8` through `53eb164`. The merge was clean and preserved `pwa/` and the fork-specific native/PWA work.
 
+## Completion status
+
+Completed and verified on 2026-10-28. The refitted Original calibration, powder-fit references, New Load gun weight, whitespace/case-insensitive powder matching, independent database/physical value notices, current project data counts/corrections and bulk-density-dependent behavior are ported. Final gates: 178/178 unit tests, 44/44 Edge tests plus expanded German/French/Italian New Load coverage, production build, installability/standalone launch, native CTest 6/6, and zero production audit findings.
+
 ## PWA work required
 
 ### P0 - restore numerical parity

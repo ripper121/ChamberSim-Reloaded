@@ -135,10 +135,16 @@ function completeTail(entries: Entry[]): void {
 }
 
 export type PhysicalPowderData = { propellants: Array<{ mname: string; pname: string; record: Record<string, number>; Ba: number; a0: number; z1: number; z2: number; grain?: { shape?: string; ld?: number; hole?: number; amplitude?: number } }> };
-function attachPhysical(entries: Entry[], propellant: Partial<ProjectRecord>, data?: PhysicalPowderData): void {
-  const same = (a: number, b: number): boolean => Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b));
-  const found = data?.propellants.find((item) => `${item.mname.trim()} ${item.pname.trim()}`.toLocaleLowerCase("en-US") === recordTitle(propellant).toLocaleLowerCase("en-US"));
-  if (!found || !["Ba", "a0", "z1", "z2"].every((name) => same(number(propellant, name), Number(found.record[name])))) return;
+export function canonicalPropellantKey(maker: string, name: string): string {
+  return `${maker.trim()} ${name.trim()}`.toLocaleLowerCase("en-US").replace(/\s/gu, "");
+}
+
+export function findPhysicalPowder(data: PhysicalPowderData | undefined, maker: string, name: string): PhysicalPowderData["propellants"][number] | undefined {
+  const key = canonicalPropellantKey(maker, name);
+  return data?.propellants.find((item) => canonicalPropellantKey(item.mname, item.pname) === key);
+}
+
+function writePhysical(entries: Entry[], found: PhysicalPowderData["propellants"][number]): void {
   const values: Array<[string, string, string, string]> = [
     ["physBa", format(found.Ba, 10), "decimal", "physical model: vivacity coefficient"],
     ["physA0", format(found.a0, 10), "decimal", "physical model: prog/deg coefficient"],
@@ -148,9 +154,35 @@ function attachPhysical(entries: Entry[], propellant: Partial<ProjectRecord>, da
     ["physGrainLd", format(found.grain?.ld ?? 0, 10), "decimal", "physical model: grain length / diameter"],
     ["physGrainHole", format(found.grain?.hole ?? 0, 10), "decimal", "physical model: grain hole / outer radius"],
     ["physGrainAmp", format(found.grain?.amplitude ?? 1, 10), "decimal", "physical model: geometric surface amplitude"],
-    ["physRef", ["Ba", "a0", "z1", "z2"].map((name) => format(number(propellant, name), 10)).join(" "), "string", "burn values the physical ones belong to"]
+    ["physRef", ["Ba", "a0", "z1", "z2"].map((name) => format(get(entries, name), 10)).join(" "), "string", "burn values the physical ones belong to"]
   ];
-  entries.push(...values.map(([name, value, type, description]) => ({ name, value, unit: "", type, description })));
+  for (const [name, value, type, description] of values) {
+    const existing = entries.find((item) => item.name === name);
+    if (existing) Object.assign(existing, { value, type, description });
+    else entries.push({ name, value, unit: "", type, description });
+  }
+}
+
+function attachPhysical(entries: Entry[], propellant: Partial<ProjectRecord>, data?: PhysicalPowderData): void {
+  const same = (a: number, b: number): boolean => Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b));
+  const found = findPhysicalPowder(data, text(propellant, "mname"), text(propellant, "pname"));
+  if (!found || !["Ba", "a0", "z1", "z2"].every((name) => same(number(propellant, name), Number(found.record[name])))) return;
+  writePhysical(entries, found);
+}
+
+export function applyPhysicalBurn(load: LoadFile, data?: PhysicalPowderData): boolean {
+  const found = findPhysicalPowder(data, getText(load.propellant, "mname"), getText(load.propellant, "pname"));
+  if (!found) return false;
+  writePhysical(load.propellant, found);
+  return true;
+}
+
+export function propellantDifferences(entries: readonly Entry[], record: Partial<ProjectRecord>): string[] {
+  const same = (a: number, b: number): boolean => Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b));
+  return ["Ba", "Qex", "k", "a0", "a1", "z1", "z2", "eta", "pc", "pcd", "tcc", "tch"].filter((name) => {
+    const fallback = name === "eta" ? 1 : 0;
+    return !same(Number(entries.find((item) => item.name === name)?.value ?? fallback), number(record, name, fallback));
+  });
 }
 
 function replaceValues(entries: Entry[], values: Record<string, string>): void {

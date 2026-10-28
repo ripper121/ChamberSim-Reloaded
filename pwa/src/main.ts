@@ -12,7 +12,7 @@ import { chronographFormatName, readChronograph, type ChronographFile } from "./
 import type { DatabaseColumn, ProjectRecord, ProjectTable } from "./lib/projectdb";
 import { OwnDatabase, projectValidationProblems, recordFileName, recordJson, recordTitle } from "./lib/owndb";
 import { readBulletFile, sameBullet } from "./lib/bulletfile";
-import { applyCaliber, applyProjectile, applyPropellant, attachCaliberRecord, buildLoad, defaultBarrelLengthMm, defaultChargeG, defaultSeatingDepthMm } from "./lib/loadbuilder";
+import { applyCaliber, applyPhysicalBurn, applyProjectile, applyPropellant, attachCaliberRecord, buildLoad, canonicalPropellantKey, defaultBarrelLengthMm, defaultChargeG, defaultSeatingDepthMm, findPhysicalPowder, propellantDifferences } from "./lib/loadbuilder";
 import { preparePhoto, scaleBarMm, type StoredImage } from "./lib/photos";
 import type { OriginalDatabaseImport, OriginalDatabaseInfo } from "./lib/originaldb";
 import { technicalDrawingView } from "./lib/drawingview";
@@ -550,7 +550,23 @@ function resultView(load: LoadFile): string {
   const ladderHelp = loadText("Load development ladder: click a charge to select its curve");
   const tabs = ladder.length > 1 ? `<div class="ladder-tabs" role="tablist" aria-label="${escapeHtml(ladderHelp)}" title="${escapeHtml(ladderHelp)}">${ladder.map((entry, index) => `<button role="tab" aria-selected="${index === focus}" data-ladder="${index}" class="${index === focus ? "active" : ""}">${shown(entry.chargeG, "bulletMass")}</button>`).join("")}</div>` : "";
   const overpressure = resultOk && input.maxPressureBar > 0 && result.maxPressureBar > input.maxPressureBar ? `<div class="warning-banner">${loadText("<b>Overpressure!</b> The maximum pressure %1 is %2 % above the permitted %3. Do not load this charge.", shown(result.maxPressureBar, "pressure"), formatNumber(100 * (result.maxPressureBar / input.maxPressureBar - 1), 1), shown(input.maxPressureBar, "pressure"))}</div>` : "";
-  const burnNotice = resultOk && effectiveProfile === "physical" && !input.shotshell && !input.physicalBurn ? `<div class="notice-banner">${loadText("<b>No physical burn values</b> for this propellant (or its burn values were changed): the load's burn rate is scaled, the results are less accurate than for the powders of the Physical Model.")}</div>` : "";
+  const maker = entryValue(load.propellant, "mname"), powderName = entryValue(load.propellant, "pname"), powderTitle = `${maker} ${powderName}`.trim();
+  const key = canonicalPropellantKey(maker, powderName);
+  const candidates = combinedDatabaseRecords("propellant").filter((record) => canonicalPropellantKey(String(record.mname ?? ""), String(record.pname ?? "")) === key
+    && (effectiveProfile !== "physical" || record.source === "project"));
+  const exact = candidates.some((record) => propellantDifferences(load.propellant, record).length === 0);
+  const closest = exact ? undefined : candidates.map((record) => ({ record, count: propellantDifferences(load.propellant, record).length }))
+    .filter((item) => item.count > 0).sort((left, right) => left.count - right.count || right.record.id - left.record.id)[0]?.record;
+  const actionLink = (html: string, href: string, attribute: string): string => html.replace(
+    new RegExp(`<a href=["']${href}["']>(.*?)<\\/a>`, "u"), `<button type="button" class="notice-action" ${attribute}>$1</button>`
+  );
+  const outdatedNotice = closest ? `<div class="notice-banner">${actionLink(loadText("<b>Powder values differ from the database.</b> The load uses its own values of %1. <a href=\"powder\">Use the database values…</a>", powderTitle), "powder", `data-use-database-powder="${closest.id}"`)}</div>` : "";
+  const availablePhysical = findPhysicalPowder(projectDatabase?.physicalPowderData, maker, powderName);
+  const burnNotice = resultOk && effectiveProfile === "physical" && !input.shotshell && !input.physicalBurn
+    ? availablePhysical
+      ? `<div class="notice-banner">${actionLink(loadText("<b>No physical burn values in this load.</b> The Physical Model has values for %1, but this load's burn values are not those of the project's record (the original program's, or edited), so its burn rate is scaled and the results are less accurate. <a href=\"physical\">Use the physical values…</a>", powderTitle), "physical", "data-use-physical-powder")}</div>`
+      : `<div class="notice-banner">${loadText("<b>No physical burn values</b> for this propellant (or its burn values were changed): the load's burn rate is scaled, the results are less accurate than for the powders of the Physical Model.")}</div>`
+    : "";
   const gasVelocity = resultOk && input.chargeG > 0 ? result.gasImpulseNs / (focused.chargeG * 1e-3) : 0;
   const dash = "—";
   const value = (html: string): string => resultOk ? html : dash;
@@ -582,7 +598,7 @@ function resultView(load: LoadFile): string {
   ])}</div></div>`;
   const statusClass = resultOk ? "result-status" : "result-status simulation-failure";
   return `<div class="result-view"${splitStyle("results")}>
-    <div class="result-top"><section>${resultHeading(load, input, focused.chargeG)}${overpressure}${summary}${burnNotice}<p class="${statusClass}">${resultStatus}</p>${resultOk && reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>${loadLabel("Charge")}</th><th>${loadLabel("Max. pressure")}</th><th>${loadLabel("Velocity")}</th><th>${loadLabel("Energy")}</th><th>${loadLabel("Load ratio")}</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input, effectiveProfile)}</div>
+    <div class="result-top"><section>${resultHeading(load, input, focused.chargeG)}${overpressure}${summary}${outdatedNotice}${burnNotice}<p class="${statusClass}">${resultStatus}</p>${resultOk && reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>${loadLabel("Charge")}</th><th>${loadLabel("Max. pressure")}</th><th>${loadLabel("Velocity")}</th><th>${loadLabel("Energy")}</th><th>${loadLabel("Load ratio")}</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input, effectiveProfile)}</div>
     ${splitter("results", "horizontal", "Resize result summary and chart", 150, 300)}<div class="result-chart-pane"><div class="chart-controls">${tabs}<select id="chart-axis" aria-label="Horizontal axis"><option value="time" ${chartAxis === "time" ? "selected" : ""}>${loadLabel("Time axis")}</option><option value="position" ${chartAxis === "position" ? "selected" : ""}>${loadLabel("Position axis")}</option></select></div>
     ${chartView(result, ladder.filter((_, index) => index !== focus).map((entry) => entry.result), input, reference)}
     <div class="chart-legend"><span class="pressure-key">${escapeHtml(i18n.text("CurveChart", "Pressure"))}</span>${reference?.points.length ? `<span class="pressure-key reference-key">${escapeHtml(i18n.text("CurveChart", "Pressure (original)"))}</span>` : ""}<span class="permitted-key">${escapeHtml(i18n.text("CurveChart", "Pmax permitted"))}</span><span class="energy-key">${escapeHtml(i18n.text("CurveChart", "Energy"))}</span>${reference?.points.length ? `<span class="energy-key reference-key">${escapeHtml(i18n.text("CurveChart", "Energy (original)"))}</span>` : ""}<span class="velocity-key">${escapeHtml(i18n.text("CurveChart", "Velocity"))}</span>${reference?.points.length ? `<span class="velocity-key reference-key">${escapeHtml(i18n.text("CurveChart", "Velocity (original)"))}</span>` : ""}</div></div></div>`;
@@ -1754,7 +1770,7 @@ function openNewLoadDialog(): void {
   const tabLabels: Record<ProjectTable, string> = { caliber: tr("1. Caliber"), projectile: tr("2. Projectile"), propellant: tr("3. Propellant") };
   let active: ProjectTable = "caliber", step = 0, matchDiameter = true, defaultsFor = "";
   const filterDebounce = deferredAction();
-  let params = { chargeG: 0, barrelLengthMm: 0, seatingDepthMm: 0, twistLengthMm: 240, powderTemperatureC: 21 };
+  let params = { chargeG: 0, barrelLengthMm: 0, seatingDepthMm: 0, twistLengthMm: 240, gunWeightKg: 0, powderTemperatureC: 21 };
   const dialog = document.createElement("dialog");
   dialog.className = "new-load-dialog";
   dialog.setAttribute("aria-label", tr("New load"));
@@ -1774,14 +1790,15 @@ function openNewLoadDialog(): void {
       barrelLengthMm: defaultBarrelLengthMm(selected.caliber),
       seatingDepthMm: defaultSeatingDepthMm(selected.caliber, selected.projectile),
       twistLengthMm: params.twistLengthMm || 240,
+      gunWeightKg: params.gunWeightKg,
       powderTemperatureC: params.powderTemperatureC
     };
   };
-  const displayNumber = (base: number, quantity: "bulletMass" | "length" | "temperature"): string => {
+  const displayNumber = (base: number, quantity: "bulletMass" | "gunMass" | "length" | "temperature"): string => {
     const unit = unitPreferences.unitFor(quantity);
     return formatUnit(base, unit);
   };
-  const parameter = (name: keyof typeof params, label: string, quantity: "bulletMass" | "length" | "temperature", min: number, max: number): string => {
+  const parameter = (name: keyof typeof params, label: string, quantity: "bulletMass" | "gunMass" | "length" | "temperature", min: number, max: number): string => {
     const unit = unitPreferences.unitFor(quantity);
     return `<label><span>${label}</span><span class="parameter-control"><input type="text" inputmode="decimal" data-load-param="${name}" aria-label="${label}" value="${displayNumber(params[name], quantity)}"><span>${escapeHtml(unit.symbol)}</span></span></label>`;
   };
@@ -1803,7 +1820,7 @@ function openNewLoadDialog(): void {
       const otherMass = massUnit.id === "grain"
         ? tr("= %1 g", formatLocaleNumber(params.chargeG, { minimumFractionDigits: 3, maximumFractionDigits: 3 }))
         : tr("= %1 grains", formatLocaleNumber(params.chargeG / 0.06479891, { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
-      dialog.innerHTML = `<form method="dialog"><h2>${escapeHtml(tr("New load"))}</h2><div class="new-load-data"><section>${summary()}</section><fieldset><legend>${escapeHtml(tr("Load data"))}</legend>${parameter("chargeG", tr("Propellant charge"), "bulletMass", 0, 100)}<p class="other-mass">${escapeHtml(otherMass)}</p>${parameter("barrelLengthMm", tr("Barrel length"), "length", 0, 2000)}${parameter("seatingDepthMm", tr("Bullet seating depth"), "length", 0, 100)}${parameter("twistLengthMm", tr("Twist length"), "length", 0, 2000)}${parameter("powderTemperatureC", tr("Propellant temperature"), "temperature", -40, 80)}<button type="button" data-reset-load-defaults>${escapeHtml(tr("Reset to defaults"))}</button></fieldset></div><p class="record-error" role="alert"></p><div class="dialog-buttons"><button type="button" data-new-load-cancel>${standardButton("Cancel")}</button><button type="button" data-new-load-back>${escapeHtml(tr("< Back"))}</button><button class="primary" type="button" data-create-load>${escapeHtml(tr("Create load"))}</button></div></form>`;
+      dialog.innerHTML = `<form method="dialog"><h2>${escapeHtml(tr("New load"))}</h2><div class="new-load-data"><section>${summary()}</section><fieldset><legend>${escapeHtml(tr("Load data"))}</legend>${parameter("chargeG", tr("Propellant charge"), "bulletMass", 0, 100)}<p class="other-mass">${escapeHtml(otherMass)}</p>${parameter("barrelLengthMm", tr("Barrel length"), "length", 0, 2000)}${parameter("seatingDepthMm", tr("Bullet seating depth"), "length", 0, 100)}${parameter("twistLengthMm", tr("Twist length"), "length", 0, 2000)}${parameter("gunWeightKg", tr("Gun weight"), "gunMass", 0, 100)}${parameter("powderTemperatureC", tr("Propellant temperature"), "temperature", -40, 80)}<button type="button" data-reset-load-defaults>${escapeHtml(tr("Reset to defaults"))}</button></fieldset></div><p class="record-error" role="alert"></p><div class="dialog-buttons"><button type="button" data-new-load-cancel>${standardButton("Cancel")}</button><button type="button" data-new-load-back>${escapeHtml(tr("< Back"))}</button><button class="primary" type="button" data-create-load>${escapeHtml(tr("Create load"))}</button></div></form>`;
     }
     dialog.querySelector("[data-new-load-cancel]")?.addEventListener("click", close);
     dialog.querySelectorAll<HTMLElement>("[data-new-load-tab]").forEach((tab) => tab.addEventListener("click", () => { active = tab.dataset.newLoadTab as ProjectTable; renderDialog(); }));
@@ -1875,15 +1892,15 @@ function openNewLoadDialog(): void {
     dialog.querySelector("[data-new-load-back]")?.addEventListener("click", () => { step = 0; renderDialog(); });
     dialog.querySelector("[data-reset-load-defaults]")?.addEventListener("click", () => { resetDefaults(); renderDialog(); });
     dialog.querySelectorAll<HTMLInputElement>("[data-load-param]").forEach((input) => input.addEventListener("change", () => {
-      const quantity = input.dataset.loadParam === "chargeG" ? "bulletMass" : input.dataset.loadParam === "powderTemperatureC" ? "temperature" : "length";
+      const quantity = input.dataset.loadParam === "chargeG" ? "bulletMass" : input.dataset.loadParam === "gunWeightKg" ? "gunMass" : input.dataset.loadParam === "powderTemperatureC" ? "temperature" : "length";
       const value = parseToBase(input.value, unitPreferences.unitFor(quantity));
       if (value !== undefined) params[input.dataset.loadParam as keyof typeof params] = value;
       if (input.dataset.loadParam === "chargeG") renderDialog();
     }));
     dialog.querySelector("[data-create-load]")?.addEventListener("click", () => {
-      const ranges: Record<keyof typeof params, [number, number, "bulletMass" | "length" | "temperature"]> = {
+      const ranges: Record<keyof typeof params, [number, number, "bulletMass" | "gunMass" | "length" | "temperature"]> = {
         chargeG: [0, 100, "bulletMass"], barrelLengthMm: [0, 2000, "length"], seatingDepthMm: [0, 100, "length"],
-        twistLengthMm: [0, 2000, "length"], powderTemperatureC: [-40, 80, "temperature"]
+        twistLengthMm: [0, 2000, "length"], gunWeightKg: [0, 100, "gunMass"], powderTemperatureC: [-40, 80, "temperature"]
       };
       let invalid = "";
       for (const input of dialog.querySelectorAll<HTMLInputElement>("[data-load-param]")) {
@@ -2718,6 +2735,24 @@ function bindEvents(): void {
     document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once: true }); dialog.showModal();
   });
   app.querySelectorAll<HTMLElement>("[data-result]").forEach((element) => element.addEventListener("click", () => { activeResult = element.dataset.result ?? "results"; render(); }));
+  app.querySelector<HTMLButtonElement>("[data-use-database-powder]")?.addEventListener("click", (event) => {
+    const load = activeLoad(), id = Number((event.currentTarget as HTMLButtonElement).dataset.useDatabasePowder);
+    const record = combinedDatabaseRecords("propellant").find((candidate) => candidate.id === id);
+    if (!load || !record) return;
+    const name = `${entryValue(load.propellant, "mname")} ${entryValue(load.propellant, "pname")}`.trim();
+    if (!window.confirm(i18n.text("LoadView", "Replace the powder values of this load by the current ones of %1 in the database?\n\nThe charge and all other settings stay as they are.", name))) return;
+    historyFor(load).mutate(load, (current) => applyPropellant(current, record, false, projectDatabase?.physicalPowderData));
+    invalidateLoad(load); status = i18n.text("LoadView", "Powder values"); render();
+  });
+  app.querySelector<HTMLButtonElement>("[data-use-physical-powder]")?.addEventListener("click", () => {
+    const load = activeLoad();
+    if (!load || !projectDatabase) return;
+    const maker = entryValue(load.propellant, "mname"), name = entryValue(load.propellant, "pname");
+    const burn = findPhysicalPowder(projectDatabase.physicalPowderData, maker, name);
+    if (!burn || !window.confirm(i18n.text("LoadView", "Use the Physical Model's burn values of %1 for this load?\n\nBurn rate %2, form function a0 %3, z1 %4, z2 %5. They replace the scaled burn rate of the Physical Model. The burn values of the load itself (Ba, a0, z1, z2 of the original's model) stay as they are; the physical ones apply while those are unchanged.", `${maker} ${name}`.trim(), formatNumber(burn.Ba, 4), formatNumber(burn.a0, 4), formatNumber(burn.z1, 4), formatNumber(burn.z2, 4)))) return;
+    historyFor(load).mutate(load, (current) => { applyPhysicalBurn(current, projectDatabase!.physicalPowderData); });
+    invalidateLoad(load); status = i18n.text("LoadView", "Physical burn values"); render();
+  });
   const reportLoad = activeLoad();
   if (reportLoad && activeResult === "report") {
     app.querySelector("#edit-report-template")?.addEventListener("click", () => openReportTemplateEditor(reportLoad));

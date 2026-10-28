@@ -209,24 +209,34 @@ function originalCalibration(): Calibration {
     bulletInertiaFactor: 0.45,
     gasConstantJkgK: 340,
     integrationTolerance: 1e-7,
-    burnIntercept: 1.09171,
-    burnSlopeA0: 0.434982,
-    burnSlopeOffset: 0.00638254,
-    burnExponent: -0.00810765,
+    burnIntercept: 1.14476,
+    burnSlopeA0: 0.380336,
+    burnSlopeOffset: -0.237782,
+    burnExponent: -0.00120751,
     initialGasFactor: 0.536312,
     handgunStartFraction: 0,
     handgunMaxBarrelMm: 400,
     burnZ0Factor: 0,
     ignitionRate: 0.132,
     ignitionLead: 7.17663,
-    phase2: [-0.0867208, -0.0659705, -0.461006],
+    phase2: [-0.478611, 0.25453, -0.536076],
     phase3Limit: 1,
-    phase3: [-0.103524, -0.0695024, 0.00958064]
+    phase3: [0.115942, -0.394165, 0.683927]
   };
 }
 
 export function calibrationFor(profile: CalibrationProfile): Calibration {
   const calibration = originalCalibration();
+  if (profile !== "original") {
+    Object.assign(calibration, {
+      burnIntercept: 1.09171,
+      burnSlopeA0: 0.434982,
+      burnSlopeOffset: 0.00638254,
+      burnExponent: -0.00810765,
+      phase2: [-0.0867208, -0.0659705, -0.461006],
+      phase3: [-0.103524, -0.0695024, 0.00958064]
+    });
+  }
   if (profile === "published") {
     return {
       ...calibration,

@@ -42,9 +42,15 @@ describe("solver public contract", () => {
     const original = calibrationFor("original");
     const published = calibrationFor("published");
     const physical = calibrationFor("physical");
-    expect(original).toMatchObject({ model: "original", capacityFactor: 1.10205, intrusionFactor: 1.13549 });
-    expect(published).toMatchObject({ model: "original", burnRateScale: 1.13597, capacityFactor: 0.740647, initialGasFactor: 1.19872 });
-    expect(physical).toMatchObject({ model: "physical", burnRateScale: 0.84, capacityFactor: 1.15, handgunStartFraction: 0.3 });
+    expect(original).toMatchObject({ model: "original", capacityFactor: 1.10205, intrusionFactor: 1.13549,
+      burnIntercept: 1.14476, burnSlopeA0: 0.380336, burnSlopeOffset: -0.237782, burnExponent: -0.00120751,
+      phase2: [-0.478611, 0.25453, -0.536076], phase3: [0.115942, -0.394165, 0.683927] });
+    expect(published).toMatchObject({ model: "original", burnRateScale: 1.13597, capacityFactor: 0.740647, initialGasFactor: 1.19872,
+      burnSlopeA0: 0.434982, burnSlopeOffset: 0.00638254,
+      phase2: [-0.0867208, -0.0659705, -0.461006], phase3: [-0.103524, -0.0695024, 0.00958064] });
+    expect(physical).toMatchObject({ model: "physical", burnRateScale: 0.84, capacityFactor: 1.15, handgunStartFraction: 0.3,
+      burnIntercept: 1.09171, burnSlopeA0: 0.434982,
+      phase2: [-0.0867208, -0.0659705, -0.461006], phase3: [-0.103524, -0.0695024, 0.00958064] });
   });
 });
 
@@ -79,6 +85,17 @@ describe("bullet and chamber geometry", () => {
     expect(ratio).toBeCloseTo(1.0013959895165505, 13);
     expect(chamberVolumeM3(value, calibration)).toBeGreaterThan(0);
   });
+
+  it("uses bulk density for capacity and load ratio without changing a valid pressure curve", () => {
+    const value = input();
+    const calibration = calibrationFor("physical");
+    const dense = simulate({ ...value, bulkDensityKgM3: value.bulkDensityKgM3 * 1.1 }, calibration);
+    const baseline = simulate(value, calibration);
+    expect(dense.status).toBe("ok");
+    expect(dense.loadRatio).toBeCloseTo(baseline.loadRatio / 1.1, 14);
+    expect(dense.maxPressureBar).toBe(baseline.maxPressureBar);
+    expect(dense.muzzleVelocityMs).toBe(baseline.muzzleVelocityMs);
+  });
 });
 
 describe("simulation preflight", () => {
@@ -110,7 +127,7 @@ describe("simulation preflight", () => {
     expect(simulate({ ...value, chargeG: 0.1 }, calibrationFor("original")).status).toBe("ok");
     expect(simulate({ ...value, chargeG: 3 }, calibrationFor("physical")).maxPressureBar).toBeCloseTo(4406.7, 1);
     expect(simulate({ ...value, chargeG: 3.5 }, calibrationFor("published")).maxPressureBar).toBeCloseTo(4321.84, 1);
-    expect(simulate({ ...value, chargeG: 3.5 }, calibrationFor("original")).maxPressureBar).toBeCloseTo(4932.09, 1);
+    expect(simulate({ ...value, chargeG: 3.5 }, calibrationFor("original")).maxPressureBar).toBeCloseTo(4868.83, 1);
   });
 
   it("raises short-barrel handgun start pressure exactly like the physical profile", () => {
@@ -137,13 +154,13 @@ describe("Original numerical model", () => {
     expect(result.status).toBe("ok");
     expect(result.points).toHaveLength(2000);
     const expected = {
-      maxPressureBar: 3546.466744040532,
-      muzzlePressureBar: 947.0419289459256,
-      muzzleVelocityMs: 872.5779410323089,
-      muzzleEnergyJ: 1282.7721071375468,
-      muzzleTimeMs: 0.8028927175981134,
-      burntFraction: 0.7184510153255299,
-      efficiency: 0.18196708192463198,
+      maxPressureBar: 3634.479989981062,
+      muzzlePressureBar: 868.6149163222339,
+      muzzleVelocityMs: 861.8915450232494,
+      muzzleEnergyJ: 1251.5444806393325,
+      muzzleTimeMs: 0.7947894431577519,
+      burntFraction: 0.6720414782203425,
+      efficiency: 0.1775373004866863,
       loadRatio: 1.0013959895165505
     };
     for (const [key, native] of Object.entries(expected)) {
@@ -157,10 +174,10 @@ describe("Original numerical model", () => {
     const result = simulateOriginal(input(), calibrationFor("original"));
     const expected = [
       { index: 0, xMm: 38.45, timeMs: 0, pressureBar: 250, velocityMs: 0, energyJ: 0, z: 0 },
-      { index: 1, xMm: 38.6149, timeMs: 0.0481839, pressureBar: 237.787, velocityMs: 6.84565, energyJ: 0.0789534, z: 0.00947741 },
-      { index: 999, xMm: 203.21, timeMs: 0.597252, pressureBar: 1731.23, velocityMs: 715.689, energyJ: 862.957, z: 0.645921 },
-      { index: 1500, xMm: 285.838, timeMs: 0.705209, pressureBar: 1228.56, velocityMs: 809.683, energyJ: 1104.51, z: 0.689474 },
-      { index: 1999, xMm: 368.135, timeMs: 0.802893, pressureBar: 947.042, velocityMs: 872.578, energyJ: 1282.77, z: 0.718451 }
+      { index: 1, xMm: 38.6149, timeMs: 0.0477552, pressureBar: 242.075, velocityMs: 6.9071, energyJ: 0.080377, z: 0.00986576 },
+      { index: 999, xMm: 203.21, timeMs: 0.587683, pressureBar: 1634.18, velocityMs: 715.376, energyJ: 862.202, z: 0.61829 },
+      { index: 1500, xMm: 285.838, timeMs: 0.696107, pressureBar: 1135.22, velocityMs: 803.432, energyJ: 1087.53, z: 0.648907 },
+      { index: 1999, xMm: 368.135, timeMs: 0.794789, pressureBar: 868.615, velocityMs: 861.892, energyJ: 1251.54, z: 0.672041 }
     ];
     for (const native of expected) {
       const browser = result.points[native.index]!;
@@ -180,13 +197,13 @@ describe("Original numerical model", () => {
   it("matches an independent original GRT fixture", () => {
     const result = simulateOriginal(input("tests/fixtures/8x57is.grtload"), calibrationFor("original"));
     const expected = {
-      maxPressureBar: 2301.648883506882,
-      muzzlePressureBar: 501.4576635397623,
-      muzzleVelocityMs: 682.0388865607097,
-      muzzleEnergyJ: 2954.010602253368,
-      muzzleTimeMs: 1.5788490318110608,
-      burntFraction: 0.9622582969240396,
-      efficiency: 0.2863886806918917,
+      maxPressureBar: 2281.3711603096517,
+      muzzlePressureBar: 472.6549297088173,
+      muzzleVelocityMs: 668.700594563762,
+      muzzleEnergyJ: 2839.600179329313,
+      muzzleTimeMs: 1.5789737217897648,
+      burntFraction: 0.9125592892555234,
+      efficiency: 0.2752966927167548,
       loadRatio: 0.8484414183132671
     };
     for (const [key, native] of Object.entries(expected)) {

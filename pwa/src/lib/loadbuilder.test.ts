@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { physicalPowderData, projectRecords } from "./projectdb";
-import { applyCaliber, applyProjectile, applyPropellant, attachCaliberRecord, buildLoad, caseVolumeCm3, defaultBarrelLengthMm, defaultChargeG, defaultSeatingDepthMm } from "./loadbuilder";
+import { applyCaliber, applyPhysicalBurn, applyProjectile, applyPropellant, attachCaliberRecord, buildLoad, canonicalPropellantKey, caseVolumeCm3, defaultBarrelLengthMm, defaultChargeG, defaultSeatingDepthMm, propellantDifferences } from "./loadbuilder";
 import { parseLoadXml, serializeLoadXml } from "./loadfile";
 import { simInputFromLoad } from "./siminput";
 import { calibrationFor, simulate } from "./solver";
@@ -31,6 +31,22 @@ describe("native load builder", () => {
     expect(defaultChargeG(caliber, propellant)).toBeCloseTo(0.70 * 910 * 1e-3 * 4.075851439, 9);
   });
 
+  it("matches propellant names without spaces or case and keeps physical updates independent", () => {
+    expect(canonicalPropellantKey(" Reload Swiss ", "RS 40")).toBe(canonicalPropellantKey("reload swiss", "rs40"));
+    const renamed = { ...propellant, mname: ` ${String(propellant.mname).toUpperCase()} `, pname: "N 150" };
+    const source = physicalPowderData.propellants.find((item) => item.mname === propellant.mname && item.pname === propellant.pname)!;
+    const data = { propellants: [{ ...source, pname: "n150" }] };
+    const load = buildLoad(caliber, projectile, renamed, { chargeG: 2.7 }, "spaces.csrload", data);
+    expect(load.propellant.find((entry) => entry.name === "physBa")).toBeDefined();
+    const oldBa = load.propellant.find((entry) => entry.name === "Ba")!;
+    oldBa.value = String(Number(oldBa.value) * 1.1);
+    load.propellant = load.propellant.filter((entry) => !entry.name.startsWith("phys"));
+    expect(propellantDifferences(load.propellant, renamed)).toContain("Ba");
+    expect(applyPhysicalBurn(load, data)).toBe(true);
+    expect(load.propellant.find((entry) => entry.name === "Ba")?.value).toBe(oldBa.value);
+    expect(load.propellant.find((entry) => entry.name === "physRef")?.value.split(" ")[0]).toBe(Number(oldBa.value).toPrecision(10).replace(/(?:\.0+|(?:(\.\d*?)0+))$/, "$1"));
+  });
+
   it("builds the original field order and a simulatable round trip", () => {
     const load = buildLoad(caliber, projectile, propellant, {
       chargeG: 2.7, barrelLengthMm: 600, seatingDepthMm: 10.4, twistLengthMm: 240, gunWeightKg: 3.7
@@ -40,9 +56,12 @@ describe("native load builder", () => {
     expect(load.propellant.find((item) => item.name === "physBa")).toBeDefined();
     expect(load.caliberFile.some((item) => item.name === "PmaxSAAMI")).toBe(false);
     const parsed = parseLoadXml(serializeLoadXml(load), "built.csrload");
+    expect(simInputFromLoad(parsed).gunWeightKg).toBe(3.7);
     const result = simulate(simInputFromLoad(parsed), calibrationFor("physical"));
     expect(result.status).toBe("ok");
     expect(result.muzzleVelocityMs).toBeGreaterThan(500);
+    expect(result.recoilVelocityMs).toBeGreaterThan(0);
+    expect(result.recoilEnergyJ).toBeGreaterThan(0);
   });
 
   it("estimates missing boat-tail dimensions", () => {

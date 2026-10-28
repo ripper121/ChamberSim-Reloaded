@@ -25,12 +25,14 @@ describe("native powder fitting", () => {
     const { samples } = powderFitSamples(fixture(), "measurements.grtload");
     const original = fitPowder(samples, { params: ["Ba"], model: "original" });
     expect(original.before[0]).toBeCloseTo(0.5814, 10);
-    expect(original.after[0]).toBe(50);
-    expect(original.iterations).toBe(5);
-    expect(original.samples[0]?.velocityBefore).toBeCloseTo(624.6, 1);
-    expect(original.samples[0]?.velocityAfter).toBeCloseTo(785.0, 1);
-    expect(original.velocityRmsBefore).toBeCloseTo(0.2640, 4);
-    expect(original.velocityRmsAfter).toBeCloseTo(0.0878, 4);
+    expect(original.after[0]).toBeCloseTo(12.83749, 5);
+    expect(original.iterations).toBe(15);
+    expect(original.samples[0]?.velocityBefore).toBeCloseTo(613.7, 1);
+    expect(original.samples[1]?.velocityBefore).toBeCloseTo(654.8, 1);
+    expect(original.samples[0]?.velocityAfter).toBeCloseTo(784.8, 1);
+    expect(original.samples[1]?.velocityAfter).toBeCloseTo(819.1, 1);
+    expect(original.velocityRmsBefore).toBeCloseTo(0.2776, 4);
+    expect(original.velocityRmsAfter).toBeCloseTo(0.0881, 4);
 
     const physical = fitPowder(samples, { params: ["Ba"], model: "physical" });
     expect(physical.before[0]).toBeCloseTo(0.488376, 10);
@@ -51,10 +53,10 @@ describe("native powder fitting", () => {
     const load = fixture(), { samples } = powderFitSamples(load, load.fileName);
     const results = fitPowderAll(samples, { params: ["Ba"] });
     applyPowderFit(load, results);
-    expect(Number(load.propellant.find((entry) => entry.name === "Ba")?.value)).toBe(50);
+    expect(Number(load.propellant.find((entry) => entry.name === "Ba")?.value)).toBeCloseTo(12.83749, 5);
     const physical = readPhysicalBurn([...load.propellant, ...load.physical]);
     expect(physical?.Ba).toBe(50);
-    expect(load.propellant.find((entry) => entry.name === "physRef")?.value.split(" ")[0]).toBe("50");
+    expect(Number(load.propellant.find((entry) => entry.name === "physRef")?.value.split(" ")[0])).toBeCloseTo(12.83749, 5);
     expect(powderFitQuality(results[0]!)).toBe(0.05);
   });
 });

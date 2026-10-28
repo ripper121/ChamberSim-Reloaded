@@ -11,7 +11,7 @@ const referenceLoad = resolve(repositoryRoot, "tests/fixtures/223Rem_D0735_RWS.c
 const originalLoad = resolve(repositoryRoot, "tests/fixtures/8x57is.grtload");
 const measurementLoad = resolve(repositoryRoot, "tests/fixtures/measurements.grtload");
 const bulletFile = resolve(repositoryRoot, "tests/fixtures/example.csrbullets");
-// build/release contains the historical v0.10 package; only a fresh source build is a v0.13 result oracle.
+// build/release contains the historical v0.10 package; only a fresh source build is a current result oracle.
 const nativeSimulator = resolve(repositoryRoot, "build/current-reference/csr_sim.exe");
 
 async function openMenu(page: Page, name: string): Promise<void> {
@@ -98,9 +98,9 @@ test("browses, filters, sorts, and selects the complete project database", async
   await expect(page.getByRole("columnheader").filter({ has: page.getByRole("button", { name: "Sort by Pmax", exact: true }) })).toHaveAttribute("aria-sort", "descending");
 
   await page.getByRole("tab", { name: "Projectiles" }).click();
-  await expect(page.getByText("3,120 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,145 entries", { exact: true })).toBeVisible();
   await page.getByLabel("Filter all columns").fill("RWS Scorion 52");
-  await expect(page.getByText("1 of 3,120 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 of 3,145 entries", { exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: /Scorion Hpbt-Match 2313343/ })).toBeVisible();
 
   await page.getByRole("tab", { name: "Propellants" }).click();
@@ -240,13 +240,13 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   await page.locator("#about").click();
   const about = page.getByRole("dialog", { name: "About ChamberSim Reloaded" });
   await expect(about).toContainText("Interior ballistics for handloaders");
-  await expect(about).toContainText("Version 0.13");
+  await expect(about).toContainText("Version 0.14");
   await expect(about.getByRole("heading", { name: "Features" })).toBeVisible();
   await expect(about.getByRole("heading", { name: "Accuracy" })).toBeVisible();
   await expect(about.getByRole("heading", { name: "Disclaimer" })).toBeVisible();
   await expect(about.getByRole("heading", { name: "Copyright and license" })).toBeVisible();
   await expect(about).toContainText("no responsibility or liability");
-  await expect(about).toContainText("Project records: 485 calibers, 3,120 projectiles, 249 propellants");
+  await expect(about).toContainText("Project records: 485 calibers, 3,145 projectiles, 249 propellants");
   await expect(about).toContainText("Original program's database: none chosen");
   await expect(about.getByRole("link", { name: "GNU General Public License" })).toHaveAttribute("target", "_blank");
   const aboutSize = await about.evaluate((element) => {
@@ -416,7 +416,7 @@ test("imports a manufacturer bullet file, persists it, and suppresses duplicates
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await page.getByRole("tab", { name: "Projectiles" }).click();
-  await expect(page.getByText("3,120 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,145 entries", { exact: true })).toBeVisible();
 
   page.once("dialog", (dialog) => {
     expect(dialog.message()).toContain("2 bullet(s) can be added (manufacturer: Acme Bullets)");
@@ -424,14 +424,14 @@ test("imports a manufacturer bullet file, persists it, and suppresses duplicates
   });
   await page.locator("#bullet-picker").setInputFiles(bulletFile);
   await expect(page.getByText("2 bullet(s) imported.", { exact: true })).toBeVisible();
-  await expect(page.getByText("3,122 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,147 entries", { exact: true })).toBeVisible();
   await page.getByLabel("Filter all columns").fill("Acme Bullets");
-  await expect(page.getByText("2 of 3,122 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("2 of 3,147 entries", { exact: true })).toBeVisible();
   await expect(page.getByRole("cell", { name: "Match HPBT .308 175 gr", exact: true })).toBeVisible();
 
   await page.reload();
   await page.getByRole("tab", { name: "Projectiles" }).click();
-  await expect(page.getByText("3,122 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,147 entries", { exact: true })).toBeVisible();
   page.once("dialog", (dialog) => {
     expect(dialog.message()).toContain("0 bullet(s) can be added");
     expect(dialog.message()).toContain("2 bullet(s) are already in the database");
@@ -439,7 +439,7 @@ test("imports a manufacturer bullet file, persists it, and suppresses duplicates
   });
   await page.locator("#bullet-picker").setInputFiles(bulletFile);
   await expect(page.getByText("No bullets imported from example.csrbullets", { exact: true })).toBeVisible();
-  await expect(page.getByText("3,122 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,147 entries", { exact: true })).toBeVisible();
 });
 
 test("creates a simulatable load through the native two-step database workflow", async ({ page }) => {
@@ -478,31 +478,39 @@ test("creates a simulatable load through the native two-step database workflow",
 
   await expect(dialog.getByLabel("Barrel length")).toHaveValue("600.00");
   await expect(dialog.getByLabel("Bullet seating depth")).toHaveValue("5.50");
-  await expect(dialog.getByText(/= 1\.24\d g/)).toBeVisible();
+  await expect(dialog.getByLabel("Gun weight")).toHaveValue("0.00");
+  // The default is 70% of case capacity using the current sourced D073.5 bulk density.
+  await expect(dialog.getByLabel("Propellant charge")).toHaveValue("21.07");
+  await expect(dialog.getByText("= 1.365 g", { exact: true })).toBeVisible();
   await dialog.getByLabel("Barrel length").fill("500");
+  await dialog.getByLabel("Gun weight").fill("3.70");
   await dialog.getByRole("button", { name: "< Back", exact: true }).click();
   await dialog.getByRole("button", { name: "Next >", exact: true }).click();
   await expect(dialog.getByLabel("Barrel length")).toHaveValue("500.00");
+  await expect(dialog.getByLabel("Gun weight")).toHaveValue("3.70");
   await dialog.getByRole("button", { name: "Reset to defaults", exact: true }).click();
   await expect(dialog.getByLabel("Barrel length")).toHaveValue("600.00");
+  await expect(dialog.getByLabel("Gun weight")).toHaveValue("3.70");
   await dialog.getByRole("button", { name: "Create load", exact: true }).click();
 
   await expect(page.getByRole("button", { name: "Untitled 1" })).toBeVisible();
   await expect(page.getByText(/New load created: 223 Rem\./)).toBeVisible();
   await expect(page.getByText("Model: Physical Model", { exact: true })).toBeVisible();
-  await expect(page.getByRole("definition").filter({ hasText: "2,011 bar" })).toBeVisible();
-  await expect(page.getByRole("definition").filter({ hasText: "788.8 m/s" })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: "2,401 bar" })).toBeVisible();
+  await expect(page.getByRole("definition").filter({ hasText: "850.3 m/s" })).toBeVisible();
+  await expect(page.locator(".result-group").filter({ hasText: "Recoil energy" }).locator("dd").nth(1)).toContainText("J");
   const downloadPromise = page.waitForEvent("download");
   await openMenu(page, "File");
   await page.locator("#save-csr").click();
   const download = await downloadPromise;
+  expect(readFileSync((await download.path())!, "utf8")).toMatch(/name="mgun" value="3\.7"/);
   if (process.platform === "win32" && existsSync(nativeSimulator)) {
     const native = JSON.parse(execFileSync(nativeSimulator, ["--format", "json", (await download.path())!], {
       encoding: "utf8", env: { ...process.env, PATH: `C:\\msys64\\mingw64\\bin;${process.env.PATH ?? ""}` }
     }))[0];
     expect(native.status).toBe("ok");
-    expect(Math.round(native.maxPressure_bar)).toBe(2011);
-    expect(native.muzzleVelocity_ms.toFixed(1)).toBe("788.8");
+    expect(Math.round(native.maxPressure_bar)).toBe(2401);
+    expect(native.muzzleVelocity_ms.toFixed(1)).toBe("850.3");
   }
   await page.getByRole("button", { name: "Projectile", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Projectile Product Name", exact: true })).toHaveValue("Scorion Hpbt-Match 2313343");
@@ -594,6 +602,34 @@ test("matches every native component replacement retain and reset branch", async
   expect(await storedValue("Propellant Mass")).toBeCloseTo(0.85774317167, 12);
 });
 
+test("offers database and physical powder values as independent actions", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  const ba = page.getByRole("textbox", { name: "Vivacity Coefficient", exact: true });
+  const original = Number(await ba.inputValue());
+  await ba.fill(String(original * 1.1));
+  await ba.press("Tab");
+  await page.getByRole("button", { name: "Results", exact: true }).click();
+
+  await expect(page.getByRole("button", { name: "Use the database values…", exact: true })).toBeVisible();
+  const physical = page.getByRole("button", { name: "Use the physical values…", exact: true });
+  await expect(physical).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await physical.click();
+  await expect(page.getByRole("button", { name: "Use the physical values…", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Use the database values…", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  expect(Number(await ba.inputValue())).toBeCloseTo(original * 1.1, 10);
+  await page.getByRole("button", { name: "Results", exact: true }).click();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Use the database values…", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Use the database values…", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Use the physical values…", exact: true })).toHaveCount(0);
+});
+
 test("stores, reloads, displays, enlarges, and removes personal powder photos", async ({ page }) => {
   test.setTimeout(45_000);
   await page.goto("/");
@@ -677,12 +713,12 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
   });
   await expect(settings.getByText("Original database ready to apply.", { exact: true })).toBeVisible();
   await expect(settings.getByText("578 calibers, 5659 projectiles, 683 propellants. New records are stored in the Personal database.", { exact: true })).toBeVisible();
-  await expect(page.locator("footer")).toHaveText("No original database (choose it in File ▸ Settings…): 485 calibers, 3120 projectiles, 249 propellants");
+  await expect(page.locator("footer")).toHaveText("No original database (choose it in File ▸ Settings…): 485 calibers, 3145 projectiles, 249 propellants");
   if (process.env.PARITY_ORIGINAL_SCREENSHOT) await page.screenshot({ path: process.env.PARITY_ORIGINAL_SCREENSHOT });
   await settings.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(settings.getByText("Original database imported.", { exact: true })).toBeVisible();
   await settings.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.locator("footer")).toHaveText("GordonsReloadingTool.plain.db: 1063 calibers, 8779 projectiles, 932 propellants");
+  await expect(page.locator("footer")).toHaveText("GordonsReloadingTool.plain.db: 1063 calibers, 8804 projectiles, 932 propellants");
   await openMenu(page, "Help");
   await page.locator("#about").click();
   const importedAbout = page.getByRole("dialog", { name: "About ChamberSim Reloaded" });
@@ -725,11 +761,11 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
   await settings.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(settings.getByText("The browser's imported copy was removed. The original file was not changed.", { exact: true })).toBeVisible();
   await settings.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.locator("footer")).toHaveText("No original database (choose it in File ▸ Settings…): 485 calibers, 3120 projectiles, 250 propellants");
+  await expect(page.locator("footer")).toHaveText("No original database (choose it in File ▸ Settings…): 485 calibers, 3145 projectiles, 250 propellants");
 
   await page.reload();
   await page.getByRole("tab", { name: "Propellants" }).click();
-  await page.getByLabel("Filter all columns").fill("Original Powder");
+  await page.getByLabel("Filter all columns").fill("Personal original-photo");
   await expect(page.getByText("1 of 250 entries", { exact: true })).toBeVisible();
   await page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "Original Powder (copy)", exact: true }) }).click();
   await page.locator("#edit-record").click();
@@ -802,7 +838,7 @@ test("opens the release CSR load and exposes its native panels", async ({ page }
   if (process.env.PARITY_DRAWING_DIR) await page.screenshot({ path: resolve(process.env.PARITY_DRAWING_DIR, "chamber-current.png") });
   await page.getByRole("button", { name: "Measurements", exact: true }).click();
   await expect(page.getByLabel("Shot 1 velocity")).toHaveValue("900.5");
-  await expect(page.locator("footer")).toHaveText("No original database (choose it in File ▸ Settings…): 485 calibers, 3120 projectiles, 249 propellants");
+  await expect(page.locator("footer")).toHaveText("No original database (choose it in File ▸ Settings…): 485 calibers, 3145 projectiles, 249 propellants");
   expect(errors).toEqual([]);
 });
 
@@ -1044,8 +1080,8 @@ test("fits powder models to measurements and applies or saves the result", async
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText(/case volume is the database value \(4\.110 cm3\)/)).toBeVisible();
   await expect(dialog.locator("tbody tr")).toHaveCount(2);
-  await expect(dialog.locator(".powder-fit-summary")).toContainText("Ba: 0.5814 → 50.0000");
-  await expect(dialog.locator(".powder-fit-summary")).toContainText("Velocity error (rms): 26.40 % → 8.78 %");
+  await expect(dialog.locator(".powder-fit-summary")).toContainText("Ba: 0.5814 → 12.8375");
+  await expect(dialog.locator(".powder-fit-summary")).toContainText("Velocity error (rms): 27.76 % → 8.81 %");
   await expect(dialog.getByRole("button", { name: "Apply to this load" })).toBeEnabled();
 
   await dialog.getByRole("button", { name: "Save as own propellant" }).click();
@@ -1058,9 +1094,9 @@ test("fits powder models to measurements and applies or saves the result", async
   await openMenu(page, "File");
   await page.locator("#save-csr").click();
   const fitted = readFileSync((await (await downloadPromise).path())!, "utf8");
-  expect(fitted).toMatch(/name="Ba" value="50"/);
+  expect(fitted).toMatch(/name="Ba" value="12\.837487674/);
   expect(fitted).toMatch(/name="physBa" value="50"/);
-  expect(fitted).toMatch(/name="physRef" value="50%20/);
+  expect(fitted).toMatch(/name="physRef" value="12\.83748767%20/);
 
   await page.getByRole("button", { name: "Database", exact: true }).click();
   await page.getByRole("tab", { name: "Propellants" }).click();
@@ -1181,8 +1217,8 @@ test("runs verified Physical and Original simulations in the results view", asyn
   await expect(page.locator(".axis-title").filter({ hasText: "Bullet base position [mm]" })).toBeVisible();
 
   await setSolverProfile(page, "original");
-  await expect(page.getByText("3,546 bar", { exact: true })).toBeVisible();
-  await expect(page.getByText("872.6 m/s", { exact: true })).toBeVisible();
+  await expect(page.getByText("3,634 bar", { exact: true })).toBeVisible();
+  await expect(page.getByText("861.9 m/s", { exact: true })).toBeVisible();
   await expect(page.getByText("Model: GRT Original", { exact: true })).toBeVisible();
 });
 
@@ -1412,7 +1448,7 @@ test("shows native invalid, capacity, stuck-bullet, ladder, and overpressure sta
   const overpressureCases = [
     { profile: "physical", charge: "3", pressure: "4,407 bar", percent: "13 %" },
     { profile: "published", charge: "3.5", pressure: "4,322 bar", percent: "10.8 %" },
-    { profile: "original", charge: "3.5", pressure: "4,932 bar", percent: "26.5 %" }
+    { profile: "original", charge: "3.5", pressure: "4,869 bar", percent: "24.8 %" }
   ] as const;
   for (const sample of overpressureCases) {
     await selectProfile(sample.profile);
@@ -1715,7 +1751,7 @@ test("filters, persists, downloads, and clears the browser log", async ({ page }
   await logging.getByLabel("Write to the log file").check();
   await settings.getByRole("button", { name: "OK", exact: true }).click();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
-  await expect(page.locator("footer")).toHaveText("No original database (choose it in File ▸ Settings…): 485 calibers, 3120 projectiles, 249 propellants");
+  await expect(page.locator("footer")).toHaveText("No original database (choose it in File ▸ Settings…): 485 calibers, 3145 projectiles, 249 propellants");
 
   settings = await openSettings(page);
   const firstDownload = page.waitForEvent("download");
@@ -1880,7 +1916,7 @@ test("shows app update state at the right of the menu and checks on click", asyn
   const sync = page.getByRole("button", { name: "App is up to date" });
   await expect(sync).toBeVisible();
   await expect(sync).toHaveText("Update");
-  await expect(page.getByLabel("PWA version 0.1.0, ChamberSim version 0.13")).toHaveText("PWA 0.1.0ChamberSim 0.13");
+  await expect(page.getByLabel("PWA version 0.1.0, ChamberSim version 0.14")).toHaveText("PWA 0.1.0ChamberSim 0.14");
   expect(await sync.evaluate((button) => button.parentElement?.lastElementChild === button)).toBe(true);
   expect(await sync.evaluate((button) => button.parentElement?.parentElement?.lastElementChild === button.parentElement)).toBe(true);
   await expect(sync.locator(".sync-dot")).toHaveCSS("background-color", "rgb(66, 200, 90)");
@@ -2050,6 +2086,13 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(newLoad.getByRole("tab", { name: "1. Kaliber", exact: true })).toBeVisible();
   await newLoad.getByRole("tab", { name: "2. Geschoss", exact: true }).click();
   await expect(newLoad.getByLabel("Nur Geschosse anzeigen, die zum Kaliber passen")).toBeVisible();
+  for (const [table, query, text] of [["caliber", "223 rem", "223 Rem."], ["projectile", "scorion 52", "Scorion Hpbt-Match 2313343"], ["propellant", "lovex d073.5", "D073.5"]] as const) {
+    await newLoad.locator(`[data-new-load-tab="${table}"]`).click();
+    await newLoad.locator("[data-new-load-filter]").fill(query);
+    await newLoad.locator("tr[data-db-id]").filter({ hasText: text }).first().click();
+  }
+  await newLoad.locator("[data-new-load-next]").click();
+  await expect(newLoad.getByLabel("Waffengewicht", { exact: true })).toHaveValue("0,00");
   await expect(newLoad.locator("[data-new-load-cancel]")).toHaveText("Abbrechen");
   await newLoad.locator("[data-new-load-cancel]").click();
   await page.locator("#new-record").click();
@@ -2185,7 +2228,7 @@ test("renders representative French and Italian database and load surfaces", asy
       changeRecord: "Modifier l'enregistrement choisi", lockedRecord: "Seuls vos propres enregistrements peuvent être modifiés : faites une copie",
       newLoad: "Nouveau chargement", cartridge: "Cartouche & arme", results: "Résultats",
       maximumPressure: "Pression maximale", model: "Modèle : Modèle physique", propellantMass: "Masse de poudre",
-      units: "Unités", metric: "Métrique", resetUnits: "Réinitialiser les unités par champ", save: "Enregistrer", cancel: "Annuler",
+      units: "Unités", metric: "Métrique", resetUnits: "Réinitialiser les unités par champ", save: "Enregistrer", cancel: "Annuler", gunWeight: "Poids de l’arme",
       validated: "Vérifié", validationTitle: /^(Vérifié à la main :|Non vérifié :)/
     },
     {
@@ -2194,7 +2237,7 @@ test("renders representative French and Italian database and load surfaces", asy
       changeRecord: "Modifica il record scelto", lockedRecord: "Si possono modificare solo i propri record: crea una copia",
       newLoad: "Nuovo caricamento", cartridge: "Cartuccia & arma", results: "Risultati",
       maximumPressure: "Pressione massima", model: "Modello: Modello fisico", propellantMass: "Massa di polvere",
-      units: "Unità", metric: "Metrico", resetUnits: "Ripristina le unità dei campi", save: "Salva", cancel: "Annulla",
+      units: "Unità", metric: "Metrico", resetUnits: "Ripristina le unità dei campi", save: "Salva", cancel: "Annulla", gunWeight: "Peso dell’arma",
       validated: "Verificato", validationTitle: /^(Verificato a mano:|Non verificato:)/
     }
   ] as const;
@@ -2211,9 +2254,19 @@ test("renders representative French and Italian database and load surfaces", asy
     await expect(sourceCell).toHaveText(sample.project);
     await expect(sourceCell).toHaveAttribute("title", sample.projectTitle);
     await expect(page.locator("#new-load [data-load-action-label]")).toHaveText(sample.newLoad);
+    await page.locator("#new-load").click();
+    const newLoad = page.locator("dialog.new-load-dialog");
+    for (const [table, query, text] of [["caliber", "223 rem", "223 Rem."], ["projectile", "scorion 52", "Scorion Hpbt-Match 2313343"], ["propellant", "lovex d073.5", "D073.5"]] as const) {
+      await newLoad.locator(`[data-new-load-tab="${table}"]`).click();
+      await newLoad.locator("[data-new-load-filter]").fill(query);
+      await newLoad.locator("tr[data-db-id]").filter({ hasText: text }).first().click();
+    }
+    await newLoad.locator("[data-new-load-next]").click();
+    await expect(newLoad.getByLabel(sample.gunWeight, { exact: true })).toHaveValue("0,00");
+    await newLoad.locator("[data-new-load-cancel]").click();
     const databaseStatus = sample.locale === "fr_FR"
-      ? "Aucune base de données d'origine (à choisir dans Fichier ▸ Paramètres…) : 485 calibres, 3120 projectiles, 249 poudres"
-      : "Nessuna banca dati originale (da scegliere in File ▸ Impostazioni…): 485 calibri, 3120 proiettili, 249 polveri";
+      ? "Aucune base de données d'origine (à choisir dans Fichier ▸ Paramètres…) : 485 calibres, 3145 projectiles, 249 poudres"
+      : "Nessuna banca dati originale (da scegliere in File ▸ Impostazioni…): 485 calibri, 3145 proiettili, 249 polveri";
     await expect(page.locator("footer")).toHaveText(databaseStatus);
     const settings = await openSettings(page);
     await expect(settings.getByRole("group", { name: sample.units })).toBeVisible();

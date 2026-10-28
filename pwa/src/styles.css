@@ -238,6 +238,7 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .warning-banner, .notice-banner { margin: 5px 0; padding: 6px 8px; border-radius: 2px; }
 .warning-banner { color: #fff; background: #c42b1c; }
 .notice-banner { color: #2b1a00; background: #ffb347; }
+.notice-action { margin-left: 4px; padding: 0; border: 0; color: #2b1a00; background: transparent; text-decoration: underline; cursor: pointer; }
 .simulation-failure { margin: 5px 0 8px; }
 .overpressure-value { color: #e0453a; }
 .ladder-table { max-height: 170px; margin-top: 7px; }

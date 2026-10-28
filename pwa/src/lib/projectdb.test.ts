@@ -3,10 +3,30 @@ import { databaseColumns, filteredRecords, normalizedSearch, projectCounts, proj
 
 describe("project database", () => {
   it("loads every repository record in native filename/order ID ranges", () => {
-    expect(projectCounts).toEqual({ caliber: 485, projectile: 3120, propellant: 249 });
+    expect(projectCounts).toEqual({ caliber: 485, projectile: 3145, propellant: 249 });
     expect(projectRecords.caliber[0]).toMatchObject({ id: 1_000_000, source: "project", cipname: "10.3 Capra" });
     expect(projectRecords.caliber.at(-1)?.id).toBe(1_000_484);
     expect(Number(projectRecords.propellant.find((record) => record.pname === "D073.4")?.Br)).toBeGreaterThan(0);
+  });
+
+  it("contains the corrected 0.14 projectile and sourced-density records in source order", () => {
+    const projectile = (maker: string, name: string) => projectRecords.projectile.find((record) => record.mname === maker && record.pname === name)!;
+    expect(projectRecords.projectile.filter((record) => record.mname === "Sax")).toHaveLength(89);
+    expect(projectRecords.projectile.filter((record) => record.mname === "Sax").every((record) => record.gValid === true)).toBe(true);
+    expect(projectile("Hornady", "ELD Match Extremely Low Drag Match 26177")).toMatchObject({ glen: 33.274, gValid: true });
+    expect(projectile("GECO", "Hexagon 0.355 124 gr")).toMatchObject({ glen: 15.3, gValid: true });
+    expect(projectile("H&N", "HP HS .356 145 gr")).toMatchObject({ glen: 16.7, gValid: true });
+    expect(projectile("LOS", "HP 0.356 123 gr")).toMatchObject({ glen: 14.2, gValid: true });
+    expect(projectRecords.projectile.filter((record) => record.mname === "Balistix").map((record) => record.pname).slice(0, 1)).toEqual(["BT HunTac (HBN) .223 50 gr"]);
+    const styria = projectRecords.projectile.filter((record) => record.mname === "Styria Arms");
+    expect([styria[0]?.pname, styria.at(-1)?.pname]).toEqual(["AERO ECO, .264 90 gr", "AERO SUB-RO, .308 105 gr"]);
+
+    const d0735 = projectRecords.propellant.find((record) => record.mname === "Lovex" && record.pname === "D073.5")!;
+    const accurate1680 = projectRecords.propellant.find((record) => record.mname === "Accurate" && record.pname === "1680")!;
+    expect(d0735).toMatchObject({ pcd: 987 });
+    expect(String(d0735.descr)).toContain("Bulk density 987 kg/m3");
+    expect(accurate1680).toMatchObject({ pcd: 1046 });
+    expect(String(accurate1680.descr)).toContain("Bulk density 1046 kg/m3");
   });
 
   it("ranks exact, prefix, then substring text matches while the ID column is selected", () => {
