@@ -2933,7 +2933,7 @@ function bindEvents(): void {
         sessionEligibleLoads.add(load);
         loads.push(load);
         activeTab = `load-${loads.length - 1}`;
-        status = `Opened ${file.name}`;
+        status = databaseStatus();
         logger.info(`Load opened: ${file.name}`, "main.ts");
       } catch (error) {
         status = `Cannot read ${file.name}: ${error instanceof Error ? error.message : String(error)}`;

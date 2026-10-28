@@ -802,7 +802,7 @@ test("opens the release CSR load and exposes its native panels", async ({ page }
   if (process.env.PARITY_DRAWING_DIR) await page.screenshot({ path: resolve(process.env.PARITY_DRAWING_DIR, "chamber-current.png") });
   await page.getByRole("button", { name: "Measurements", exact: true }).click();
   await expect(page.getByLabel("Shot 1 velocity")).toHaveValue("900.5");
-  await expect(page.getByText("Opened 223Rem_D0735_RWS.csrload", { exact: true })).toBeVisible();
+  await expect(page.locator("footer")).toContainText(/Database: 485 calibers, 3120 projectiles, 249 propellants.*no original database/);
   expect(errors).toEqual([]);
 });
 
@@ -1709,7 +1709,7 @@ test("filters, persists, downloads, and clears the browser log", async ({ page }
   await logging.getByLabel("Write to the log file").check();
   await settings.getByRole("button", { name: "OK", exact: true }).click();
   await page.locator("#file-picker").setInputFiles(referenceLoad);
-  await expect(page.getByText(`Opened ${referenceLoad.split(/[\\/]/).pop()}`)).toBeVisible();
+  await expect(page.locator("footer")).toContainText(/Database: 485 calibers, 3120 projectiles, 249 propellants.*no original database/);
 
   settings = await openSettings(page);
   const firstDownload = page.waitForEvent("download");
@@ -2204,7 +2204,7 @@ test("renders representative French and Italian database and load surfaces", asy
     const sourceCell = page.locator(".database-table tbody tr[data-db-id] td").first();
     await expect(sourceCell).toHaveText(sample.project);
     await expect(sourceCell).toHaveAttribute("title", sample.projectTitle);
-    await expect(page.locator("#new-load")).toHaveText(sample.newLoad);
+    await expect(page.locator("#new-load [data-load-action-label]")).toHaveText(sample.newLoad);
     const settings = await openSettings(page);
     await expect(settings.getByRole("group", { name: sample.units })).toBeVisible();
     await expect(settings.locator("#settings-unit-system")).toContainText(sample.metric);

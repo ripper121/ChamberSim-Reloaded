@@ -1,6 +1,6 @@
 # PWA Port Progress
 
-Last updated: 2026-10-27
+Last updated: 2026-10-28
 
 ## Current objective
 
@@ -8,7 +8,7 @@ Phase 2 — finish v0.13 visual parity after the functional refresh. Named-theme
 
 ## Current state (working / failing / blocked)
 
-Working, not blocked. Upstream v0.13 and its PWA behavior port are merged on `main`; `backup-before-upstream-013` preserves the pre-merge point. Historical v0.10 build outputs are no longer retained. Their legacy CSR input is tracked independently at `tests/fixtures/223Rem_D0735_RWS.csrload`, while the previously recorded fresh v0.13 CLI goldens remain the numerical acceptance baseline. The PWA typecheck, all 175 unit tests, production build, dependency audit and fresh 42/42 Edge suite pass after the named-theme palette work. A fresh static-Qt current-source build now passes all 6/6 CTest entries; the core executable reports 116 passed and 42 proprietary-database-dependent skips, while the GUI executable starts correctly but skips its suite because that same absent fixture is required.
+Working, not blocked. Upstream v0.13 and its PWA behavior port are merged on `main`; `backup-before-upstream-013` preserves the pre-merge point. Historical v0.10 build outputs are no longer retained. Their legacy CSR input is tracked independently at `tests/fixtures/223Rem_D0735_RWS.csrload`, while the previously recorded fresh v0.13 CLI goldens remain the numerical acceptance baseline. The PWA typecheck, all 175 unit tests and production build pass. The latest broad Edge run passed 41/43 before exposing one rejected splitter experiment and one stale localization assertion; after reverting the experiment and correcting that assertion, all four directly affected scenarios pass. A new upstream advisory makes `npm audit` report four low-severity development-chain findings with no compatible patched release yet. A fresh static-Qt current-source build passes all 6/6 CTest entries; the core executable reports 116 passed and 42 proprietary-database-dependent skips, while the GUI executable starts correctly but skips its suite because that same absent fixture is required.
 
 ### v0.13 refresh completed in this checkpoint
 
@@ -26,7 +26,7 @@ Working, not blocked. Upstream v0.13 and its PWA behavior port are merged on `ma
 ### Exact next steps
 
 1. Audit the remaining native-shell widget/geometry differences against the source and existing captures; prioritize visible clipping or interaction-impacting differences.
-2. Rerun the complete Edge, installability and comparison gates after the remaining shell review.
+2. Batch the remaining related shell corrections with focused checks, then rerun the complete Edge, installability and comparison gates once at the milestone.
 3. Close the final production/visual rows only with fresh complete evidence, retaining the native proprietary-fixture limitation explicitly.
 
 **Historical pre-v0.13 baseline:** The original Qt application and both packaged release CLIs ran locally, and the PWA passed 165 units, 42 Edge scenarios, installability and audit gates before the upstream merge. The detailed milestone history below remains useful evidence for unchanged workflows, but its v0.10 counts and numerical goldens are superseded by the checkpoint above.
@@ -70,6 +70,9 @@ Regression-sensitive invariants retained from the update review:
 - Do not weaken golden tolerances or mark skipped/stale checks as passing to finish an update.
 
 ## Completed since previous checkpoint
+
+- Restored native status-bar behavior after a successful load open: the PWA now retains the database summary just as `MainWindow::openLoad` does, instead of replacing it with a browser-only `Opened ...` message. Updated the affected load-panel and logging workflows and corrected the localized New Load assertion to target its text label rather than its source-required icon.
+- Audited the Results splitter against the source's 520:380 seed. A direct proportional browser mapping was rejected because the PWA's fixed-coordinate SVG chart lost usable plot width at 1440x900; the existing balanced allocation remains until the chart can reflow like `QChart`. The broad run caught the regression and the unchanged plot-width guard passed after the revert.
 
 - Replaced the Report tab's browser-authored centered gray paper canvas with the native `QTextBrowser` presentation: the white document now fills the output pane, starts at the source-sized 4 px inset, uses intrinsic report-table widths, has no decorative shadow, and keeps the source-like compact heading offset. Browser preview/print/PDF retain their separate A4 paper layout. A fresh 1280×800 fixture capture was inspected beside `docs/manual/images/report.png`.
 - Matched `MeasurementView`'s seeded splitter geometry: the charge table and shot/chart regions now start at the native 260:480 vertical ratio, and the shot editor keeps the source's 330 px initial width while the chart absorbs remaining space. Persisted pointer/keyboard sizes and the stacked narrow-screen layout remain unchanged. A fresh 1280×800 fixture capture was inspected beside `docs/manual/images/measurements.png`.
@@ -282,6 +285,8 @@ $env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
 
 ## Tests and parity verification (commands, results, known failures)
 
+- 2026-10-28 status/shell batch: `npm run build` PASS (including typecheck; 27 Workbox entries / 4,525.00 KiB); `npm test -- --reporter=dot` PASS (30 files, 175 tests). The first complete Edge run passed 41/43: it correctly rejected a temporary 520:380 Results-grid experiment via the established rendered-plot-width assertion and exposed a stale localized New Load assertion that still included the newly source-matched file icon. The experiment was reverted, the assertion now targets the label span, and the four affected workflows (`opens the release CSR load`, verified simulation/chart, browser log, French/Italian surfaces) PASS together. `npm audit` currently reports the four low-severity build-chain findings documented below; a final complete Edge/installability run is deliberately deferred until the next batched milestone per the token-efficient cadence.
+
 - `npm test`: PASS, 27 files and 163 tests, including exact Qt platform-button translations for German/French/Italian; release-CLI invalid/capacity/bullet-stuck/overpressure cases for all three profiles; native logging defaults/persistence/level parsing/filtering/format/rotation/destinations and session preference defaults/persistence; appearance defaults/clamping/application and native solver-preference defaults/persistence/original-file routing; German decimal/group formatting, locale-first parsing and C-locale fallback across units, record fields and the converter; lazy Qt catalog parsing, finished/unfinished fallback, placeholders, mnemonics and localized plurals; language normalization/resolution/storage and System/Light/Dark storage and live system-scheme behavior; burn-rate derivation/newest-lot/filter/sort and all unit-converter quantities/native pressure/offset/invalid cases; reference-run JSON mapping/default/error behavior; powder-fit extraction, release comparisons, apply and quality; 45 report language/data cases; native chronograph synthetic cases and every tracked Garmin fixture; measurement editing helpers, prediction/chart geometry and lossless nested measurement XML; exact cartridge/chamber/cavity/powder geometry; Original SQLite schema/default/image/error behavior; native photo scale-bar choices; complete project-data counts/order; personal-record normalization/export; native bullet-file parsing; load building/component replacement; tolerant database filtering/sorting; XML round trips; load editing/history; units and solver goldens.
 - `npm run typecheck`: PASS.
 - `npm audit`: PASS, zero vulnerabilities.
@@ -335,6 +340,8 @@ $env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
 - Report browser-surface gate on 2026-10-27: production build/typecheck PASS with 27 Workbox entries / 4,524.99 KiB; the complete report edit/scale/preview/print/PDF Edge scenario PASS. Browser geometry verifies a pane-filling white report with no shadow, zero left surface gap, compact 12 px heading offset and an intrinsic 451 px first table rather than a forced full-width paper table; the final 1280×800 capture was inspected against the native report image.
 
 ## Known issues and blockers
+
+- `npm audit` on 2026-10-28 reports four low-severity prototype-poisoning findings in the build-only chain `vite-plugin-pwa 2.0.0 -> workbox-build 7.4.1 -> @rollup/plugin-node-resolve 16.0.3 -> deepmerge 4.3.1`. Those are the latest compatible releases; npm's only automatic fix is a breaking downgrade to `vite-plugin-pwa 0.2.1`, so no unsafe forced change was made. Recheck when a compatible patched dependency is published.
 
 - Specialized translation/locale surfaces are audited and verified. Remaining browser-only status/accessibility wording is explicitly classified rather than presented as desktop-catalog parity.
 - The packaged release `csr_fitpowder.exe` remains a historical reference that omits the current physical-data resource. Current source now embeds it, has a CTest regression, and matches the PWA exactly; see D-024.
