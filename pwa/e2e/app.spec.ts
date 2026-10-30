@@ -176,7 +176,7 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await expect(page.getByText("485 entries", { exact: true })).toBeVisible();
-  await expect(page.locator(".menubar > .menu-dropdown > summary")).toHaveText(["File", "Edit", "View", "Tools", "Help"]);
+  await expect(page.locator(".menubar > .menu-dropdown > summary")).toHaveText(["File", "Edit", "View", "Tools", "Wizard", "Help"]);
 
   await openMenu(page, "File");
   const fileMenu = page.locator(".file-menu > .menu-popup");
@@ -191,8 +191,14 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   await expect(page.locator("#menu-export-pdf")).toBeDisabled();
   await expect(page.locator("#settings")).toBeEnabled();
   await expect(page.locator("#menu-quit")).toBeDisabled();
+  await openMenu(page, "Wizard");
+  await expect(page.locator("#propellant-mass-wizard")).toBeDisabled();
+  await page.locator(".wizard-menu > summary").click();
 
   await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await openMenu(page, "Wizard");
+  await expect(page.locator("#propellant-mass-wizard")).toBeEnabled();
+  await page.locator(".wizard-menu > summary").click();
   await openMenu(page, "File");
   await expect(page.locator("#save-csr")).toBeEnabled();
   await expect(page.locator("#menu-print-preview")).toBeEnabled();
@@ -268,6 +274,60 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   expect(aboutSize.scrollbars).toEqual(["about-layout"]);
   if (process.env.PARITY_ABOUT_SCREENSHOT) await page.screenshot({ path: process.env.PARITY_ABOUT_SCREENSHOT });
   await about.getByRole("button", { name: "OK", exact: true }).click();
+});
+
+test("calculates and applies all Propellant Mass Wizard targets", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  const charge = page.getByRole("textbox", { name: "Propellant Mass", exact: true });
+  const before = await charge.inputValue();
+
+  await openMenu(page, "Wizard");
+  await page.locator("#propellant-mass-wizard").click();
+  const wizard = page.getByRole("dialog", { name: /Assist - Propellant Mass/ });
+  await expect(wizard).toBeVisible();
+  const ratioTarget = wizard.getByRole("textbox", { name: "Load ratio target" });
+  const pressureTarget = wizard.getByRole("textbox", { name: "Maximum pressure target" });
+  await expect(ratioTarget).toHaveAttribute("max", "100");
+  await expect(wizard.getByLabel("Load ratio slider")).toHaveAttribute("min", "0");
+  await expect(wizard.getByLabel("Load ratio slider")).toHaveAttribute("max", "100");
+  await expect(pressureTarget).toHaveValue("");
+  await expect(wizard.getByRole("textbox", { name: "Muzzle velocity target" })).toBeVisible();
+  await expect(wizard.getByRole("textbox", { name: "Barrel Time general (BT) target" })).toBeVisible();
+  await expect(wizard.getByRole("textbox", { name: "Bullet Lead Time 10% pmax (BLT) target" })).toBeVisible();
+  await ratioTarget.fill("1");
+  await wizard.getByRole("button", { name: "Calculate", exact: true }).click();
+  await expect(wizard.locator("[data-wizard-result]")).toHaveText("0.25");
+  await wizard.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(charge).toHaveValue("0.25");
+  await openMenu(page, "Edit");
+  await page.locator("#undo").click();
+  await expect(charge).toHaveValue(before);
+
+  await openMenu(page, "Wizard");
+  await page.locator("#propellant-mass-wizard").click();
+  const reopenedWizard = page.getByRole("dialog", { name: /Assist - Propellant Mass/ });
+  const reopenedRatio = reopenedWizard.getByRole("textbox", { name: "Load ratio target" });
+  const reopenedPressure = reopenedWizard.getByRole("textbox", { name: "Maximum pressure target" });
+  await reopenedWizard.getByRole("button", { name: "Pmax -25%" }).click();
+  await expect(reopenedPressure).not.toHaveValue("");
+  await reopenedRatio.fill("90");
+  await expect(reopenedPressure).toHaveValue("");
+  await reopenedWizard.getByRole("button", { name: "Pmax -25%" }).click();
+  await expect(reopenedRatio).toHaveValue("");
+  await expect(reopenedWizard.locator("[data-wizard-result]")).toHaveText("0.00");
+  await expect(reopenedWizard.getByRole("button", { name: "Apply", exact: true })).toBeDisabled();
+  await reopenedWizard.getByRole("button", { name: "Calculate", exact: true }).click();
+  await expect(reopenedWizard.locator("[data-wizard-result]")).not.toHaveText("—");
+  await expect(reopenedWizard.getByRole("button", { name: "Apply", exact: true })).toBeEnabled();
+  await reopenedWizard.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(charge).not.toHaveValue(before);
+  await expect(page.locator("footer")).toHaveText("Applied Propellant Mass Wizard result");
+  await openMenu(page, "Edit");
+  await page.locator("#undo").click();
+  await expect(charge).toHaveValue(before);
 });
 
 test("uses the German support message and storefront for a German session", async ({ page }) => {

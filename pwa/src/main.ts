@@ -21,7 +21,7 @@ import { defaultReportTemplate, renderReport, reportImage, reportUnitForSystem, 
 import { copyRecordValues, parseRecordNumber, recordFields, shownRecordNumber, type RecordField } from "./lib/recordfields";
 import { simInputFromLoad, type SimInput } from "./lib/siminput";
 import { activeCalibrationFor, simulate, simulateLadder, vivacityCurve, type CalibrationProfile, type LadderResult, type SimPoint, type SimResult } from "./lib/solver";
-import { formatLocaleNumber, formatUnit, parseToBase, quantityOfFileUnit, setNumberLocale, toDisplay, UnitPreferences, unitsOf, type Quantity, type UnitSystem } from "./lib/units";
+import { formatLocaleNumber, formatUnit, fromDisplay, parseLocaleNumber, parseToBase, quantityOfFileUnit, setNumberLocale, toDisplay, UnitPreferences, unitsOf, type Quantity, type UnitSystem } from "./lib/units";
 import { applyPowderFit, defaultPowderFitParams, fitPowderAll, powderFitQuality, powderFitSamples, type PowderFitParam, type PowderFitResult } from "./lib/powderfit";
 import { parseReferenceRun, referenceNumber, type ReferenceRun } from "./lib/reference";
 import { burnRateRows, filterBurnRateRows, sortBurnRateRows, type BurnRateColumn, type BurnRateFactor } from "./lib/burnrate";
@@ -32,6 +32,7 @@ import { loadI18n } from "./lib/i18n";
 import { AppearancePreferences, defaultFontSize, maxFontSize, minFontSize, SolverPreferences } from "./lib/settings";
 import { BrowserSessionStore, SessionPreferences, type SessionSnapshot } from "./lib/session";
 import { AppLogger, BrowserPersistentLog, logLevelName, LogPreferences, type LogLevel } from "./lib/log";
+import { propellantMassForLoadRatio, solvePropellantMass, type PropellantMassTarget, type PropellantMassTargets } from "./lib/wizards/propellantmass";
 
 const appNode = document.querySelector<HTMLDivElement>("#app");
 if (!appNode) throw new Error("Application root is missing");
@@ -941,6 +942,9 @@ function menuBarHtml(current: LoadFile | undefined, canUndo: boolean, canRedo: b
     ${item("burn-rate-table", "&Burn rate table…", "", Boolean(projectDatabase))}
     ${item("unit-converter", "&Unit converter…")}
   </div></details>
+  <details class="menu-dropdown wizard-menu"><summary>${tr("&Wizard")}</summary><div class="menu-popup" role="menu" aria-label="${tr("&Wizard")}">
+    ${item("propellant-mass-wizard", "&Propellant Mass…", "", Boolean(current))}
+  </div></details>
   <details class="menu-dropdown help-menu"><summary>${tr("&Help")}</summary><div class="menu-popup" role="menu" aria-label="${tr("&Help")}">
     <a id="user-manual" role="menuitem" href="${escapeHtml(manualUrl)}" target="_blank" rel="noopener"><span>${tr("&User manual")}</span><kbd>F1</kbd></a>
     <a id="online-documentation" role="menuitem" href="https://schildkroet.github.io/ChamberSim-Reloaded/" target="_blank" rel="noopener"><span>${tr("&Online documentation")}</span></a>
@@ -1189,6 +1193,142 @@ function openAboutDialog(): void {
   });
   document.body.append(dialog);
   dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.showModal();
+}
+
+function openPropellantMassWizard(): void {
+  const load = activeLoad();
+  if (!load) return;
+  const baseInput = simInputFromLoad(load);
+  const calibration = activeCalibrationFor(profileFor(load), baseInput);
+  const current = simulate(baseInput, calibration);
+  const targets: PropellantMassTargets = {};
+  const dialog = document.createElement("dialog");
+  dialog.className = "propellant-mass-dialog";
+  dialog.setAttribute("aria-labelledby", "propellant-mass-title");
+  const chargeUnit = unitPreferences.unitFor("bulletMass");
+  const pressureUnit = unitPreferences.unitFor("pressure");
+  const velocityUnit = unitPreferences.unitFor("velocity");
+  const labels: Record<PropellantMassTarget, string> = {
+    loadRatio: "Load ratio", maxPressureBar: "Maximum pressure", muzzleVelocityMs: "Muzzle velocity",
+    muzzleTimeMs: "Barrel Time general (BT)", bulletLeadTimeMs: "Bullet Lead Time 10% pmax (BLT)"
+  };
+  const units: Record<PropellantMassTarget, string> = {
+    loadRatio: "%", maxPressureBar: pressureUnit.symbol, muzzleVelocityMs: velocityUnit.symbol, muzzleTimeMs: "ms", bulletLeadTimeMs: "ms"
+  };
+  const defaults: Record<PropellantMassTarget, number | undefined> = {
+    loadRatio: current.status === "ok" ? current.loadRatio : 1,
+    maxPressureBar: baseInput.maxPressureBar > 0 ? baseInput.maxPressureBar * 0.85 : current.maxPressureBar,
+    muzzleVelocityMs: current.status === "ok" ? current.muzzleVelocityMs : undefined,
+    muzzleTimeMs: current.status === "ok" ? current.muzzleTimeMs : undefined,
+    bulletLeadTimeMs: current.status === "ok" ? current.bulletLeadTimeMs : undefined
+  };
+  const displayed = (target: PropellantMassTarget, value: number): number => target === "loadRatio" ? value * 100
+    : target === "maxPressureBar" ? toDisplay(value, pressureUnit)
+      : target === "muzzleVelocityMs" ? toDisplay(value, velocityUnit) : value;
+  const based = (target: PropellantMassTarget, value: number): number => target === "loadRatio" ? value / 100
+    : target === "maxPressureBar" ? fromDisplay(value, pressureUnit)
+      : target === "muzzleVelocityMs" ? fromDisplay(value, velocityUnit) : value;
+  const textValue = (target: PropellantMassTarget): string => {
+    const value = targets[target];
+    return value === undefined ? "" : formatLocaleNumber(displayed(target, value), { maximumFractionDigits: target === "loadRatio" ? 1 : 4, useGrouping: false });
+  };
+  const evaluateCache = new Map<number, SimResult>();
+  const evaluate = (chargeG: number): SimResult => {
+    const key = Math.round(chargeG * 1e10);
+    let result = evaluateCache.get(key);
+    if (!result) { result = simulate({ ...baseInput, chargeG }, calibration); evaluateCache.set(key, result); }
+    return result;
+  };
+  let solution: ReturnType<typeof solvePropellantMass>;
+  const targetNames = Object.keys(labels) as PropellantMassTarget[];
+  const row = (target: PropellantMassTarget): string => `<div class="wizard-target-row" data-wizard-row="${target}">
+    <label for="wizard-${target}">${escapeHtml(labels[target])}</label>
+    <div class="wizard-target-tools">${target === "loadRatio" ? `<input type="range" data-wizard-slider min="0" max="100" step="0.1" value="0" aria-label="Load ratio slider">` : ""}${target === "maxPressureBar" ? `<button type="button" data-pressure-share="0.85">Pmax -15%</button><button type="button" data-pressure-share="0.75">Pmax -25%</button>` : ""}</div>
+    <button type="button" class="wizard-icon" data-wizard-clear title="Clear target" aria-label="Clear ${escapeHtml(labels[target])} target">⌫</button>
+    <button type="button" class="wizard-icon" data-wizard-reset title="Reset target" aria-label="Reset ${escapeHtml(labels[target])} target">↶</button>
+    <input id="wizard-${target}" data-wizard-target="${target}" inputmode="decimal" ${target === "loadRatio" ? 'min="0" max="100"' : ""} value="${escapeHtml(textValue(target))}" aria-label="${escapeHtml(labels[target])} target">
+    <span>${escapeHtml(units[target])}</span></div>`;
+  const renderResult = (): void => {
+    const ratioCharge = targets.loadRatio === undefined ? undefined
+      : propellantMassForLoadRatio(baseInput, calibration, targets.loadRatio);
+    solution = ratioCharge === undefined
+      ? solvePropellantMass(evaluate, baseInput.chargeG, targets, 32)
+      : { chargeG: ratioCharge, limitingTarget: "loadRatio", result: evaluate(ratioCharge) };
+    const output = dialog.querySelector<HTMLOutputElement>("[data-wizard-result]");
+    const apply = dialog.querySelector<HTMLButtonElement>("[data-wizard-apply]");
+    const limit = dialog.querySelector<HTMLElement>("[data-wizard-limit]");
+    if (output) output.value = solution ? formatUnit(solution.chargeG, chargeUnit, chargeUnit.id === "grain" ? 2 : 4) : "—";
+    if (apply) apply.disabled = !solution;
+    if (limit) limit.textContent = solution ? `Target: ${labels[solution.limitingTarget]}` : "The selected target is not reachable";
+  };
+  const clearResult = (): void => {
+    solution = undefined;
+    const output = dialog.querySelector<HTMLOutputElement>("[data-wizard-result]");
+    const apply = dialog.querySelector<HTMLButtonElement>("[data-wizard-apply]");
+    const limit = dialog.querySelector<HTMLElement>("[data-wizard-limit]");
+    if (output) output.value = formatUnit(0, chargeUnit, chargeUnit.id === "grain" ? 2 : 4);
+    if (apply) apply.disabled = true;
+    if (limit) limit.textContent = "Enter one target, then click Calculate";
+  };
+  dialog.innerHTML = `<form method="dialog"><fieldset><legend id="propellant-mass-title">★ Assist - Propellant Mass</legend>
+    <p>Enter one target value and click Calculate to determine the powder mass.</p>
+    <p><strong>Calculated powder masses can result in an unusable or dangerous load. Always compare the result with current manufacturer loading data and start low.</strong></p>
+    <div class="wizard-target-heading">Target</div>${targetNames.map(row).join("")}
+    <div class="wizard-result"><span>Propellant mass result</span><output data-wizard-result></output><span>${escapeHtml(chargeUnit.symbol)}</span><small data-wizard-limit></small></div>
+    </fieldset><div class="dialog-buttons"><button type="button" data-wizard-calculate>Calculate</button><button type="button" data-wizard-cancel>${standardButton("Cancel")}</button><button type="button" data-wizard-apply disabled>${standardButton("Apply")}</button></div></form>`;
+  document.body.append(dialog);
+  const clearOtherTargets = (selected: PropellantMassTarget): void => {
+    for (const target of targetNames) {
+      if (target === selected) continue;
+      targets[target] = undefined;
+      const input = dialog.querySelector<HTMLInputElement>(`[data-wizard-target="${target}"]`);
+      if (input) input.value = "";
+    }
+    if (selected !== "loadRatio") {
+      const slider = dialog.querySelector<HTMLInputElement>("[data-wizard-slider]");
+      if (slider) slider.value = "0";
+    }
+  };
+  const setTarget = (target: PropellantMassTarget, value: number | undefined): void => {
+    if (value !== undefined) clearOtherTargets(target);
+    targets[target] = value;
+    const input = dialog.querySelector<HTMLInputElement>(`[data-wizard-target="${target}"]`);
+    if (input) input.value = value === undefined ? "" : textValue(target);
+    const slider = target === "loadRatio" ? dialog.querySelector<HTMLInputElement>("[data-wizard-slider]") : null;
+    if (slider) slider.value = value === undefined ? "0" : String(displayed(target, value));
+    clearResult();
+  };
+  dialog.querySelectorAll<HTMLInputElement>("[data-wizard-target]").forEach((input) => input.addEventListener("input", () => {
+    const target = input.dataset.wizardTarget as PropellantMassTarget;
+    const value = parseLocaleNumber(input.value);
+    if (input.value.trim()) clearOtherTargets(target);
+    const accepted = value !== undefined && value > 0 && (target !== "loadRatio" || value <= 100) ? based(target, value) : undefined;
+    targets[target] = accepted;
+    const slider = target === "loadRatio" ? dialog.querySelector<HTMLInputElement>("[data-wizard-slider]") : null;
+    if (slider) slider.value = accepted === undefined ? "0" : String(displayed(target, accepted));
+    clearResult();
+  }));
+  dialog.querySelector<HTMLInputElement>("[data-wizard-slider]")?.addEventListener("input", (event) => {
+    setTarget("loadRatio", Number((event.currentTarget as HTMLInputElement).value) / 100);
+  });
+  dialog.querySelectorAll<HTMLElement>("[data-wizard-row]").forEach((element) => {
+    const target = element.dataset.wizardRow as PropellantMassTarget;
+    element.querySelector("[data-wizard-clear]")?.addEventListener("click", () => setTarget(target, undefined));
+    element.querySelector("[data-wizard-reset]")?.addEventListener("click", () => setTarget(target, defaults[target]));
+  });
+  dialog.querySelectorAll<HTMLButtonElement>("[data-pressure-share]").forEach((button) => button.addEventListener("click", () => {
+    setTarget("maxPressureBar", baseInput.maxPressureBar > 0 ? baseInput.maxPressureBar * Number(button.dataset.pressureShare) : undefined);
+  }));
+  dialog.querySelector("[data-wizard-calculate]")?.addEventListener("click", renderResult);
+  const close = (): void => { dialog.close(); dialog.remove(); };
+  dialog.querySelector("[data-wizard-cancel]")?.addEventListener("click", close);
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.querySelector("[data-wizard-apply]")?.addEventListener("click", () => {
+    if (!solution || !historyFor(load).edit(load, "propellant", "mc", String(solution.chargeG))) return;
+    invalidateLoad(load); status = "Applied Propellant Mass Wizard result"; close(); render();
+  });
+  clearResult();
   dialog.showModal();
 }
 
@@ -2710,6 +2850,10 @@ function bindEvents(): void {
   app.querySelector("#unit-converter")?.addEventListener("click", (event) => {
     closeMenus();
     openUnitConverterDialog();
+  });
+  app.querySelector("#propellant-mass-wizard")?.addEventListener("click", () => {
+    closeMenus();
+    openPropellantMassWizard();
   });
   app.querySelectorAll<HTMLElement>("[data-tab]").forEach((element) => element.addEventListener("click", () => { activeTab = element.dataset.tab ?? "database"; render(); }));
   app.querySelectorAll<HTMLElement>("[data-input]").forEach((element) => element.addEventListener("click", () => { activeInput = element.dataset.input ?? "cartridge"; render(); }));

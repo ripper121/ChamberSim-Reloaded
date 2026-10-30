@@ -1,16 +1,25 @@
 # PWA Port Progress
 
-Last updated: 2026-10-28
+Last updated: 2026-10-30
 
 ## Current objective (Phase 1 or Phase 2)
 
-Phase 1 calculation/solver parity against the current ChamberSim Reloaded 0.14 source is re-audited and verified. Continue the remaining source-inventory audit for non-solver functional gaps before considering Phase 2 visual work.
+Phase 1 functional parity. The first requested Wizard workflow, Propellant Mass, is implemented and verified; continue requested wizard functions and the remaining non-solver audit before Phase 2 visual work.
 
 ## Current state (working / failing / blocked)
 
-Working and not blocked. The solver audit found and fixed one active-profile shotshell discrepancy; the PWA now builds and all current native, unit and browser gates pass with the corrected behavior.
+Working and not blocked. Propellant Mass Wizard calculation, UI, Apply and Undo pass focused unit/build/browser checks.
 
 ## Completed since previous checkpoint
+
+- Added a top-level Wizard menu whose Propellant Mass action is enabled only for an active load.
+- Added all five screenshot targets: Load ratio (restricted to 0-100%), Maximum pressure, Muzzle velocity, Barrel Time general (BT), and Bullet Lead Time 10% pmax (BLT), with units, clear/reset controls and the load-ratio slider.
+- Enforced one active target: entering, sliding, resetting or choosing a pressure shortcut clears every other target.
+- Added an explicit Calculate button; editing a target clears the prior result and disables Apply until calculation succeeds.
+- Added Pmax -15% and Pmax -25% shortcuts, reachability feedback, a unit-aware result, and undoable Apply.
+- Isolated the reusable root solver in `pwa/src/lib/wizards/propellantmass.ts`; increasing pressure/velocity/load-ratio and decreasing BT/BLT targets use their correct directions, including capacity-edge bracketing.
+- Verified the reference CSR browser workflow: Pmax -15% is unreachable because the current case is already at 100.1% load ratio, while Pmax -25% calculates and applies a lower charge; Undo restores the original charge.
+- Fixed low Load Ratio targets: ratio mass now uses the exact source geometric formula rather than the first charge for which the full simulation succeeds. The 1% reference case calculates and applies 0.25 grain instead of incorrectly returning a 4.1% load.
 
 - Compared `src/core/solver.h`, `solver.cpp`, `simconfig.cpp`, `primer.cpp` and OBT behavior against the TypeScript solver/input/primer implementations and current native CLI outputs.
 - Fixed active GUI shotshell calibration parity: the PWA now uses Original constants for shotshell results, measurement predictions, reports and vivacity curves under all selected profiles, matching native `effectiveCalibration()` semantics. Before the fix, the same browser case changed from 1,442 bar under Original to 2,191 bar under Published.
@@ -32,13 +41,13 @@ Working and not blocked. The solver audit found and fixed one active-profile sho
 
 ## In-progress work (files/functions and exact remaining steps)
 
-None. The solver correction, regression tests and documentation are complete but uncommitted.
+None. The Propellant Mass Wizard and checkpoint updates are complete but uncommitted.
 
 ## Next actions (ordered, directly actionable)
 
-1. Continue the full parity checklist/current native source audit outside the now-verified calculation/solver area; keep cosmetic work deferred if another functional gap is found.
-2. If no Phase 1 gaps remain, explicitly record the Phase 2 transition and perform source/native visual comparison from the current 0.14 baseline.
-3. Commit the coherent 0.14 PWA update and tracking files when appropriate.
+1. Add the next requested Wizard as another module under `pwa/src/lib/wizards/`, reusing the active-load/menu/Apply conventions.
+2. Continue the full parity checklist/current native source audit; keep cosmetic work deferred if another functional gap is found.
+3. If no Phase 1 gaps remain, explicitly record the Phase 2 transition and perform source/native visual comparison from the current 0.14 baseline.
 
 ## How to run (working commands, directories, server URL/port if known)
 
@@ -71,6 +80,9 @@ $env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
 
 Current 0.14 evidence:
 
+- Wizard addition: `npm run typecheck` PASS; focused 6/6 unit tests PASS; production build PASS with 27 precache entries; focused Edge verifies the complete Propellant Mass workflow including the 1% regression.
+- Final post-change unit gate: 31 files / 186 tests PASS; final typecheck, production build and focused Edge wizard gate also pass.
+
 - `npm run typecheck`: PASS.
 - `npm test -- --run`: PASS, 30 files / 180 tests after the solver audit.
 - `npm run build`: PASS; Workbox generated 27 precache entries. Existing large project-database chunk advisory remains non-failing. Log: `build-014-final.log`.
@@ -102,6 +114,7 @@ Fresh native/PWA Original references:
 - Full feature evidence: `docs/parity-checklist.md`
 - Architecture/platform decisions: `docs/PORT_DECISIONS.md`
 - Solver references: `src/core/solver.h`, `src/core/solver.cpp`, `pwa/src/lib/solver.ts`
+- Wizard reference and implementation: user-supplied Propellant Mass screenshot; `pwa/src/lib/wizards/propellantmass.ts`, dialog/menu wiring in `pwa/src/main.ts`
 - Builder/powder references: `src/app/newloaddialog.cpp`, `src/app/loadview.cpp`, `src/core/loadbuilder.cpp`, `src/core/physicalpowders.cpp`, `pwa/src/lib/loadbuilder.ts`
 - Fixtures: `tests/fixtures/223Rem_D0735_RWS.csrload`, `tests/fixtures/8x57is.grtload`, `tests/fixtures/measurements.grtload`
 - Historical packaged executables: `build/release/` (v0.10 only); current acceptance build: `build/current-reference/`

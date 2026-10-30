@@ -75,3 +75,7 @@ Require `npm audit --omit=dev` to pass for shipped dependencies and retain full 
 ## D-058 — Preserve active-profile shotshell calibration semantics
 
 The native GUI passes its globally active calibration by reference, and `effectiveCalibration()` consequently forces every shotshell load to the Original calibration even when Published or Physical is selected. Keep explicit solver calibrations available for deterministic tools, but route every user-facing PWA calculation through `activeCalibrationFor()` so results, measurement predictions, reports and vivacity curves reproduce the native GUI rule.
+
+## D-059 — Organize wizards as internal feature modules, not runtime plugins
+
+Keep reusable wizard calculations and state contracts under `pwa/src/lib/wizards/`, one module and focused test file per wizard. Keep menu/dialog orchestration in the application shell where active-load state, localization, units and undo history already live. Do not add dynamic plugin loading: these wizards ship with the offline PWA, need trusted access to its solver/load model and gain no practical isolation from a runtime plugin API.
