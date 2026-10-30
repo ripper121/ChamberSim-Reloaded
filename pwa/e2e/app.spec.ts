@@ -193,11 +193,13 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   await expect(page.locator("#menu-quit")).toBeDisabled();
   await openMenu(page, "Wizard");
   await expect(page.locator("#propellant-mass-wizard")).toBeDisabled();
+  await expect(page.locator("#parametric-powder-wizard")).toBeDisabled();
   await page.locator(".wizard-menu > summary").click();
 
   await page.locator("#file-picker").setInputFiles(referenceLoad);
   await openMenu(page, "Wizard");
   await expect(page.locator("#propellant-mass-wizard")).toBeEnabled();
+  await expect(page.locator("#parametric-powder-wizard")).toBeEnabled();
   await page.locator(".wizard-menu > summary").click();
   await openMenu(page, "File");
   await expect(page.locator("#save-csr")).toBeEnabled();
@@ -328,6 +330,133 @@ test("calculates and applies all Propellant Mass Wizard targets", async ({ page 
   await openMenu(page, "Edit");
   await page.locator("#undo").click();
   await expect(charge).toHaveValue(before);
+});
+
+test("searches powder parameters live and passes matches to Generic Tolerance Synthesis", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+
+  await openMenu(page, "Wizard");
+  await page.locator("#parametric-powder-wizard").click();
+  const wizard = page.getByRole("dialog", { name: "Parametric Powder Search" });
+  await expect(wizard).toBeVisible();
+  await expect(wizard.getByLabel("Reference propellant")).toHaveValue("active");
+  await expect(wizard.getByLabel("Reference propellant").locator("option:checked")).toContainText("Lovex D073.4 — current load");
+  await expect(wizard.getByLabel("Direction")).toHaveValue("both");
+  await expect(wizard.getByLabel("Maximum range")).toHaveValue("20");
+  await expect(wizard.getByLabel("Similarity factor")).toHaveValue("Brp");
+  await expect(wizard.getByLabel("Similarity tolerance")).toHaveValue("17");
+  await expect(wizard.locator('[data-parametric-output="similarity"]')).toHaveText("±3.4%");
+  await expect(wizard.locator("[data-parametric-slider]")).toHaveCount(8);
+  await expect(wizard.getByRole("row").filter({ hasText: "D073.5" })).toBeVisible();
+  await expect(wizard.getByRole("radio", { name: "Similarity powder search" })).toBeChecked();
+  await expect(wizard.getByRole("button", { name: "Next", exact: true })).toBeVisible();
+
+  await wizard.getByRole("radio", { name: "Manual powder selection" }).check();
+  await expect(wizard.locator("[data-similarity-controls]")).toBeHidden();
+  await expect(wizard.locator("[data-parametric-count]")).toHaveText("249 entries");
+  const d0735Row = wizard.getByRole("row").filter({ hasText: "D073.5" });
+  await expect(d0735Row.getByRole("checkbox")).not.toBeChecked();
+  await d0735Row.click();
+  await wizard.getByRole("button", { name: "Add selected", exact: true }).click();
+  await expect(wizard.locator("[data-search-selected-count]")).toHaveText("1 selected for synthesis");
+  await expect(d0735Row.getByRole("checkbox")).toBeChecked();
+  await wizard.getByRole("button", { name: "Add All Powders", exact: true }).click();
+  await expect(wizard.locator("[data-search-selected-count]")).toHaveText("249 selected for synthesis");
+  await expect(d0735Row.getByRole("checkbox")).toBeChecked();
+  await wizard.getByRole("button", { name: "Clear All", exact: true }).click();
+  await expect(wizard.locator("[data-search-selected-count]")).toHaveText("0 selected for synthesis");
+  await expect(d0735Row.getByRole("checkbox")).not.toBeChecked();
+  await d0735Row.getByRole("checkbox").check();
+  await expect(wizard.locator("[data-search-selected-count]")).toHaveText("1 selected for synthesis");
+  await d0735Row.getByRole("checkbox").uncheck();
+  await expect(wizard.locator("[data-search-selected-count]")).toHaveText("0 selected for synthesis");
+  await wizard.getByRole("radio", { name: "Similarity powder search" }).check();
+
+  await wizard.getByLabel("Maximum range").selectOption("100");
+  await wizard.getByLabel("Similarity tolerance").focus();
+  await page.keyboard.press("End");
+  const n140 = wizard.getByRole("row", { name: /Vihtavuori N140/ });
+  await expect(n140).toBeVisible();
+  await n140.click();
+  await wizard.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(wizard.getByRole("tab", { name: "Conditions" })).toHaveAttribute("aria-selected", "true");
+  await expect(wizard.locator("[data-synthesis-powder-count]")).not.toHaveText("0 entries");
+  await expect(wizard.getByRole("button", { name: /Start synthesis/ })).toBeVisible();
+});
+
+test("runs, cancels, previews, applies, and undoes Generic Tolerance Synthesis", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await page.getByRole("button", { name: "Propellant", exact: true }).click();
+  const originalCharge = await page.getByRole("textbox", { name: "Propellant Mass", exact: true }).inputValue();
+
+  await openMenu(page, "Wizard");
+  await page.locator("#parametric-powder-wizard").click();
+  const wizard = page.getByRole("dialog", { name: "Parametric Powder Search" });
+  await wizard.getByLabel("Maximum range").selectOption("100");
+  await wizard.getByLabel("Similarity tolerance").focus();
+  await page.keyboard.press("End");
+  await wizard.getByRole("row", { name: /Vihtavuori N140/ }).click();
+  await wizard.getByRole("tab", { name: "Conditions" }).click();
+  await expect(wizard.getByRole("checkbox", { name: /Maximum pressure/ })).toBeChecked();
+  await expect(wizard.getByRole("textbox", { name: "Maximum pressure target", exact: true })).not.toHaveValue("");
+  await expect(wizard.getByLabel("Maximum pressure tolerance")).toHaveValue(/.+/);
+  await expect(wizard.getByRole("textbox", { name: "Maximum pressure target minimum" })).not.toHaveValue("");
+  await expect(wizard.getByRole("textbox", { name: "Maximum pressure target maximum" })).not.toHaveValue("");
+  await expect(wizard.locator("[data-synthesis-filter]")).toHaveCount(6);
+
+  await wizard.getByRole("button", { name: "Add all", exact: true }).click();
+  await expect(wizard.locator("[data-synthesis-powder-count]")).toHaveText("249 entries");
+  await wizard.getByRole("button", { name: /Start synthesis/ }).click();
+  await expect(wizard.getByRole("button", { name: "Cancel process" })).toBeVisible();
+  await expect(wizard.locator("[data-live-synthesis-powder]")).toContainText("Testing:");
+  await expect(wizard.locator(".synthesis-preview .result-chart")).toBeVisible();
+  await wizard.getByRole("button", { name: "Cancel process" }).click();
+  await expect(wizard.locator("[data-synthesis-progress-text]")).toContainText("cancelled");
+
+  await wizard.getByRole("tab", { name: "Conditions" }).click();
+  await wizard.getByRole("button", { name: "Clear All", exact: true }).click();
+  await wizard.locator("[data-synthesis-config-file]").setInputFiles({
+    name: "powder-search.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({
+      version: 1,
+      search: { direction: "both", maximumPercent: 100, similarity: { factor: "Brp", slider: 100 }, parameters: {} },
+      windows: { maxPressureBar: { min: 3000, max: 4000 } },
+      resultFilters: { maxPressureBar: { below: true, above: false } },
+      records: [{ mname: "Vihtavuori", pname: "N140", lotid: "" }]
+    }))
+  });
+  await expect(wizard.locator("[data-synthesis-error]")).toHaveText("Configuration loaded.");
+  await expect(wizard.locator('[data-synthesis-filter="maxPressureBar"] [data-filter-below]')).toBeChecked();
+  await expect(wizard.locator("[data-synthesis-powder-count]")).toHaveText("1 entry");
+  const configDownload = page.waitForEvent("download");
+  await wizard.getByRole("button", { name: /Save configuration/ }).click();
+  await expect.poll(async () => (await configDownload).suggestedFilename()).toBe("parametric-powder-search.json");
+  await wizard.getByRole("button", { name: /Start synthesis/ }).click();
+  await expect(wizard.locator("[data-synthesis-progress-text]")).toContainText("finished");
+  const resultRow = wizard.locator(".synthesis-results-scroll tbody tr").filter({ hasText: "Vihtavuori N140" });
+  await expect(resultRow).toBeVisible();
+  await resultRow.click();
+  await expect(wizard.locator(".synthesis-preview .result-chart")).toBeVisible();
+  await expect(wizard.getByRole("button", { name: "Results: Text" })).toBeEnabled();
+  await expect(wizard.getByRole("button", { name: "Results: HTML" })).toBeEnabled();
+  const textDownload = page.waitForEvent("download");
+  await wizard.getByRole("button", { name: "Results: Text" }).click();
+  await expect.poll(async () => (await textDownload).suggestedFilename()).toBe("parametric-powder-results.txt");
+  const htmlDownload = page.waitForEvent("download");
+  await wizard.getByRole("button", { name: "Results: HTML" }).click();
+  await expect.poll(async () => (await htmlDownload).suggestedFilename()).toBe("parametric-powder-results.html");
+  await wizard.getByRole("button", { name: "Apply", exact: true }).click();
+
+  await expect(page.locator(".component-title")).toContainText("Vihtavuori N140");
+  await expect(page.getByRole("textbox", { name: "Propellant Mass", exact: true })).not.toHaveValue(originalCharge);
+  await expect(page.locator("footer")).toContainText("Applied synthesis result: Vihtavuori N140");
+  await openMenu(page, "Edit");
+  await page.locator("#undo").click();
+  await expect(page.locator(".component-title")).toContainText("Lovex D073.4");
+  await expect(page.getByRole("textbox", { name: "Propellant Mass", exact: true })).toHaveValue(originalCharge);
 });
 
 test("uses the German support message and storefront for a German session", async ({ page }) => {

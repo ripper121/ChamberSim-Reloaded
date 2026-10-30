@@ -20,7 +20,7 @@ import { buildReportData } from "./lib/reportdata";
 import { defaultReportTemplate, renderReport, reportImage, reportUnitForSystem, type ReportData, type ReportValue } from "./lib/report";
 import { copyRecordValues, parseRecordNumber, recordFields, shownRecordNumber, type RecordField } from "./lib/recordfields";
 import { simInputFromLoad, type SimInput } from "./lib/siminput";
-import { activeCalibrationFor, simulate, simulateLadder, vivacityCurve, type CalibrationProfile, type LadderResult, type SimPoint, type SimResult } from "./lib/solver";
+import { activeCalibrationFor, freeVolumeCm3, simulate, simulateLadder, vivacityCurve, type CalibrationProfile, type LadderResult, type SimPoint, type SimResult } from "./lib/solver";
 import { formatLocaleNumber, formatUnit, fromDisplay, parseLocaleNumber, parseToBase, quantityOfFileUnit, setNumberLocale, toDisplay, UnitPreferences, unitsOf, type Quantity, type UnitSystem } from "./lib/units";
 import { applyPowderFit, defaultPowderFitParams, fitPowderAll, powderFitQuality, powderFitSamples, type PowderFitParam, type PowderFitResult } from "./lib/powderfit";
 import { parseReferenceRun, referenceNumber, type ReferenceRun } from "./lib/reference";
@@ -33,6 +33,7 @@ import { AppearancePreferences, defaultFontSize, maxFontSize, minFontSize, Solve
 import { BrowserSessionStore, SessionPreferences, type SessionSnapshot } from "./lib/session";
 import { AppLogger, BrowserPersistentLog, logLevelName, LogPreferences, type LogLevel } from "./lib/log";
 import { propellantMassForLoadRatio, solvePropellantMass, type PropellantMassTarget, type PropellantMassTargets } from "./lib/wizards/propellantmass";
+import { parametricTolerancePercent, searchParametricPowders, synthesizePowderCharge, type ParametricPowderSearch, type PowderSearchParameter, type PowderSearchSimilarity, type PowderSynthesisSolution, type SynthesisMetric, type SynthesisWindows } from "./lib/wizards/parametricpowder";
 
 const appNode = document.querySelector<HTMLDivElement>("#app");
 if (!appNode) throw new Error("Application root is missing");
@@ -944,6 +945,7 @@ function menuBarHtml(current: LoadFile | undefined, canUndo: boolean, canRedo: b
   </div></details>
   <details class="menu-dropdown wizard-menu"><summary>${tr("&Wizard")}</summary><div class="menu-popup" role="menu" aria-label="${tr("&Wizard")}">
     ${item("propellant-mass-wizard", "&Propellant Mass…", "", Boolean(current))}
+    ${item("parametric-powder-wizard", "Parametric Powder Search…", "", Boolean(current) && Boolean(projectDatabase))}
   </div></details>
   <details class="menu-dropdown help-menu"><summary>${tr("&Help")}</summary><div class="menu-popup" role="menu" aria-label="${tr("&Help")}">
     <a id="user-manual" role="menuitem" href="${escapeHtml(manualUrl)}" target="_blank" rel="noopener"><span>${tr("&User manual")}</span><kbd>F1</kbd></a>
@@ -1329,6 +1331,416 @@ function openPropellantMassWizard(): void {
     invalidateLoad(load); status = "Applied Propellant Mass Wizard result"; close(); render();
   });
   clearResult();
+  dialog.showModal();
+}
+
+function openParametricPowderWizard(): void {
+  const load = activeLoad();
+  if (!load || !projectDatabase) return;
+  const databaseRecords = combinedDatabaseRecords("propellant");
+  const activeRecord = {
+    source: "project", id: -1,
+    ...Object.fromEntries(load.propellant.map((entry) => [entry.name, entry.value]))
+  } as ProjectRecord;
+  let reference = activeRecord, selected: ProjectRecord | undefined;
+  let databaseScope: "all" | "grt" | "user" = "all";
+  let matches = searchParametricPowders(reference, databaseRecords, { direction: "both", maximumPercent: 20, similarity: { factor: "Brp", slider: 17 }, parameters: {} });
+  let synthesisRecords: ProjectRecord[] = [];
+  let synthesisResults: Array<{ record: ProjectRecord; input: SimInput; solution: PowderSynthesisSolution }> = [];
+  let selectedSynthesis: number | undefined, running = false, cancelRequested = false;
+  const resultFilters: Partial<Record<SynthesisMetric, { below: boolean; above: boolean }>> = {};
+  let activePanel: "search" | "conditions" | "results" = "search";
+  let selectionMode: "similarity" | "manual" = "similarity";
+  const search: ParametricPowderSearch = {
+    direction: "both", maximumPercent: 20,
+    similarity: { factor: "Brp", slider: 17 }, parameters: {}
+  };
+  const parameterLabels: Record<PowderSearchParameter, string> = {
+    Qex: "Spec. explosive heat (Qex)", k: "Isentropic exponent (κ)", Ba: "Combustion coefficient (Ba)",
+    a0: "prog./deg. coefficient (a0)", z1: "Transition limit (z1)", z2: "Transition limit (z2)",
+    pc: "Propellant material density (pc)", pcd: "Propellant bulk density (pcd)"
+  };
+  const parameters = Object.keys(parameterLabels) as PowderSearchParameter[];
+  const title = "Parametric Powder Search";
+  const dialog = document.createElement("dialog");
+  dialog.className = "parametric-powder-dialog";
+  dialog.setAttribute("aria-label", title);
+  const powderName = (record: ProjectRecord): string => {
+    const lot = String(record.lotid ?? "");
+    return `${String(record.mname ?? "")} ${String(record.pname ?? "")}${lot ? ` (${lot})` : ""}`.trim();
+  };
+  const scopedRecords = (): ProjectRecord[] => databaseScope === "user" ? databaseRecords.filter((record) => record.source === "own")
+    : databaseScope === "grt" ? databaseRecords.filter((record) => record.source !== "own") : databaseRecords;
+  const referenceOptions = [`<option value="active">${escapeHtml(`${powderName(activeRecord)} — current load`)}</option>`,
+    ...databaseRecords.map((record, index) => `<option value="${index}">${escapeHtml(powderName(record))}</option>`)].join("");
+  const slider = (name: PowderSearchParameter): string => `<div class="parametric-slider-row">
+    <label for="powder-search-${name}">${escapeHtml(parameterLabels[name])}</label>
+    <output data-parametric-output="${name}">off</output>
+    <input id="powder-search-${name}" data-parametric-slider="${name}" type="range" min="0" max="100" step="1" value="0">
+  </div>`;
+  const baseInput = simInputFromLoad(load), baseCalibration = activeCalibrationFor(profileFor(load), baseInput), baseResult = simulate(baseInput, baseCalibration);
+  const primaryMetrics: readonly SynthesisMetric[] = ["maxPressureBar", "muzzleVelocityMs", "muzzleTimeMs", "bulletLeadTimeMs"];
+  const secondaryMetrics: readonly SynthesisMetric[] = ["loadRatio", "burntFraction"];
+  const synthesisMetrics: readonly SynthesisMetric[] = [...primaryMetrics, ...secondaryMetrics];
+  const metricLabels: Record<SynthesisMetric, string> = { maxPressureBar: "Maximum pressure", muzzleVelocityMs: "Muzzle velocity", loadRatio: "Load ratio",
+    burntFraction: "Burnt propellant", efficiency: "Effective efficiency rate", muzzleTimeMs: "Barrel Time general (BT)", bulletLeadTimeMs: "Bullet Lead Time 10% pmax (BLT)" };
+  const pressureUnit = unitPreferences.unitFor("pressure"), velocityUnit = unitPreferences.unitFor("velocity"), chargeUnit = unitPreferences.unitFor("bulletMass"), energyUnit = unitPreferences.unitFor("energy");
+  const metricDisplay = (metric: SynthesisMetric, value: number): number => metric === "maxPressureBar" ? toDisplay(value, pressureUnit)
+    : metric === "muzzleVelocityMs" ? toDisplay(value, velocityUnit)
+      : metric === "loadRatio" || metric === "burntFraction" || metric === "efficiency" ? value * 100 : value;
+  const metricBase = (metric: SynthesisMetric, value: number): number => metric === "maxPressureBar" ? fromDisplay(value, pressureUnit)
+    : metric === "muzzleVelocityMs" ? fromDisplay(value, velocityUnit)
+      : metric === "loadRatio" || metric === "burntFraction" || metric === "efficiency" ? value / 100 : value;
+  const metricUnit = (metric: SynthesisMetric): string => metric === "maxPressureBar" ? pressureUnit.symbol : metric === "muzzleVelocityMs" ? velocityUnit.symbol
+    : metric === "loadRatio" || metric === "burntFraction" || metric === "efficiency" ? "%" : "ms";
+  const currentMetric = (metric: SynthesisMetric): number => baseResult.status === "ok" ? baseResult[metric] : 0;
+  const targetRow = (metric: SynthesisMetric, primary: boolean): string => {
+    const current = currentMetric(metric), enabled = metric === "maxPressureBar";
+    const pressureLimit = metric === "maxPressureBar" ? baseInput.maxPressureBar : current;
+    const spread = metric === "maxPressureBar" && current > 0 ? Math.max(0, (pressureLimit - current) / current) : 0;
+    const minimum = current > 0 ? current * (1 - spread) : 0, maximum = current > 0 ? current * (1 + spread) : 0;
+    const digits = metric.endsWith("TimeMs") ? 4 : 1;
+    const shownCurrent = formatLocaleNumber(metricDisplay(metric, current), { maximumFractionDigits: digits, useGrouping: false });
+    const target = primary ? `<input data-synthesis-target inputmode="decimal" value="${shownCurrent}" aria-label="${escapeHtml(metricLabels[metric])} target">` : shownCurrent;
+    const minValue = primary ? enabled ? minimum : 0 : metric === "loadRatio" ? 0.95 : 1;
+    const maxValue = primary ? enabled ? maximum : 0 : metric === "loadRatio" ? 1 : 0;
+    return `<tr data-synthesis-metric="${metric}" data-synthesis-primary="${primary}"><td><label><input type="checkbox" data-synthesis-enable ${enabled ? "checked" : ""}> ${escapeHtml(metricLabels[metric])}</label></td><td>${target}</td><td><input data-synthesis-min inputmode="decimal" value="${maxValue || minValue ? formatLocaleNumber(metricDisplay(metric, minValue), { maximumFractionDigits: digits, useGrouping: false }) : ""}" aria-label="${escapeHtml(metricLabels[metric])} target minimum"></td><td><input data-synthesis-max inputmode="decimal" value="${maxValue ? formatLocaleNumber(metricDisplay(metric, maxValue), { maximumFractionDigits: digits, useGrouping: false }) : ""}" aria-label="${escapeHtml(metricLabels[metric])} target maximum"></td><td>${escapeHtml(metricUnit(metric))}</td>${primary ? `<td><output data-synthesis-tolerance>${spread ? `\u00b1${formatLocaleNumber(spread * 100, { maximumFractionDigits: 1, useGrouping: false })}%` : "indiv."}</output><input data-synthesis-tolerance-slider aria-label="${escapeHtml(metricLabels[metric])} tolerance" type="range" min="0" max="100" step="0.1" value="${spread * 100}"></td>` : "<td></td>"}</tr>`;
+  };
+  const filterRow = (metric: SynthesisMetric): string => `<tr data-synthesis-filter="${metric}"><td>Discard results with a ${escapeHtml(metricLabels[metric].toLowerCase())}</td><td><label><input type="checkbox" data-filter-below> &lt; Min</label></td><td><label><input type="checkbox" data-filter-above> &gt; Max</label></td></tr>`;
+  dialog.innerHTML = `<form method="dialog"><h2 id="parametric-powder-title">Generic tolerance synthesis</h2><p class="setting-note">${escapeHtml(load.fileName)}</p><div class="parametric-tabs" role="tablist"><button type="button" role="tab" aria-selected="true" data-parametric-tab="search">Propellant selection for the search</button><button type="button" role="tab" aria-selected="false" data-parametric-tab="conditions">Conditions</button><button type="button" role="tab" aria-selected="false" data-parametric-tab="results">Results</button></div>
+    <section data-parametric-panel="search"><fieldset><legend>Propellant selection for the search</legend>
+    <div class="powder-selection-mode"><label><input type="radio" name="powder-selection-mode" value="similarity" checked> Similarity powder search</label><span data-database-scope><label><input type="radio" name="powder-database-scope" value="all" checked> All</label> <label><input type="radio" name="powder-database-scope" value="grt"> GRT Database</label> <label><input type="radio" name="powder-database-scope" value="user"> User Database</label></span><label><input type="radio" name="powder-selection-mode" value="manual"> Manual powder selection</label></div>
+    <div data-similarity-controls><label class="parametric-reference">Reference propellant <select data-parametric-reference>${referenceOptions}</select></label>
+    <div class="parametric-window"><strong>Tolerance-Window</strong>
+      <label>Direction <select data-parametric-direction><option value="both">plus/minus</option><option value="plus">plus</option><option value="minus">minus</option></select></label>
+      <label>Maximum range <select data-parametric-maximum><option value="5">5%</option><option value="10">10%</option><option value="20" selected>20%</option><option value="50">50%</option><option value="100">100%</option></select></label>
+    </div>
+    <div class="parametric-slider-row similarity-row"><label><input data-parametric-similarity type="checkbox" checked> Similarity search by</label>
+      <select data-parametric-factor aria-label="Similarity factor"><option value="Brp">brisance/progressivity (Brp)</option><option value="Br">brisance (Br)</option><option value="Bp">progressivity (Bp)</option></select>
+      <output data-parametric-output="similarity"></output><input data-parametric-similarity-slider aria-label="Similarity tolerance" type="range" min="0" max="100" step="1" value="17">
+    </div>
+    <details><summary>Individual powder-data tolerances</summary><div class="parametric-sliders">${parameters.map(slider).join("")}</div></details></div>
+    <div class="synthesis-actions"><button type="button" data-search-add>Add selected</button><button type="button" data-search-add-all>Add All Powders</button><button type="button" data-search-clear>Clear All</button><button type="button" data-search-remove>Remove selected</button></div>
+    <div class="parametric-results"><div><strong>Search results</strong> <output data-parametric-count></output></div>
+      <div class="parametric-results-scroll"><table><thead><tr><th>Selected</th><th>Manufacturer</th><th>Product name</th><th>Lot-ID/No.</th><th>Maximum difference</th></tr></thead><tbody></tbody></table></div>
+      <p class="setting-note" data-parametric-message></p><output data-search-selected-count></output>
+    </div>
+    <p class="setting-note"><strong>Similar propellants are not interchangeable.</strong> Verify the selected powder against current manufacturer loading data and recalculate the charge.</p>
+    </fieldset></section>
+    <section data-parametric-panel="conditions" hidden><fieldset><legend>Generic tolerance synthesis</legend><div class="synthesis-config"><button type="button" data-synthesis-save-config>Save configuration…</button><button type="button" data-synthesis-open-config>Open configuration…</button><input data-synthesis-config-file type="file" accept=".json,application/json" hidden></div><h3>Primary conditions</h3><table class="synthesis-targets"><thead><tr><th>Value</th><th>Target</th><th>Target min.</th><th>Target max.</th><th>Unit</th><th>Tolerance</th></tr></thead><tbody>${primaryMetrics.map((metric) => targetRow(metric, true)).join("")}</tbody></table><h3>Secondary conditions</h3><table class="synthesis-targets"><thead><tr><th>Value</th><th>Current</th><th>Target min.</th><th>Target max.</th><th>Unit</th><th></th></tr></thead><tbody>${secondaryMetrics.map((metric) => targetRow(metric, false)).join("")}</tbody></table>
+      <h3>Result filters</h3><table class="synthesis-filters"><thead><tr><th>Result filters</th><th>Minimum</th><th>Maximum</th></tr></thead><tbody>${synthesisMetrics.map(filterRow).join("")}</tbody></table>
+      <fieldset><legend>Propellant selection for the search</legend><div class="synthesis-actions"><button type="button" data-synthesis-add-selected>Add selected search result</button><button type="button" data-synthesis-add-results>Add results from search via powder-data</button><button type="button" data-synthesis-add-all>Add all</button><button type="button" data-synthesis-remove>Remove</button><button type="button" data-synthesis-clear>Clear All</button></div><div class="synthesis-powders-scroll"><table><thead><tr><th></th><th>Manufacturer</th><th>Product name</th><th>Lot-ID/No.</th></tr></thead><tbody></tbody></table></div><output data-synthesis-powder-count></output></fieldset>
+      <p class="record-error" data-synthesis-error role="alert"></p></fieldset></section>
+    <section data-parametric-panel="results" hidden><div class="synthesis-preview"></div><div class="synthesis-result-tools"><label>Sort by <select data-synthesis-sort><option value="velocity">Velocity</option><option value="pressure">Maximum pressure</option><option value="mass">Powder mass</option><option value="name">Propellant</option></select></label><label><input type="checkbox" data-synthesis-live checked> Live diagram</label><progress data-synthesis-progress max="1" value="0"></progress><output data-synthesis-progress-text>ready</output></div><div class="synthesis-results-scroll"><table><thead><tr><th>Propellant</th><th>Mass</th><th>Fill</th><th>pmax</th><th>V0</th><th>Burnt</th><th>Eff.</th><th>Energy</th><th>BT</th><th>BLT</th><th>Status</th></tr></thead><tbody></tbody></table></div></section>
+    <div class="dialog-buttons"><button type="button" data-synthesis-export-text disabled>Results: Text</button><button type="button" data-synthesis-export-html disabled>Results: HTML</button><span></span><button type="button" data-parametric-next>Next</button><button type="button" data-synthesis-start hidden>Start synthesis…</button><button type="button" data-synthesis-cancel-process hidden>Cancel process</button><button type="button" data-parametric-cancel>${standardButton("Close")}</button><button type="button" data-parametric-apply hidden disabled>${standardButton("Apply")}</button></div></form>`;
+  document.body.append(dialog);
+
+  const toleranceText = (sliderValue: number): string => {
+    if (sliderValue <= 0) return "off";
+    const value = formatLocaleNumber(parametricTolerancePercent(search.maximumPercent, sliderValue), { maximumFractionDigits: 1, useGrouping: false });
+    return `${search.direction === "both" ? "±" : search.direction === "plus" ? "+" : "−"}${value}%`;
+  };
+  const renderResults = (): void => {
+    const similarityEnabled = dialog.querySelector<HTMLInputElement>("[data-parametric-similarity]")!.checked;
+    const similaritySlider = Number(dialog.querySelector<HTMLInputElement>("[data-parametric-similarity-slider]")!.value);
+    search.similarity = similarityEnabled ? {
+      factor: dialog.querySelector<HTMLSelectElement>("[data-parametric-factor]")!.value as PowderSearchSimilarity,
+      slider: similaritySlider
+    } : undefined;
+    for (const name of parameters) search.parameters[name] = Number(dialog.querySelector<HTMLInputElement>(`[data-parametric-slider="${name}"]`)!.value);
+    dialog.querySelector<HTMLOutputElement>('[data-parametric-output="similarity"]')!.value = similarityEnabled ? toleranceText(similaritySlider) : "off";
+    for (const name of parameters) dialog.querySelector<HTMLOutputElement>(`[data-parametric-output="${name}"]`)!.value = toleranceText(search.parameters[name] ?? 0);
+
+    matches = searchParametricPowders(reference, scopedRecords(), search);
+    if (selectionMode === "similarity" && selected && !matches.some((match) => match.record === selected)) selected = undefined;
+    const displayedMatches = selectionMode === "manual" ? scopedRecords().map((record) => ({ record, differencePercent: 0, differences: {} })) : matches;
+    const body = dialog.querySelector<HTMLTableSectionElement>(".parametric-results tbody")!;
+    body.innerHTML = displayedMatches.map((match) => {
+      const index = databaseRecords.indexOf(match.record), active = selected === match.record;
+      const included = synthesisRecords.some((record) => record.source === match.record.source && record.id === match.record.id);
+      return `<tr data-parametric-record="${index}" tabindex="0" aria-selected="${active}"><td><input type="checkbox" data-search-record-toggle="${index}" aria-label="Include ${escapeHtml(powderName(match.record))} in synthesis" ${included ? "checked" : ""}></td><td>${escapeHtml(String(match.record.mname ?? ""))}</td><td>${escapeHtml(String(match.record.pname ?? ""))}</td><td>${escapeHtml(String(match.record.lotid ?? ""))}</td><td>${selectionMode === "manual" ? "" : `${formatLocaleNumber(match.differencePercent, { maximumFractionDigits: 2, useGrouping: false })}%`}</td></tr>`;
+    }).join("");
+    dialog.querySelector<HTMLOutputElement>("[data-parametric-count]")!.value = i18n.plural("TableBrowser", "%n entries", displayedMatches.length);
+    const anyCriterion = Boolean(search.similarity?.slider) || parameters.some((name) => (search.parameters[name] ?? 0) > 0);
+    dialog.querySelector<HTMLElement>("[data-parametric-message]")!.textContent = anyCriterion
+      ? displayedMatches.length ? selectionMode === "manual" ? "Select powders and add them to the synthesis list." : "Matching powders will be used as synthesis candidates when you choose Next." : "No propellant is inside every enabled tolerance window."
+      : "Enable at least one search criterion.";
+    dialog.querySelector<HTMLOutputElement>("[data-search-selected-count]")!.value = `${synthesisRecords.length} selected for synthesis`;
+    body.querySelectorAll<HTMLElement>("[data-parametric-record]").forEach((row) => {
+      const choose = (): void => { selected = databaseRecords[Number(row.dataset.parametricRecord)]; renderResults(); };
+      row.addEventListener("click", choose);
+      row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(); } });
+    });
+    body.querySelectorAll<HTMLInputElement>("[data-search-record-toggle]").forEach((control) => {
+      control.addEventListener("click", (event) => event.stopPropagation());
+      control.addEventListener("change", () => {
+        const record = databaseRecords[Number(control.dataset.searchRecordToggle)]; if (!record) return;
+        if (control.checked) addSynthesisRecords([record]);
+        else { const key = recordKey(record); synthesisRecords = synthesisRecords.filter((candidate) => recordKey(candidate) !== key); renderSynthesisRecords(); renderResults(); }
+      });
+    });
+  };
+  dialog.querySelector<HTMLSelectElement>("[data-parametric-reference]")?.addEventListener("change", (event) => {
+    const value = (event.currentTarget as HTMLSelectElement).value;
+    reference = value === "active" ? activeRecord : databaseRecords[Number(value)] ?? activeRecord;
+    selected = undefined; renderResults();
+  });
+  dialog.querySelector<HTMLSelectElement>("[data-parametric-direction]")?.addEventListener("change", (event) => {
+    search.direction = (event.currentTarget as HTMLSelectElement).value as ParametricPowderSearch["direction"]; selected = undefined; renderResults();
+  });
+  dialog.querySelector<HTMLSelectElement>("[data-parametric-maximum]")?.addEventListener("change", (event) => {
+    search.maximumPercent = Number((event.currentTarget as HTMLSelectElement).value); selected = undefined; renderResults();
+  });
+  dialog.querySelectorAll<HTMLInputElement>("[data-parametric-slider], [data-parametric-similarity-slider], [data-parametric-similarity]")
+    .forEach((control) => control.addEventListener("input", () => { selected = undefined; renderResults(); }));
+  dialog.querySelector<HTMLSelectElement>("[data-parametric-factor]")?.addEventListener("change", () => { selected = undefined; renderResults(); });
+  dialog.querySelectorAll<HTMLInputElement>('input[name="powder-selection-mode"]').forEach((control) => control.addEventListener("change", () => {
+    selectionMode = control.value as "similarity" | "manual";
+    dialog.querySelector<HTMLElement>("[data-similarity-controls]")!.hidden = selectionMode === "manual";
+    selected = undefined; renderResults();
+  }));
+  dialog.querySelectorAll<HTMLInputElement>('input[name="powder-database-scope"]').forEach((control) => control.addEventListener("change", () => {
+    databaseScope = control.value as "all" | "grt" | "user"; selected = undefined; renderResults();
+  }));
+  const showPanel = (name: "search" | "conditions" | "results"): void => {
+    activePanel = name;
+    dialog.querySelectorAll<HTMLElement>("[data-parametric-panel]").forEach((panel) => { panel.hidden = panel.dataset.parametricPanel !== name; });
+    dialog.querySelectorAll<HTMLElement>("[data-parametric-tab]").forEach((tab) => tab.setAttribute("aria-selected", String(tab.dataset.parametricTab === name)));
+    const apply = dialog.querySelector<HTMLButtonElement>("[data-parametric-apply]")!;
+    apply.hidden = name !== "results"; apply.disabled = selectedSynthesis === undefined;
+    dialog.querySelector<HTMLButtonElement>("[data-parametric-next]")!.hidden = name !== "search";
+    dialog.querySelector<HTMLButtonElement>("[data-synthesis-start]")!.hidden = name !== "conditions" || running;
+  };
+  dialog.querySelectorAll<HTMLElement>("[data-parametric-tab]").forEach((tab) => tab.addEventListener("click", () => showPanel(tab.dataset.parametricTab as "search" | "conditions" | "results")));
+  const recordKey = (record: ProjectRecord): string => `${record.source}:${record.id}`;
+  const addSynthesisRecords = (records: readonly ProjectRecord[]): void => {
+    const known = new Set(synthesisRecords.map(recordKey));
+    for (const record of records) if (!known.has(recordKey(record))) { synthesisRecords.push(record); known.add(recordKey(record)); }
+    renderSynthesisRecords(); renderResults();
+  };
+  const renderSynthesisRecords = (): void => {
+    const body = dialog.querySelector<HTMLTableSectionElement>(".synthesis-powders-scroll tbody")!;
+    body.innerHTML = synthesisRecords.map((record, index) => `<tr><td><input type="checkbox" data-synthesis-record="${index}" aria-label="Select ${escapeHtml(powderName(record))}"></td><td>${escapeHtml(String(record.mname ?? ""))}</td><td>${escapeHtml(String(record.pname ?? ""))}</td><td>${escapeHtml(String(record.lotid ?? ""))}</td></tr>`).join("");
+    dialog.querySelector<HTMLOutputElement>("[data-synthesis-powder-count]")!.value = i18n.plural("TableBrowser", "%n entries", synthesisRecords.length);
+  };
+  dialog.querySelector("[data-synthesis-add-selected]")?.addEventListener("click", () => { if (selected) addSynthesisRecords([selected]); });
+  dialog.querySelector("[data-synthesis-add-results]")?.addEventListener("click", () => addSynthesisRecords(matches.map((match) => match.record)));
+  dialog.querySelector("[data-synthesis-add-all]")?.addEventListener("click", () => addSynthesisRecords(databaseRecords));
+  dialog.querySelector("[data-synthesis-remove]")?.addEventListener("click", () => {
+    const remove = new Set([...dialog.querySelectorAll<HTMLInputElement>("[data-synthesis-record]:checked")].map((input) => Number(input.dataset.synthesisRecord)));
+    synthesisRecords = synthesisRecords.filter((_, index) => !remove.has(index)); renderSynthesisRecords();
+  });
+  dialog.querySelector("[data-synthesis-clear]")?.addEventListener("click", () => { synthesisRecords = []; renderSynthesisRecords(); });
+  dialog.querySelector("[data-search-add]")?.addEventListener("click", () => { if (selected) addSynthesisRecords([selected]); });
+  dialog.querySelector("[data-search-add-all]")?.addEventListener("click", () => addSynthesisRecords(databaseRecords));
+  dialog.querySelector("[data-search-clear]")?.addEventListener("click", () => { synthesisRecords = []; renderSynthesisRecords(); renderResults(); });
+  dialog.querySelector("[data-search-remove]")?.addEventListener("click", () => {
+    if (!selected) return;
+    const key = recordKey(selected); synthesisRecords = synthesisRecords.filter((record) => recordKey(record) !== key); renderSynthesisRecords(); renderResults();
+  });
+  dialog.querySelector("[data-parametric-next]")?.addEventListener("click", () => {
+    if (selectionMode === "similarity") addSynthesisRecords(matches.map((match) => match.record));
+    else if (selected) addSynthesisRecords([selected]);
+    showPanel("conditions");
+  });
+  const setTargetTolerance = (row: HTMLElement): void => {
+    const metric = row.dataset.synthesisMetric as SynthesisMetric;
+    const targetShown = parseLocaleNumber(row.querySelector<HTMLInputElement>("[data-synthesis-target]")!.value);
+    const percent = Number(row.querySelector<HTMLInputElement>("[data-synthesis-tolerance-slider]")!.value);
+    const output = row.querySelector<HTMLOutputElement>("[data-synthesis-tolerance]")!;
+    if (targetShown === undefined || targetShown <= 0 || percent <= 0) { output.value = "indiv."; return; }
+    const target = metricBase(metric, targetShown), factor = percent / 100, digits = metric.endsWith("TimeMs") ? 4 : 1;
+    row.querySelector<HTMLInputElement>("[data-synthesis-min]")!.value = formatLocaleNumber(metricDisplay(metric, target * (1 - factor)), { maximumFractionDigits: digits, useGrouping: false });
+    row.querySelector<HTMLInputElement>("[data-synthesis-max]")!.value = formatLocaleNumber(metricDisplay(metric, target * (1 + factor)), { maximumFractionDigits: digits, useGrouping: false });
+    output.value = `\u00b1${formatLocaleNumber(percent, { maximumFractionDigits: 1, useGrouping: false })}%`;
+  };
+  dialog.querySelectorAll<HTMLElement>('[data-synthesis-primary="true"]').forEach((row) => {
+    row.querySelector<HTMLInputElement>("[data-synthesis-tolerance-slider]")!.addEventListener("input", () => setTargetTolerance(row));
+    row.querySelector<HTMLInputElement>("[data-synthesis-target]")!.addEventListener("input", () => setTargetTolerance(row));
+    row.querySelectorAll<HTMLInputElement>("[data-synthesis-min], [data-synthesis-max]").forEach((input) => input.addEventListener("input", () => {
+      row.querySelector<HTMLOutputElement>("[data-synthesis-tolerance]")!.value = "indiv.";
+    }));
+  });
+  dialog.querySelectorAll<HTMLElement>("[data-synthesis-filter]").forEach((row) => {
+    const metric = row.dataset.synthesisFilter as SynthesisMetric;
+    resultFilters[metric] = { below: false, above: false };
+    row.querySelector<HTMLInputElement>("[data-filter-below]")!.addEventListener("change", (event) => { resultFilters[metric]!.below = (event.currentTarget as HTMLInputElement).checked; });
+    row.querySelector<HTMLInputElement>("[data-filter-above]")!.addEventListener("change", (event) => { resultFilters[metric]!.above = (event.currentTarget as HTMLInputElement).checked; });
+  });
+  const readWindows = (): SynthesisWindows | undefined => {
+    const windows: SynthesisWindows = {};
+    for (const row of dialog.querySelectorAll<HTMLElement>("[data-synthesis-metric]")) {
+      if (!row.querySelector<HTMLInputElement>("[data-synthesis-enable]")!.checked) continue;
+      const metric = row.dataset.synthesisMetric as SynthesisMetric;
+      const minText = row.querySelector<HTMLInputElement>("[data-synthesis-min]")!.value, maxText = row.querySelector<HTMLInputElement>("[data-synthesis-max]")!.value;
+      const minShown = minText.trim() ? parseLocaleNumber(minText) : undefined, maxShown = maxText.trim() ? parseLocaleNumber(maxText) : undefined;
+      if (minShown === undefined && maxShown === undefined || minShown !== undefined && maxShown !== undefined && minShown > maxShown) return undefined;
+      windows[metric] = { min: minShown === undefined ? undefined : metricBase(metric, minShown), max: maxShown === undefined ? undefined : metricBase(metric, maxShown) };
+    }
+    return Object.keys(windows).length ? windows : undefined;
+  };
+  const readFilterWindows = (): SynthesisWindows | undefined => {
+    const windows: SynthesisWindows = {};
+    for (const [metric, filter] of Object.entries(resultFilters) as Array<[SynthesisMetric, { below: boolean; above: boolean }]>) {
+      if (!filter.below && !filter.above) continue;
+      const row = dialog.querySelector<HTMLElement>(`[data-synthesis-metric="${metric}"]`)!;
+      const minShown = parseLocaleNumber(row.querySelector<HTMLInputElement>("[data-synthesis-min]")!.value);
+      const maxShown = parseLocaleNumber(row.querySelector<HTMLInputElement>("[data-synthesis-max]")!.value);
+      if (filter.below && minShown === undefined || filter.above && maxShown === undefined || minShown !== undefined && maxShown !== undefined && minShown > maxShown) return undefined;
+      windows[metric] = { min: minShown === undefined ? undefined : metricBase(metric, minShown), max: maxShown === undefined ? undefined : metricBase(metric, maxShown) };
+    }
+    return windows;
+  };
+  dialog.querySelector("[data-synthesis-save-config]")?.addEventListener("click", () => {
+    const windows = readWindows(); if (!windows) return;
+    const config = { version: 1, selectionMode, databaseScope, search, windows, resultFilters, records: synthesisRecords.map((record) => ({ source: record.source, id: record.id,
+      mname: String(record.mname ?? ""), pname: String(record.pname ?? ""), lotid: String(record.lotid ?? "") })) };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(config, null, 2)], { type: "application/json" }));
+    const anchor = document.createElement("a"); anchor.href = url; anchor.download = "parametric-powder-search.json"; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+  const configPicker = dialog.querySelector<HTMLInputElement>("[data-synthesis-config-file]");
+  dialog.querySelector("[data-synthesis-open-config]")?.addEventListener("click", () => configPicker?.click());
+  configPicker?.addEventListener("change", async () => {
+    const file = configPicker.files?.[0]; if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text()) as { version?: number; selectionMode?: "similarity" | "manual"; databaseScope?: "all" | "grt" | "user"; search?: ParametricPowderSearch; windows?: SynthesisWindows; resultFilters?: Partial<Record<SynthesisMetric, { below: boolean; above: boolean }>>;
+        records?: Array<{ source?: string; id?: number; mname?: string; pname?: string; lotid?: string }> };
+      if (parsed.version !== 1 || !parsed.windows || !parsed.records) throw new Error("Unsupported configuration file");
+      if (parsed.search) {
+        search.direction = parsed.search.direction; search.maximumPercent = parsed.search.maximumPercent; search.similarity = parsed.search.similarity; search.parameters = parsed.search.parameters ?? {};
+        dialog.querySelector<HTMLSelectElement>("[data-parametric-direction]")!.value = search.direction;
+        dialog.querySelector<HTMLSelectElement>("[data-parametric-maximum]")!.value = String(search.maximumPercent);
+        dialog.querySelector<HTMLInputElement>("[data-parametric-similarity]")!.checked = Boolean(search.similarity);
+        if (search.similarity) { dialog.querySelector<HTMLSelectElement>("[data-parametric-factor]")!.value = search.similarity.factor; dialog.querySelector<HTMLInputElement>("[data-parametric-similarity-slider]")!.value = String(search.similarity.slider); }
+        for (const name of parameters) dialog.querySelector<HTMLInputElement>(`[data-parametric-slider="${name}"]`)!.value = String(search.parameters[name] ?? 0);
+        selected = undefined; renderResults();
+      }
+      if (parsed.selectionMode) {
+        selectionMode = parsed.selectionMode; dialog.querySelector<HTMLInputElement>(`input[name="powder-selection-mode"][value="${selectionMode}"]`)!.checked = true;
+        dialog.querySelector<HTMLElement>("[data-similarity-controls]")!.hidden = selectionMode === "manual";
+      }
+      if (parsed.databaseScope) {
+        databaseScope = parsed.databaseScope; dialog.querySelector<HTMLInputElement>(`input[name="powder-database-scope"][value="${databaseScope}"]`)!.checked = true;
+      }
+      renderResults();
+      for (const row of dialog.querySelectorAll<HTMLElement>("[data-synthesis-metric]")) {
+        const metric = row.dataset.synthesisMetric as SynthesisMetric, window = parsed.windows[metric];
+        row.querySelector<HTMLInputElement>("[data-synthesis-enable]")!.checked = Boolean(window && (window.min !== undefined || window.max !== undefined));
+        row.querySelector<HTMLInputElement>("[data-synthesis-min]")!.value = window?.min === undefined ? "" : formatLocaleNumber(metricDisplay(metric, window.min), { maximumFractionDigits: 4, useGrouping: false });
+        row.querySelector<HTMLInputElement>("[data-synthesis-max]")!.value = window?.max === undefined ? "" : formatLocaleNumber(metricDisplay(metric, window.max), { maximumFractionDigits: 4, useGrouping: false });
+      }
+      for (const row of dialog.querySelectorAll<HTMLElement>("[data-synthesis-filter]")) {
+        const metric = row.dataset.synthesisFilter as SynthesisMetric, saved = parsed.resultFilters?.[metric] ?? { below: false, above: false };
+        resultFilters[metric] = { ...saved };
+        row.querySelector<HTMLInputElement>("[data-filter-below]")!.checked = saved.below;
+        row.querySelector<HTMLInputElement>("[data-filter-above]")!.checked = saved.above;
+      }
+      synthesisRecords = parsed.records.flatMap((saved) => {
+        const record = databaseRecords.find((candidate) => candidate.source === saved.source && candidate.id === saved.id)
+          ?? databaseRecords.find((candidate) => String(candidate.mname ?? "") === saved.mname && String(candidate.pname ?? "") === saved.pname && String(candidate.lotid ?? "") === saved.lotid);
+        return record ? [record] : [];
+      });
+      renderSynthesisRecords(); dialog.querySelector<HTMLElement>("[data-synthesis-error]")!.textContent = "Configuration loaded.";
+    } catch (problem) {
+      dialog.querySelector<HTMLElement>("[data-synthesis-error]")!.textContent = `Cannot read configuration: ${problem instanceof Error ? problem.message : String(problem)}`;
+    } finally { configPicker.value = ""; }
+  });
+  const synthesisSort = (): void => {
+    const mode = dialog.querySelector<HTMLSelectElement>("[data-synthesis-sort]")!.value;
+    const collator = new Intl.Collator(i18n.locale, { sensitivity: "base", numeric: true });
+    synthesisResults.sort((a, b) => mode === "pressure" ? b.solution.result.maxPressureBar - a.solution.result.maxPressureBar
+      : mode === "mass" ? b.solution.chargeG - a.solution.chargeG : mode === "name" ? collator.compare(powderName(a.record), powderName(b.record))
+        : b.solution.result.muzzleVelocityMs - a.solution.result.muzzleVelocityMs);
+  };
+  const renderSynthesisResults = (): void => {
+    synthesisSort();
+    if (selectedSynthesis !== undefined && selectedSynthesis >= synthesisResults.length) selectedSynthesis = undefined;
+    const body = dialog.querySelector<HTMLTableSectionElement>(".synthesis-results-scroll tbody")!;
+    body.innerHTML = synthesisResults.map((entry, index) => {
+      const result = entry.solution.result, statusText = entry.solution.inTolerance ? "finished" : "Out of spec. tolerance";
+      return `<tr data-synthesis-result="${index}" tabindex="0" aria-selected="${selectedSynthesis === index}"><td>${escapeHtml(powderName(entry.record))}</td><td>${formatUnit(entry.solution.chargeG, chargeUnit, chargeUnit.id === "grain" ? 2 : 4)}</td><td>${formatNumber(result.loadRatio * 100, 1)}%</td><td>${formatUnit(result.maxPressureBar, pressureUnit, 0)}</td><td>${formatUnit(result.muzzleVelocityMs, velocityUnit, 1)}</td><td>${formatNumber(result.burntFraction * 100, 1)}%</td><td>${formatNumber(result.efficiency * 100, 1)}%</td><td>${formatUnit(result.muzzleEnergyJ, energyUnit, 0)}</td><td>${formatNumber(result.muzzleTimeMs, 4)}</td><td>${formatNumber(result.bulletLeadTimeMs, 4)}</td><td>${statusText}</td></tr>`;
+    }).join("");
+    body.querySelectorAll<HTMLElement>("[data-synthesis-result]").forEach((row) => {
+      const choose = (): void => { selectedSynthesis = Number(row.dataset.synthesisResult); renderSynthesisResults(); };
+      row.addEventListener("click", choose); row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(); } });
+    });
+    const selectedResult = selectedSynthesis === undefined ? undefined : synthesisResults[selectedSynthesis];
+    if (activePanel === "results") dialog.querySelector<HTMLButtonElement>("[data-parametric-apply]")!.disabled = !selectedResult;
+    const preview = dialog.querySelector<HTMLElement>(".synthesis-preview")!;
+    preview.innerHTML = selectedResult ? `${chartView(selectedResult.solution.result, [], selectedResult.input)}<div class="synthesis-summary"><strong>${escapeHtml(powderName(selectedResult.record))}</strong> — ${formatUnit(selectedResult.solution.chargeG, chargeUnit, chargeUnit.id === "grain" ? 2 : 4)}, ${formatUnit(selectedResult.solution.result.maxPressureBar, pressureUnit, 0)}, ${formatUnit(selectedResult.solution.result.muzzleVelocityMs, velocityUnit, 1)}</div>` : "<p>Select a synthesis result for its preview.</p>";
+  };
+  const renderLiveSynthesis = (record: ProjectRecord, input: SimInput, solution: PowderSynthesisSolution): void => {
+    const result = solution.result, preview = dialog.querySelector<HTMLElement>(".synthesis-preview")!;
+    preview.innerHTML = `${chartView(result, [], { ...input, chargeG: solution.chargeG })}<div class="synthesis-summary" data-live-synthesis-powder><strong>Testing: ${escapeHtml(powderName(record))}</strong> — ${formatUnit(solution.chargeG, chargeUnit, chargeUnit.id === "grain" ? 2 : 4)}, ${formatUnit(result.maxPressureBar, pressureUnit, 0)}, ${formatUnit(result.muzzleVelocityMs, velocityUnit, 1)}</div>`;
+  };
+  dialog.querySelector<HTMLSelectElement>("[data-synthesis-sort]")?.addEventListener("change", renderSynthesisResults);
+  const setRunning = (value: boolean): void => {
+    running = value;
+    dialog.querySelector<HTMLButtonElement>("[data-synthesis-start]")!.hidden = value || activePanel !== "conditions";
+    dialog.querySelector<HTMLButtonElement>("[data-synthesis-cancel-process]")!.hidden = !value;
+    dialog.querySelector<HTMLButtonElement>("[data-synthesis-export-text]")!.disabled = value || !synthesisResults.length;
+    dialog.querySelector<HTMLButtonElement>("[data-synthesis-export-html]")!.disabled = value || !synthesisResults.length;
+  };
+  dialog.querySelector("[data-synthesis-start]")?.addEventListener("click", async () => {
+    const windows = readWindows(), filterWindows = readFilterWindows(), error = dialog.querySelector<HTMLElement>("[data-synthesis-error]")!;
+    if (!windows) { error.textContent = "Select at least one complete tolerance window and check its limits."; showPanel("conditions"); return; }
+    if (!filterWindows) { error.textContent = "Enter valid limits for every enabled result filter."; showPanel("conditions"); return; }
+    if (!synthesisRecords.length) { error.textContent = "Add at least one propellant to the synthesis list."; showPanel("conditions"); return; }
+    error.textContent = ""; cancelRequested = false; synthesisResults = []; selectedSynthesis = undefined; setRunning(true); showPanel("results");
+    const progress = dialog.querySelector<HTMLProgressElement>("[data-synthesis-progress]")!, progressText = dialog.querySelector<HTMLOutputElement>("[data-synthesis-progress-text]")!;
+    progress.max = synthesisRecords.length; progress.value = 0;
+    for (let index = 0; index < synthesisRecords.length && !cancelRequested; index += 1) {
+      const record = synthesisRecords[index]!, candidateLoad = structuredClone(load);
+      applyPropellant(candidateLoad, record, false, projectDatabase!.physicalPowderData);
+      const input = simInputFromLoad(candidateLoad), calibration = activeCalibrationFor(profileFor(candidateLoad), input);
+      const capacity = input.bulkDensityKgM3 * 1e-3 * freeVolumeCm3(input, calibration);
+      const ratioMin = windows.loadRatio?.min;
+      const minCharge = Math.max(0.01, ratioMin && ratioMin > 0 ? capacity * ratioMin * 0.8 : input.chargeG * 0.15);
+      const solution = synthesizePowderCharge((chargeG) => simulate({ ...input, chargeG }, calibration), input.chargeG, minCharge, capacity * 1.2, windows);
+      const discarded = solution ? synthesisMetrics.some((metric) => {
+        const filter = resultFilters[metric], window = filterWindows[metric], value = solution.result[metric];
+        return Boolean(filter?.below && window?.min !== undefined && value < window.min || filter?.above && window?.max !== undefined && value > window.max);
+      }) : false;
+      if (solution && !discarded) synthesisResults.push({ record, input: { ...input, chargeG: solution.chargeG }, solution });
+      progress.value = index + 1; progressText.value = `${index + 1}/${synthesisRecords.length}`;
+      if (dialog.querySelector<HTMLInputElement>("[data-synthesis-live]")!.checked && solution) {
+        if (index % 3 === 0 || index + 1 === synthesisRecords.length) renderSynthesisResults();
+        renderLiveSynthesis(record, input, solution);
+      }
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
+    setRunning(false); renderSynthesisResults();
+    progressText.value = cancelRequested ? `cancelled (${synthesisResults.length} results)` : `finished (${synthesisResults.length} results)`;
+  });
+  dialog.querySelector("[data-synthesis-cancel-process]")?.addEventListener("click", () => { cancelRequested = true; });
+  const exportResults = (html: boolean): void => {
+    if (!synthesisResults.length) return;
+    const headings = ["Propellant", `Mass (${chargeUnit.symbol})`, "Load ratio (%)", `pmax (${pressureUnit.symbol})`, `V0 (${velocityUnit.symbol})`, "Burnt (%)", "Efficiency (%)", `Energy (${energyUnit.symbol})`, "BT (ms)", "BLT (ms)", "Status"];
+    const rows = synthesisResults.map(({ record, solution }) => [powderName(record), toDisplay(solution.chargeG, chargeUnit), solution.result.loadRatio * 100, toDisplay(solution.result.maxPressureBar, pressureUnit),
+      toDisplay(solution.result.muzzleVelocityMs, velocityUnit), solution.result.burntFraction * 100, solution.result.efficiency * 100, toDisplay(solution.result.muzzleEnergyJ, energyUnit), solution.result.muzzleTimeMs, solution.result.bulletLeadTimeMs,
+      solution.inTolerance ? "finished" : "Out of spec. tolerance"]);
+    const diagrams = synthesisResults.map((entry) => `<details><summary>${escapeHtml(powderName(entry.record))}</summary>${chartView(entry.solution.result, [], entry.input)}</details>`).join("");
+    const text = html ? `<!doctype html><meta charset="utf-8"><title>Parametric Powder Search results</title><style>body{font:14px sans-serif}table{border-collapse:collapse}th,td{padding:4px 7px;border:1px solid #888}.chart-wrap{max-width:1000px}.result-chart{width:100%;background:#fff}.grid{stroke:#ddd}.pressure-curve{stroke:#a03030;fill:none}.energy-curve{stroke:#168080;fill:none}.velocity-curve{stroke:#3030a0;fill:none}.pressure-band{opacity:.2}.chart-tooltip{display:none}</style><h1>Parametric Powder Search results</h1><table><thead><tr>${headings.map((heading) => `<th>${escapeHtml(heading)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((value) => `<td>${escapeHtml(String(value))}</td>`).join("")}</tr>`).join("")}</tbody></table><h2>Result diagrams</h2>${diagrams}`
+      : [headings.join(";"), ...rows.map((row) => row.join(";"))].join("\n");
+    const url = URL.createObjectURL(new Blob([text], { type: html ? "text/html;charset=utf-8" : "text/plain;charset=utf-8" }));
+    const anchor = document.createElement("a"); anchor.href = url; anchor.download = `parametric-powder-results.${html ? "html" : "txt"}`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+  dialog.querySelector("[data-synthesis-export-text]")?.addEventListener("click", () => exportResults(false));
+  dialog.querySelector("[data-synthesis-export-html]")?.addEventListener("click", () => exportResults(true));
+  const close = (): void => { cancelRequested = true; dialog.close(); dialog.remove(); };
+  dialog.querySelector("[data-parametric-cancel]")?.addEventListener("click", close);
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.querySelector("[data-parametric-apply]")?.addEventListener("click", () => {
+    const result = activePanel === "results" && selectedSynthesis !== undefined ? synthesisResults[selectedSynthesis] : undefined;
+    if (result) {
+      historyFor(load).mutate(load, (current) => {
+        applyPropellant(current, result.record, false, projectDatabase!.physicalPowderData);
+        const charge = current.propellant.find((entry) => entry.name === "mc"); if (charge) charge.value = String(result.solution.chargeG);
+      });
+      invalidateLoad(load); status = `Applied synthesis result: ${powderName(result.record)}`; close(); render(); return;
+    }
+  });
+  renderResults(); renderSynthesisRecords(); renderSynthesisResults();
   dialog.showModal();
 }
 
@@ -2854,6 +3266,10 @@ function bindEvents(): void {
   app.querySelector("#propellant-mass-wizard")?.addEventListener("click", () => {
     closeMenus();
     openPropellantMassWizard();
+  });
+  app.querySelector("#parametric-powder-wizard")?.addEventListener("click", () => {
+    closeMenus();
+    openParametricPowderWizard();
   });
   app.querySelectorAll<HTMLElement>("[data-tab]").forEach((element) => element.addEventListener("click", () => { activeTab = element.dataset.tab ?? "database"; render(); }));
   app.querySelectorAll<HTMLElement>("[data-input]").forEach((element) => element.addEventListener("click", () => { activeInput = element.dataset.input ?? "cartridge"; render(); }));

@@ -4,13 +4,23 @@ Last updated: 2026-10-30
 
 ## Current objective (Phase 1 or Phase 2)
 
-Phase 1 functional parity. The first requested Wizard workflow, Propellant Mass, is implemented and verified; continue requested wizard functions and the remaining non-solver audit before Phase 2 visual work.
+Phase 1 functional parity. The requested Parametric Powder Search / Generic tolerance synthesis Wizard is implemented; complete its native-result replay before claiming exact numerical parity, then continue the remaining functional audit before Phase 2 visual work.
 
 ## Current state (working / failing / blocked)
 
-Working and not blocked. Propellant Mass Wizard calculation, UI, Apply and Undo pass focused unit/build/browser checks.
+Working and not blocked. Parametric powder matching, synthesis, selection/conditions/results workflow, Apply and Undo pass focused unit/build/browser checks. Exact result ordering and charge values still require a saved completed GRT reference run.
 
 ## Completed since previous checkpoint
+
+- Added Wizard > Parametric Powder Search for active loads, backed by a pure domain module and the current project/personal propellant database.
+- Reproduced GRT's mutually exclusive similarity/manual powder-selection stage. Similarity supports Brp/Br/Bp plus independent Qex, k, Ba, a0, z1, z2, material-density and bulk-density tolerance windows, direction and maximum range; selected matches become synthesis candidates rather than mutating the load.
+- Added the screenshot-derived Conditions stage: pressure, velocity, BT and BLT primary targets with target/min/max/tolerance controls; load-ratio and burnt-powder secondary conditions; six independent below-min/above-max result filters.
+- Added cancellable multi-powder charge synthesis through the active PWA solver/profile, progress/live result rendering, result sorting, pressure/energy/velocity preview diagrams, the displayed mass/fill/pressure/velocity/burnt/efficiency/energy/BT/BLT values, and text/HTML exports.
+- Added JSON save/open for search, conditions, filters and powder candidates. Apply changes powder and charge in one history transaction; Undo restores the complete prior load.
+- Checked the GRT manual/catalog/settings and current database. The persisted default `FindPropellantViaDataValue_all = 17` with a 20% maximum gives the displayed ±3.4%; N140 Br/Bp/Brp factors derived by the PWA agree with the GRT database at its stored precision.
+- Added 9 domain tests and two Edge workflows covering selection, targets/filters, cancel, configuration, results, exports, Apply and Undo.
+- Added an explicit `Add All Powders` action to the powder-selection stage and a checked/unchecked synthesis-membership column in the powder table. Each checkbox can add or remove its powder directly; Clear All and individual/Add All actions update the same visible state.
+- Made `Live diagram` display the powder currently under synthesis with its actual trial charge and calculated pressure/velocity chart, including candidates later excluded by result filters; completed runs return to selected-result previews.
 
 - Added repository-wide Wizard implementation conventions to `AGENTS.md`: internal feature modules under `pwa/src/lib/wizards/`, exact source behavior, pure-domain/app-shell separation, locale/unit handling, explicit calculation semantics, transactional Apply/Undo, three-level verification, and required parity documentation.
 - Added a top-level Wizard menu whose Propellant Mass action is enabled only for an active load.
@@ -42,11 +52,11 @@ Working and not blocked. Propellant Mass Wizard calculation, UI, Apply and Undo 
 
 ## In-progress work (files/functions and exact remaining steps)
 
-None. The Propellant Mass Wizard and checkpoint updates are complete but uncommitted.
+The Parametric Powder Search implementation is complete and buildable but uncommitted. A completed native GRT synthesis fixture is still needed to compare exact candidate charge, result ordering and failure/unreachable handling; keep the checklist row `IN PROGRESS` until that replay is recorded.
 
 ## Next actions (ordered, directly actionable)
 
-1. Add the next requested Wizard as another module under `pwa/src/lib/wizards/`, reusing the active-load/menu/Apply conventions.
+1. Save or reproduce a small completed native GRT synthesis (load, candidate list, conditions and text/HTML results), replay it in the PWA and reconcile charge/result-order differences before marking the wizard `PASS`.
 2. Continue the full parity checklist/current native source audit; keep cosmetic work deferred if another functional gap is found.
 3. If no Phase 1 gaps remain, explicitly record the Phase 2 transition and perform source/native visual comparison from the current 0.14 baseline.
 
@@ -81,6 +91,7 @@ $env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
 
 Current 0.14 evidence:
 
+- Parametric Powder Search: focused 9/9 domain tests PASS; `npm run typecheck` PASS; production build PASS with 27 precache entries; two focused Edge workflows PASS after the selection/scope/filter alignment. The broad gate passed 32 files / 195 unit tests and 47/47 Edge workflows. The subsequent visible-selection/Add-All enhancement passed typecheck, production build and its focused Edge workflow; the live-current-calculation preview is covered by the focused synthesis workflow.
 - Wizard addition: `npm run typecheck` PASS; focused 6/6 unit tests PASS; production build PASS with 27 precache entries; focused Edge verifies the complete Propellant Mass workflow including the 1% regression.
 - Final post-change unit gate: 31 files / 186 tests PASS; final typecheck, production build and focused Edge wizard gate also pass.
 
@@ -115,7 +126,8 @@ Fresh native/PWA Original references:
 - Full feature evidence: `docs/parity-checklist.md`
 - Architecture/platform decisions: `docs/PORT_DECISIONS.md`
 - Solver references: `src/core/solver.h`, `src/core/solver.cpp`, `pwa/src/lib/solver.ts`
-- Wizard reference and implementation: user-supplied Propellant Mass screenshot; `pwa/src/lib/wizards/propellantmass.ts`, dialog/menu wiring in `pwa/src/main.ts`
+- Wizard references and implementations: user-supplied Propellant Mass and three Parametric Powder Search screenshots; GRT `doku/en/doku/ppsearch.txt`, catalog/settings/database; `pwa/src/lib/wizards/propellantmass.ts`, `pwa/src/lib/wizards/parametricpowder.ts`, dialog/menu wiring in `pwa/src/main.ts`
+- External GRT reference tree used read-only: `D:\Nextcloud\StorageBox\Dev\GRT-src`; installed reference data/manual: `C:\Users\ripper121\Documents\GordonsReloadingTool`
 - Builder/powder references: `src/app/newloaddialog.cpp`, `src/app/loadview.cpp`, `src/core/loadbuilder.cpp`, `src/core/physicalpowders.cpp`, `pwa/src/lib/loadbuilder.ts`
 - Fixtures: `tests/fixtures/223Rem_D0735_RWS.csrload`, `tests/fixtures/8x57is.grtload`, `tests/fixtures/measurements.grtload`
 - Historical packaged executables: `build/release/` (v0.10 only); current acceptance build: `build/current-reference/`
