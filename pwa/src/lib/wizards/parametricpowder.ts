@@ -18,7 +18,8 @@ export interface ParametricPowderMatch {
 }
 
 export type SynthesisMetric = "maxPressureBar" | "muzzleVelocityMs" | "loadRatio" | "burntFraction" | "efficiency" | "muzzleTimeMs" | "bulletLeadTimeMs";
-export interface SynthesisWindow { min?: number; max?: number }
+/** GRT primary conditions have an explicit target; min/max are acceptance limits. */
+export interface SynthesisWindow { target?: number; min?: number; max?: number }
 export type SynthesisWindows = Partial<Record<SynthesisMetric, SynthesisWindow>>;
 export interface PowderSynthesisSolution {
   chargeG: number;
@@ -98,24 +99,19 @@ function synthesisScore(result: SimResult, windows: SynthesisWindows): { score: 
   let score = 0, inTolerance = true, count = 0;
   for (const metric of synthesisMetrics) {
     const window = windows[metric];
-    if (!window || (window.min === undefined && window.max === undefined)) continue;
-    const value = result[metric], min = window.min, max = window.max;
+    if (!window || (window.target === undefined && window.min === undefined && window.max === undefined)) continue;
+    const value = result[metric], target = window.target, min = window.min, max = window.max;
     if (!Number.isFinite(value) || (min !== undefined && (!Number.isFinite(min) || value < min))
       || (max !== undefined && (!Number.isFinite(max) || value > max))) inTolerance = false;
-    let target: number, scale: number;
-    if (min !== undefined && max !== undefined) {
-      target = (min + max) / 2;
-      scale = Math.max(Math.abs(max - min) / 2, Math.abs(target) * 0.005, 1e-9);
-    } else if (min !== undefined) {
-      target = min;
-      scale = Math.max(Math.abs(min) * 0.05, 1e-9);
-    } else {
-      target = max!;
-      scale = Math.max(Math.abs(max!) * 0.05, 1e-9);
-    }
-    const deviation = (value - target) / scale;
-    if (min === undefined && deviation <= 0 || max === undefined && deviation >= 0) score += 0;
-    else score += deviation * deviation;
+    const scale = min !== undefined && max !== undefined
+      ? Math.max(Math.abs(max - min) / 2, Math.abs(target ?? (min + max) / 2) * 0.005, 1e-9)
+      : Math.max(Math.abs(target ?? min ?? max ?? 1) * 0.05, 1e-9);
+    // Primary conditions seek their explicit target. Secondary conditions have no
+    // target and therefore contribute no score while their limits are satisfied.
+    const deviation = target !== undefined ? (value - target) / scale
+      : min !== undefined && value < min ? (value - min) / scale
+        : max !== undefined && value > max ? (value - max) / scale : 0;
+    score += deviation * deviation;
     count += 1;
   }
   return { score: count ? score / count : Number.POSITIVE_INFINITY, inTolerance: count > 0 && inTolerance };
@@ -125,7 +121,8 @@ function synthesisScore(result: SimResult, windows: SynthesisWindows): { score: 
 export function synthesizePowderCharge(evaluate: (chargeG: number) => SimResult, currentChargeG: number, minChargeG: number,
   maxChargeG: number, windows: SynthesisWindows, coarseSteps = 28, refinementSteps = 3): PowderSynthesisSolution | undefined {
   if (!(minChargeG > 0) || !(maxChargeG > minChargeG) || !synthesisMetrics.some((metric) => {
-    const window = windows[metric]; return window?.min !== undefined || window?.max !== undefined;
+    const window = windows[metric];
+    return window?.target !== undefined || window?.min !== undefined || window?.max !== undefined;
   })) return undefined;
   const cache = new Map<number, PowderSynthesisSolution>();
   const candidate = (chargeG: number): PowderSynthesisSolution => {
@@ -142,6 +139,8 @@ export function synthesizePowderCharge(evaluate: (chargeG: number) => SimResult,
     || left.score < right.score - 1e-12
     || Math.abs(left.score - right.score) <= 1e-12 && Math.abs(left.chargeG - currentChargeG) < Math.abs(right.chargeG - currentChargeG);
   let low = minChargeG, high = maxChargeG, best: PowderSynthesisSolution | undefined;
+  const current = candidate(currentChargeG);
+  if (better(current, best)) best = current;
   for (let pass = 0; pass <= refinementSteps; pass += 1) {
     const steps = pass === 0 ? coarseSteps : 8;
     for (let index = 0; index <= steps; index += 1) {

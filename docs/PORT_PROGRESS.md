@@ -8,7 +8,7 @@ Phase 1 functional parity. The requested Parametric Powder Search / Generic tole
 
 ## Current state (working / failing / blocked)
 
-Working and not blocked. Parametric powder matching, synthesis, selection/conditions/results workflow, Apply and Undo pass focused unit/build/browser checks. Exact result ordering and charge values still require a saved completed GRT reference run.
+Working and not blocked. Parametric powder matching, source-derived primary-target/acceptance-limit semantics, selection/conditions/results workflow, Apply and Undo pass focused unit/build/browser checks. GRT's recovered implementation uses mode-dependent charge initialization/stepping (including 1/8 and 1/16 increments); the PWA still uses a coarse/refinement numerical search, so exact result ordering and charge values require a completed GRT reference replay before claiming 1:1 parity.
 
 ## Completed since previous checkpoint
 
@@ -19,8 +19,11 @@ Working and not blocked. Parametric powder matching, synthesis, selection/condit
 - Added JSON save/open for search, conditions, filters and powder candidates. Apply changes powder and charge in one history transaction; Undo restores the complete prior load.
 - Checked the GRT manual/catalog/settings and current database. The persisted default `FindPropellantViaDataValue_all = 17` with a 20% maximum gives the displayed ±3.4%; N140 Br/Bp/Brp factors derived by the PWA agree with the GRT database at its stored precision.
 - Added 9 domain tests and two Edge workflows covering selection, targets/filters, cancel, configuration, results, exports, Apply and Undo.
-- Added an explicit `Add All Powders` action to the powder-selection stage and a checked/unchecked synthesis-membership column in the powder table. Each checkbox can add or remove its powder directly; Clear All and individual/Add All actions update the same visible state.
+- Added an explicit `Add All Powders` action to the powder-selection stage. `Add selected`, `Remove selected`, `Clear All`, `Add All Powders` and the selected-count indicator manage synthesis membership without adding an extra checkbox column to the reference table.
 - Made `Live diagram` display the powder currently under synthesis with its actual trial charge and calculated pressure/velocity chart, including candidates later excluded by result filters; completed runs return to selected-result previews.
+- Removed the duplicate propellant-selection controls from Conditions. Powder candidates are now managed only on the first tab and carried forward by Next; Conditions contains only targets, filters, configuration and synthesis execution.
+- Fixed primary-condition activation: enabling velocity, BT or BLT can no longer submit the disabled row's stale `0 / 0` limits. A newly enabled row initializes an exact min/max window from its displayed Target, and window parsing defensively derives that target if stale zeros remain. The reference D073.4 case was reproduced directly at 905.0165 m/s before synthesis and 905.0708 m/s at the synthesized pressure target.
+- Corrected the synthesis objective after targeted recovery of GRT's `InnerBallistikToleranceSynthesis` routines (`Compute_InitMode`, `Compute_InitSteps` and `Compute_Charge`): primary Target is the charge-search objective, while Target min./max. are acceptance limits and secondary rows are constraint-only. The earlier PWA incorrectly invented `(min + max) / 2` as the target. A regression using the reference D073.4 load, its active pressure target and the user-reported 3225-3655 bar limits now retains the active charge and approximately 905 m/s instead of seeking 3440 bar.
 
 - Added repository-wide Wizard implementation conventions to `AGENTS.md`: internal feature modules under `pwa/src/lib/wizards/`, exact source behavior, pure-domain/app-shell separation, locale/unit handling, explicit calculation semantics, transactional Apply/Undo, three-level verification, and required parity documentation.
 - Added a top-level Wizard menu whose Propellant Mass action is enabled only for an active load.
@@ -91,7 +94,7 @@ $env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
 
 Current 0.14 evidence:
 
-- Parametric Powder Search: focused 9/9 domain tests PASS; `npm run typecheck` PASS; production build PASS with 27 precache entries; two focused Edge workflows PASS after the selection/scope/filter alignment. The broad gate passed 32 files / 195 unit tests and 47/47 Edge workflows. The subsequent visible-selection/Add-All enhancement passed typecheck, production build and its focused Edge workflow; the live-current-calculation preview is covered by the focused synthesis workflow.
+- Parametric Powder Search: focused 12/12 domain/integration tests PASS, including explicit-target versus midpoint, constraint-only charge retention, and the D073.4 3225-3655 bar / approximately 905 m/s regression; `npm run typecheck` and production build PASS with 27 precache entries; both focused Edge workflows PASS (2/2) after the target/configuration correction.
 - Wizard addition: `npm run typecheck` PASS; focused 6/6 unit tests PASS; production build PASS with 27 precache entries; focused Edge verifies the complete Propellant Mass workflow including the 1% regression.
 - Final post-change unit gate: 31 files / 186 tests PASS; final typecheck, production build and focused Edge wizard gate also pass.
 

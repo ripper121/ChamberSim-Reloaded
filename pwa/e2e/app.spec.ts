@@ -357,20 +357,12 @@ test("searches powder parameters live and passes matches to Generic Tolerance Sy
   await expect(wizard.locator("[data-similarity-controls]")).toBeHidden();
   await expect(wizard.locator("[data-parametric-count]")).toHaveText("249 entries");
   const d0735Row = wizard.getByRole("row").filter({ hasText: "D073.5" });
-  await expect(d0735Row.getByRole("checkbox")).not.toBeChecked();
   await d0735Row.click();
   await wizard.getByRole("button", { name: "Add selected", exact: true }).click();
   await expect(wizard.locator("[data-search-selected-count]")).toHaveText("1 selected for synthesis");
-  await expect(d0735Row.getByRole("checkbox")).toBeChecked();
   await wizard.getByRole("button", { name: "Add All Powders", exact: true }).click();
   await expect(wizard.locator("[data-search-selected-count]")).toHaveText("249 selected for synthesis");
-  await expect(d0735Row.getByRole("checkbox")).toBeChecked();
   await wizard.getByRole("button", { name: "Clear All", exact: true }).click();
-  await expect(wizard.locator("[data-search-selected-count]")).toHaveText("0 selected for synthesis");
-  await expect(d0735Row.getByRole("checkbox")).not.toBeChecked();
-  await d0735Row.getByRole("checkbox").check();
-  await expect(wizard.locator("[data-search-selected-count]")).toHaveText("1 selected for synthesis");
-  await d0735Row.getByRole("checkbox").uncheck();
   await expect(wizard.locator("[data-search-selected-count]")).toHaveText("0 selected for synthesis");
   await wizard.getByRole("radio", { name: "Similarity powder search" }).check();
 
@@ -382,7 +374,7 @@ test("searches powder parameters live and passes matches to Generic Tolerance Sy
   await n140.click();
   await wizard.getByRole("button", { name: "Next", exact: true }).click();
   await expect(wizard.getByRole("tab", { name: "Conditions" })).toHaveAttribute("aria-selected", "true");
-  await expect(wizard.locator("[data-synthesis-powder-count]")).not.toHaveText("0 entries");
+  await expect(wizard.locator(".synthesis-powders-scroll")).toHaveCount(0);
   await expect(wizard.getByRole("button", { name: /Start synthesis/ })).toBeVisible();
 });
 
@@ -400,6 +392,8 @@ test("runs, cancels, previews, applies, and undoes Generic Tolerance Synthesis",
   await wizard.getByLabel("Similarity tolerance").focus();
   await page.keyboard.press("End");
   await wizard.getByRole("row", { name: /Vihtavuori N140/ }).click();
+  await wizard.getByRole("button", { name: "Add All Powders", exact: true }).click();
+  await expect(wizard.locator("[data-search-selected-count]")).toHaveText("249 selected for synthesis");
   await wizard.getByRole("tab", { name: "Conditions" }).click();
   await expect(wizard.getByRole("checkbox", { name: /Maximum pressure/ })).toBeChecked();
   await expect(wizard.getByRole("textbox", { name: "Maximum pressure target", exact: true })).not.toHaveValue("");
@@ -407,9 +401,12 @@ test("runs, cancels, previews, applies, and undoes Generic Tolerance Synthesis",
   await expect(wizard.getByRole("textbox", { name: "Maximum pressure target minimum" })).not.toHaveValue("");
   await expect(wizard.getByRole("textbox", { name: "Maximum pressure target maximum" })).not.toHaveValue("");
   await expect(wizard.locator("[data-synthesis-filter]")).toHaveCount(6);
+  const velocityTarget = await wizard.getByRole("textbox", { name: "Muzzle velocity target", exact: true }).inputValue();
+  await wizard.getByRole("checkbox", { name: /Muzzle velocity/ }).check();
+  await expect(wizard.getByRole("textbox", { name: "Muzzle velocity target minimum" })).toHaveValue(velocityTarget);
+  await expect(wizard.getByRole("textbox", { name: "Muzzle velocity target maximum" })).toHaveValue(velocityTarget);
+  await wizard.getByRole("checkbox", { name: /Muzzle velocity/ }).uncheck();
 
-  await wizard.getByRole("button", { name: "Add all", exact: true }).click();
-  await expect(wizard.locator("[data-synthesis-powder-count]")).toHaveText("249 entries");
   await wizard.getByRole("button", { name: /Start synthesis/ }).click();
   await expect(wizard.getByRole("button", { name: "Cancel process" })).toBeVisible();
   await expect(wizard.locator("[data-live-synthesis-powder]")).toContainText("Testing:");
@@ -418,19 +415,18 @@ test("runs, cancels, previews, applies, and undoes Generic Tolerance Synthesis",
   await expect(wizard.locator("[data-synthesis-progress-text]")).toContainText("cancelled");
 
   await wizard.getByRole("tab", { name: "Conditions" }).click();
-  await wizard.getByRole("button", { name: "Clear All", exact: true }).click();
   await wizard.locator("[data-synthesis-config-file]").setInputFiles({
     name: "powder-search.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({
       version: 1,
       search: { direction: "both", maximumPercent: 100, similarity: { factor: "Brp", slider: 100 }, parameters: {} },
-      windows: { maxPressureBar: { min: 3000, max: 4000 } },
+      windows: { maxPressureBar: { target: 3900, min: 3000, max: 4000 } },
       resultFilters: { maxPressureBar: { below: true, above: false } },
       records: [{ mname: "Vihtavuori", pname: "N140", lotid: "" }]
     }))
   });
   await expect(wizard.locator("[data-synthesis-error]")).toHaveText("Configuration loaded.");
+  await expect(wizard.getByRole("textbox", { name: "Maximum pressure target", exact: true })).toHaveValue("3900");
   await expect(wizard.locator('[data-synthesis-filter="maxPressureBar"] [data-filter-below]')).toBeChecked();
-  await expect(wizard.locator("[data-synthesis-powder-count]")).toHaveText("1 entry");
   const configDownload = page.waitForEvent("download");
   await wizard.getByRole("button", { name: /Save configuration/ }).click();
   await expect.poll(async () => (await configDownload).suggestedFilename()).toBe("parametric-powder-search.json");

@@ -1422,14 +1422,13 @@ function openParametricPowderWizard(): void {
     <details><summary>Individual powder-data tolerances</summary><div class="parametric-sliders">${parameters.map(slider).join("")}</div></details></div>
     <div class="synthesis-actions"><button type="button" data-search-add>Add selected</button><button type="button" data-search-add-all>Add All Powders</button><button type="button" data-search-clear>Clear All</button><button type="button" data-search-remove>Remove selected</button></div>
     <div class="parametric-results"><div><strong>Search results</strong> <output data-parametric-count></output></div>
-      <div class="parametric-results-scroll"><table><thead><tr><th>Selected</th><th>Manufacturer</th><th>Product name</th><th>Lot-ID/No.</th><th>Maximum difference</th></tr></thead><tbody></tbody></table></div>
+      <div class="parametric-results-scroll"><table><thead><tr><th>Manufacturer</th><th>Product name</th><th>Lot-ID/No.</th><th>Maximum difference</th></tr></thead><tbody></tbody></table></div>
       <p class="setting-note" data-parametric-message></p><output data-search-selected-count></output>
     </div>
     <p class="setting-note"><strong>Similar propellants are not interchangeable.</strong> Verify the selected powder against current manufacturer loading data and recalculate the charge.</p>
     </fieldset></section>
     <section data-parametric-panel="conditions" hidden><fieldset><legend>Generic tolerance synthesis</legend><div class="synthesis-config"><button type="button" data-synthesis-save-config>Save configuration…</button><button type="button" data-synthesis-open-config>Open configuration…</button><input data-synthesis-config-file type="file" accept=".json,application/json" hidden></div><h3>Primary conditions</h3><table class="synthesis-targets"><thead><tr><th>Value</th><th>Target</th><th>Target min.</th><th>Target max.</th><th>Unit</th><th>Tolerance</th></tr></thead><tbody>${primaryMetrics.map((metric) => targetRow(metric, true)).join("")}</tbody></table><h3>Secondary conditions</h3><table class="synthesis-targets"><thead><tr><th>Value</th><th>Current</th><th>Target min.</th><th>Target max.</th><th>Unit</th><th></th></tr></thead><tbody>${secondaryMetrics.map((metric) => targetRow(metric, false)).join("")}</tbody></table>
       <h3>Result filters</h3><table class="synthesis-filters"><thead><tr><th>Result filters</th><th>Minimum</th><th>Maximum</th></tr></thead><tbody>${synthesisMetrics.map(filterRow).join("")}</tbody></table>
-      <fieldset><legend>Propellant selection for the search</legend><div class="synthesis-actions"><button type="button" data-synthesis-add-selected>Add selected search result</button><button type="button" data-synthesis-add-results>Add results from search via powder-data</button><button type="button" data-synthesis-add-all>Add all</button><button type="button" data-synthesis-remove>Remove</button><button type="button" data-synthesis-clear>Clear All</button></div><div class="synthesis-powders-scroll"><table><thead><tr><th></th><th>Manufacturer</th><th>Product name</th><th>Lot-ID/No.</th></tr></thead><tbody></tbody></table></div><output data-synthesis-powder-count></output></fieldset>
       <p class="record-error" data-synthesis-error role="alert"></p></fieldset></section>
     <section data-parametric-panel="results" hidden><div class="synthesis-preview"></div><div class="synthesis-result-tools"><label>Sort by <select data-synthesis-sort><option value="velocity">Velocity</option><option value="pressure">Maximum pressure</option><option value="mass">Powder mass</option><option value="name">Propellant</option></select></label><label><input type="checkbox" data-synthesis-live checked> Live diagram</label><progress data-synthesis-progress max="1" value="0"></progress><output data-synthesis-progress-text>ready</output></div><div class="synthesis-results-scroll"><table><thead><tr><th>Propellant</th><th>Mass</th><th>Fill</th><th>pmax</th><th>V0</th><th>Burnt</th><th>Eff.</th><th>Energy</th><th>BT</th><th>BLT</th><th>Status</th></tr></thead><tbody></tbody></table></div></section>
     <div class="dialog-buttons"><button type="button" data-synthesis-export-text disabled>Results: Text</button><button type="button" data-synthesis-export-html disabled>Results: HTML</button><span></span><button type="button" data-parametric-next>Next</button><button type="button" data-synthesis-start hidden>Start synthesis…</button><button type="button" data-synthesis-cancel-process hidden>Cancel process</button><button type="button" data-parametric-cancel>${standardButton("Close")}</button><button type="button" data-parametric-apply hidden disabled>${standardButton("Apply")}</button></div></form>`;
@@ -1457,8 +1456,7 @@ function openParametricPowderWizard(): void {
     const body = dialog.querySelector<HTMLTableSectionElement>(".parametric-results tbody")!;
     body.innerHTML = displayedMatches.map((match) => {
       const index = databaseRecords.indexOf(match.record), active = selected === match.record;
-      const included = synthesisRecords.some((record) => record.source === match.record.source && record.id === match.record.id);
-      return `<tr data-parametric-record="${index}" tabindex="0" aria-selected="${active}"><td><input type="checkbox" data-search-record-toggle="${index}" aria-label="Include ${escapeHtml(powderName(match.record))} in synthesis" ${included ? "checked" : ""}></td><td>${escapeHtml(String(match.record.mname ?? ""))}</td><td>${escapeHtml(String(match.record.pname ?? ""))}</td><td>${escapeHtml(String(match.record.lotid ?? ""))}</td><td>${selectionMode === "manual" ? "" : `${formatLocaleNumber(match.differencePercent, { maximumFractionDigits: 2, useGrouping: false })}%`}</td></tr>`;
+      return `<tr data-parametric-record="${index}" tabindex="0" aria-selected="${active}"><td>${escapeHtml(String(match.record.mname ?? ""))}</td><td>${escapeHtml(String(match.record.pname ?? ""))}</td><td>${escapeHtml(String(match.record.lotid ?? ""))}</td><td>${selectionMode === "manual" ? "" : `${formatLocaleNumber(match.differencePercent, { maximumFractionDigits: 2, useGrouping: false })}%`}</td></tr>`;
     }).join("");
     dialog.querySelector<HTMLOutputElement>("[data-parametric-count]")!.value = i18n.plural("TableBrowser", "%n entries", displayedMatches.length);
     const anyCriterion = Boolean(search.similarity?.slider) || parameters.some((name) => (search.parameters[name] ?? 0) > 0);
@@ -1470,14 +1468,6 @@ function openParametricPowderWizard(): void {
       const choose = (): void => { selected = databaseRecords[Number(row.dataset.parametricRecord)]; renderResults(); };
       row.addEventListener("click", choose);
       row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); choose(); } });
-    });
-    body.querySelectorAll<HTMLInputElement>("[data-search-record-toggle]").forEach((control) => {
-      control.addEventListener("click", (event) => event.stopPropagation());
-      control.addEventListener("change", () => {
-        const record = databaseRecords[Number(control.dataset.searchRecordToggle)]; if (!record) return;
-        if (control.checked) addSynthesisRecords([record]);
-        else { const key = recordKey(record); synthesisRecords = synthesisRecords.filter((candidate) => recordKey(candidate) !== key); renderSynthesisRecords(); renderResults(); }
-      });
     });
   };
   dialog.querySelector<HTMLSelectElement>("[data-parametric-reference]")?.addEventListener("change", (event) => {
@@ -1519,18 +1509,8 @@ function openParametricPowderWizard(): void {
     renderSynthesisRecords(); renderResults();
   };
   const renderSynthesisRecords = (): void => {
-    const body = dialog.querySelector<HTMLTableSectionElement>(".synthesis-powders-scroll tbody")!;
-    body.innerHTML = synthesisRecords.map((record, index) => `<tr><td><input type="checkbox" data-synthesis-record="${index}" aria-label="Select ${escapeHtml(powderName(record))}"></td><td>${escapeHtml(String(record.mname ?? ""))}</td><td>${escapeHtml(String(record.pname ?? ""))}</td><td>${escapeHtml(String(record.lotid ?? ""))}</td></tr>`).join("");
-    dialog.querySelector<HTMLOutputElement>("[data-synthesis-powder-count]")!.value = i18n.plural("TableBrowser", "%n entries", synthesisRecords.length);
+    dialog.querySelector<HTMLOutputElement>("[data-search-selected-count]")!.value = `${synthesisRecords.length} selected for synthesis`;
   };
-  dialog.querySelector("[data-synthesis-add-selected]")?.addEventListener("click", () => { if (selected) addSynthesisRecords([selected]); });
-  dialog.querySelector("[data-synthesis-add-results]")?.addEventListener("click", () => addSynthesisRecords(matches.map((match) => match.record)));
-  dialog.querySelector("[data-synthesis-add-all]")?.addEventListener("click", () => addSynthesisRecords(databaseRecords));
-  dialog.querySelector("[data-synthesis-remove]")?.addEventListener("click", () => {
-    const remove = new Set([...dialog.querySelectorAll<HTMLInputElement>("[data-synthesis-record]:checked")].map((input) => Number(input.dataset.synthesisRecord)));
-    synthesisRecords = synthesisRecords.filter((_, index) => !remove.has(index)); renderSynthesisRecords();
-  });
-  dialog.querySelector("[data-synthesis-clear]")?.addEventListener("click", () => { synthesisRecords = []; renderSynthesisRecords(); });
   dialog.querySelector("[data-search-add]")?.addEventListener("click", () => { if (selected) addSynthesisRecords([selected]); });
   dialog.querySelector("[data-search-add-all]")?.addEventListener("click", () => addSynthesisRecords(databaseRecords));
   dialog.querySelector("[data-search-clear]")?.addEventListener("click", () => { synthesisRecords = []; renderSynthesisRecords(); renderResults(); });
@@ -1555,6 +1535,18 @@ function openParametricPowderWizard(): void {
     output.value = `\u00b1${formatLocaleNumber(percent, { maximumFractionDigits: 1, useGrouping: false })}%`;
   };
   dialog.querySelectorAll<HTMLElement>('[data-synthesis-primary="true"]').forEach((row) => {
+    const enabled = row.querySelector<HTMLInputElement>("[data-synthesis-enable]")!;
+    enabled.addEventListener("change", () => {
+      if (!enabled.checked) return;
+      const target = row.querySelector<HTMLInputElement>("[data-synthesis-target]")!;
+      const minimum = row.querySelector<HTMLInputElement>("[data-synthesis-min]")!;
+      const maximum = row.querySelector<HTMLInputElement>("[data-synthesis-max]")!;
+      const targetShown = parseLocaleNumber(target.value), minShown = parseLocaleNumber(minimum.value), maxShown = parseLocaleNumber(maximum.value);
+      if (targetShown !== undefined && targetShown > 0 && (minShown === undefined || minShown === 0) && (maxShown === undefined || maxShown === 0)) {
+        minimum.value = target.value; maximum.value = target.value;
+        row.querySelector<HTMLOutputElement>("[data-synthesis-tolerance]")!.value = "indiv.";
+      }
+    });
     row.querySelector<HTMLInputElement>("[data-synthesis-tolerance-slider]")!.addEventListener("input", () => setTargetTolerance(row));
     row.querySelector<HTMLInputElement>("[data-synthesis-target]")!.addEventListener("input", () => setTargetTolerance(row));
     row.querySelectorAll<HTMLInputElement>("[data-synthesis-min], [data-synthesis-max]").forEach((input) => input.addEventListener("input", () => {
@@ -1573,9 +1565,17 @@ function openParametricPowderWizard(): void {
       if (!row.querySelector<HTMLInputElement>("[data-synthesis-enable]")!.checked) continue;
       const metric = row.dataset.synthesisMetric as SynthesisMetric;
       const minText = row.querySelector<HTMLInputElement>("[data-synthesis-min]")!.value, maxText = row.querySelector<HTMLInputElement>("[data-synthesis-max]")!.value;
-      const minShown = minText.trim() ? parseLocaleNumber(minText) : undefined, maxShown = maxText.trim() ? parseLocaleNumber(maxText) : undefined;
+      let minShown = minText.trim() ? parseLocaleNumber(minText) : undefined, maxShown = maxText.trim() ? parseLocaleNumber(maxText) : undefined;
+      if (row.dataset.synthesisPrimary === "true" && (minShown === undefined || minShown === 0) && (maxShown === undefined || maxShown === 0)) {
+        const targetShown = parseLocaleNumber(row.querySelector<HTMLInputElement>("[data-synthesis-target]")!.value);
+        if (targetShown !== undefined && targetShown > 0) minShown = maxShown = targetShown;
+      }
       if (minShown === undefined && maxShown === undefined || minShown !== undefined && maxShown !== undefined && minShown > maxShown) return undefined;
-      windows[metric] = { min: minShown === undefined ? undefined : metricBase(metric, minShown), max: maxShown === undefined ? undefined : metricBase(metric, maxShown) };
+      const targetShown = row.dataset.synthesisPrimary === "true"
+        ? parseLocaleNumber(row.querySelector<HTMLInputElement>("[data-synthesis-target]")!.value) : undefined;
+      if (row.dataset.synthesisPrimary === "true" && targetShown === undefined) return undefined;
+      windows[metric] = { target: targetShown === undefined ? undefined : metricBase(metric, targetShown),
+        min: minShown === undefined ? undefined : metricBase(metric, minShown), max: maxShown === undefined ? undefined : metricBase(metric, maxShown) };
     }
     return Object.keys(windows).length ? windows : undefined;
   };
@@ -1626,6 +1626,8 @@ function openParametricPowderWizard(): void {
       for (const row of dialog.querySelectorAll<HTMLElement>("[data-synthesis-metric]")) {
         const metric = row.dataset.synthesisMetric as SynthesisMetric, window = parsed.windows[metric];
         row.querySelector<HTMLInputElement>("[data-synthesis-enable]")!.checked = Boolean(window && (window.min !== undefined || window.max !== undefined));
+        const target = row.querySelector<HTMLInputElement>("[data-synthesis-target]");
+        if (target && window?.target !== undefined) target.value = formatLocaleNumber(metricDisplay(metric, window.target), { maximumFractionDigits: 4, useGrouping: false });
         row.querySelector<HTMLInputElement>("[data-synthesis-min]")!.value = window?.min === undefined ? "" : formatLocaleNumber(metricDisplay(metric, window.min), { maximumFractionDigits: 4, useGrouping: false });
         row.querySelector<HTMLInputElement>("[data-synthesis-max]")!.value = window?.max === undefined ? "" : formatLocaleNumber(metricDisplay(metric, window.max), { maximumFractionDigits: 4, useGrouping: false });
       }

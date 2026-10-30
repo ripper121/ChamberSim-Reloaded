@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ProjectRecord } from "../projectdb";
 import { parametricTolerancePercent, searchParametricPowders, synthesizePowderCharge, type ParametricPowderSearch } from "./parametricpowder";
-import { emptySimResult } from "../solver";
+import { physicalPowderData, projectRecords } from "../projectdb";
+import { applyPropellant } from "../loadbuilder";
+import { parseLoadXml } from "../loadfile";
+import { simInputFromLoad } from "../siminput";
+import { activeCalibrationFor, emptySimResult, freeVolumeCm3, simulate } from "../solver";
 
 const powder = (id: number, Ba: number, values: Partial<ProjectRecord> = {}): ProjectRecord => ({
   source: "project", id, mname: "Maker", pname: `Powder ${id}`, lotid: "", Ba,
@@ -68,7 +74,41 @@ describe("parametric powder search wizard", () => {
       muzzleVelocityMs: charge * 400 }), 1, 0.1, 3, {
       maxPressureBar: { min: 2950, max: 3050 }, muzzleVelocityMs: { min: 590, max: 610 }
     });
-    expect(solution?.chargeG).toBeCloseTo(1.5, 3);
+    expect(solution?.result.maxPressureBar).toBeGreaterThanOrEqual(2950);
+    expect(solution?.result.maxPressureBar).toBeLessThanOrEqual(3050);
+    expect(solution?.result.muzzleVelocityMs).toBeGreaterThanOrEqual(590);
+    expect(solution?.result.muzzleVelocityMs).toBeLessThanOrEqual(610);
+    expect(solution?.inTolerance).toBe(true);
+  });
+
+  it("seeks GRT's explicit primary target instead of the midpoint of its permitted range", () => {
+    const solution = synthesizePowderCharge((charge) => ({ ...emptySimResult("ok"), maxPressureBar: charge * 2000 }),
+      1.82, 0.5, 3, { maxPressureBar: { target: 3639, min: 3225, max: 3655 } });
+    expect(solution?.result.maxPressureBar).toBeCloseTo(3639, -1);
+    expect(solution?.result.maxPressureBar).not.toBeCloseTo(3440, 0);
+    expect(solution?.inTolerance).toBe(true);
+  });
+
+  it("keeps the current charge when it already satisfies constraint-only conditions", () => {
+    const solution = synthesizePowderCharge((charge) => ({ ...emptySimResult("ok"), loadRatio: charge / 2 }),
+      1.96, 0.5, 3, { loadRatio: { min: 0.95, max: 1 } });
+    expect(solution?.chargeG).toBe(1.96);
+    expect(solution?.inTolerance).toBe(true);
+  });
+
+  it("keeps the active D073.4 result near 905 m/s when its pressure target is inside 3225-3655 bar", () => {
+    const path = resolve(import.meta.dirname, "../../../../tests/fixtures/223Rem_D0735_RWS.csrload");
+    const load = parseLoadXml(readFileSync(path, "utf8"), path);
+    const record = projectRecords.propellant.find((candidate) => candidate.mname === "Lovex" && candidate.pname === "D073.4")!;
+    applyPropellant(load, record, false, physicalPowderData);
+    const input = simInputFromLoad(load), calibration = activeCalibrationFor("physical", input);
+    const current = simulate(input, calibration);
+    const capacity = input.bulkDensityKgM3 * 1e-3 * freeVolumeCm3(input, calibration);
+    const solution = synthesizePowderCharge((chargeG) => simulate({ ...input, chargeG }, calibration), input.chargeG,
+      input.chargeG * 0.15, capacity * 1.2, { maxPressureBar: { target: current.maxPressureBar, min: 3225, max: 3655 } });
+    expect(current.muzzleVelocityMs).toBeCloseTo(905, 0);
+    expect(solution?.chargeG).toBeCloseTo(input.chargeG, 8);
+    expect(solution?.result.muzzleVelocityMs).toBeCloseTo(current.muzzleVelocityMs, 6);
     expect(solution?.inTolerance).toBe(true);
   });
 
