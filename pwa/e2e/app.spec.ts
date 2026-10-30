@@ -288,7 +288,7 @@ test("calculates and applies all Propellant Mass Wizard targets", async ({ page 
 
   await openMenu(page, "Wizard");
   await page.locator("#propellant-mass-wizard").click();
-  const wizard = page.getByRole("dialog", { name: /Assist - Propellant Mass/ });
+  const wizard = page.getByRole("dialog", { name: "Propellant Mass" });
   await expect(wizard).toBeVisible();
   const ratioTarget = wizard.getByRole("textbox", { name: "Load ratio target" });
   const pressureTarget = wizard.getByRole("textbox", { name: "Maximum pressure target" });
@@ -310,7 +310,7 @@ test("calculates and applies all Propellant Mass Wizard targets", async ({ page 
 
   await openMenu(page, "Wizard");
   await page.locator("#propellant-mass-wizard").click();
-  const reopenedWizard = page.getByRole("dialog", { name: /Assist - Propellant Mass/ });
+  const reopenedWizard = page.getByRole("dialog", { name: "Propellant Mass" });
   const reopenedRatio = reopenedWizard.getByRole("textbox", { name: "Load ratio target" });
   const reopenedPressure = reopenedWizard.getByRole("textbox", { name: "Maximum pressure target" });
   await reopenedWizard.getByRole("button", { name: "Pmax -25%" }).click();
@@ -341,6 +341,9 @@ test("searches powder parameters live and passes matches to Generic Tolerance Sy
   await page.locator("#parametric-powder-wizard").click();
   const wizard = page.getByRole("dialog", { name: "Parametric Powder Search" });
   await expect(wizard).toBeVisible();
+  await expect(wizard.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
+  await expect(wizard.getByRole("button", { name: "Close", exact: true })).toHaveCount(0);
+  expect(await wizard.locator("form").evaluate((form) => form.scrollWidth <= form.clientWidth)).toBe(true);
   await expect(wizard.getByLabel("Reference propellant")).toHaveValue("active");
   await expect(wizard.getByLabel("Reference propellant").locator("option:checked")).toContainText("Lovex D073.4 — current load");
   await expect(wizard.getByLabel("Direction")).toHaveValue("both");
@@ -350,28 +353,43 @@ test("searches powder parameters live and passes matches to Generic Tolerance Sy
   await expect(wizard.locator('[data-parametric-output="similarity"]')).toHaveText("±3.4%");
   await expect(wizard.locator("[data-parametric-slider]")).toHaveCount(8);
   await expect(wizard.getByRole("row").filter({ hasText: "D073.5" })).toBeVisible();
-  await expect(wizard.getByRole("radio", { name: "Similarity powder search" })).toBeChecked();
+  await expect(wizard.getByRole("radio", { name: "Manual powder selection" })).toBeChecked();
+  await expect(wizard.locator("[data-database-scope]")).toHaveCount(0);
+  await expect(wizard.locator("[data-similarity-controls]")).toBeHidden();
+  const similarityBox = await wizard.getByRole("radio", { name: "Similarity powder search" }).boundingBox();
+  const manualBox = await wizard.getByRole("radio", { name: "Manual powder selection" }).boundingBox();
+  expect(manualBox!.y).toBeLessThan(similarityBox!.y);
+  await expect(wizard.locator(".synthesis-actions")).toHaveCount(0);
   await expect(wizard.getByRole("button", { name: "Next", exact: true })).toBeVisible();
 
-  await wizard.getByRole("radio", { name: "Manual powder selection" }).check();
-  await expect(wizard.locator("[data-similarity-controls]")).toBeHidden();
   await expect(wizard.locator("[data-parametric-count]")).toHaveText("249 entries");
+  const manufacturerSort = wizard.locator('[data-search-sort="manufacturer"]');
+  await manufacturerSort.click();
+  await expect(manufacturerSort.locator("xpath=..")).toHaveAttribute("aria-sort", "ascending");
+  const ascendingManufacturers = await wizard.locator(".parametric-results tbody tr td:nth-child(2)").allTextContents();
+  expect(ascendingManufacturers).toEqual([...ascendingManufacturers].sort((left, right) => left.localeCompare(right, "en-US", { numeric: true, sensitivity: "base" })));
+  await manufacturerSort.click();
+  await expect(manufacturerSort.locator("xpath=..")).toHaveAttribute("aria-sort", "descending");
+  const descendingManufacturers = await wizard.locator(".parametric-results tbody tr td:nth-child(2)").allTextContents();
+  expect(descendingManufacturers).toEqual([...ascendingManufacturers].sort((left, right) => right.localeCompare(left, "en-US", { numeric: true, sensitivity: "base" })));
   const d0735Row = wizard.getByRole("row").filter({ hasText: "D073.5" });
-  await d0735Row.click();
-  await wizard.getByRole("button", { name: "Add selected", exact: true }).click();
+  await d0735Row.getByRole("checkbox").check();
   await expect(wizard.locator("[data-search-selected-count]")).toHaveText("1 selected for synthesis");
-  await wizard.getByRole("button", { name: "Add All Powders", exact: true }).click();
+  await wizard.getByLabel("Select all displayed powders").click();
   await expect(wizard.locator("[data-search-selected-count]")).toHaveText("249 selected for synthesis");
-  await wizard.getByRole("button", { name: "Clear All", exact: true }).click();
+  await expect(wizard.getByLabel("Select all displayed powders")).toBeChecked();
+  await wizard.getByLabel("Select all displayed powders").click();
   await expect(wizard.locator("[data-search-selected-count]")).toHaveText("0 selected for synthesis");
+  await expect(wizard.getByLabel("Select all displayed powders")).not.toBeChecked();
   await wizard.getByRole("radio", { name: "Similarity powder search" }).check();
+  await expect(wizard.locator("[data-similarity-controls]")).toBeVisible();
 
   await wizard.getByLabel("Maximum range").selectOption("100");
   await wizard.getByLabel("Similarity tolerance").focus();
   await page.keyboard.press("End");
   const n140 = wizard.getByRole("row", { name: /Vihtavuori N140/ });
   await expect(n140).toBeVisible();
-  await n140.click();
+  await n140.getByRole("checkbox").check();
   await wizard.getByRole("button", { name: "Next", exact: true }).click();
   await expect(wizard.getByRole("tab", { name: "Conditions" })).toHaveAttribute("aria-selected", "true");
   await expect(wizard.locator(".synthesis-powders-scroll")).toHaveCount(0);
@@ -388,12 +406,9 @@ test("runs, cancels, previews, applies, and undoes Generic Tolerance Synthesis",
   await openMenu(page, "Wizard");
   await page.locator("#parametric-powder-wizard").click();
   const wizard = page.getByRole("dialog", { name: "Parametric Powder Search" });
-  await wizard.getByLabel("Maximum range").selectOption("100");
-  await wizard.getByLabel("Similarity tolerance").focus();
-  await page.keyboard.press("End");
-  await wizard.getByRole("row", { name: /Vihtavuori N140/ }).click();
-  await wizard.getByRole("button", { name: "Add All Powders", exact: true }).click();
+  await wizard.getByLabel("Select all displayed powders").click();
   await expect(wizard.locator("[data-search-selected-count]")).toHaveText("249 selected for synthesis");
+  await expect(wizard.getByLabel("Select all displayed powders")).toBeChecked();
   await wizard.getByRole("tab", { name: "Conditions" }).click();
   await expect(wizard.getByRole("checkbox", { name: /Maximum pressure/ })).toBeChecked();
   await expect(wizard.getByRole("textbox", { name: "Maximum pressure target", exact: true })).not.toHaveValue("");
@@ -402,11 +417,45 @@ test("runs, cancels, previews, applies, and undoes Generic Tolerance Synthesis",
   await expect(wizard.getByRole("textbox", { name: "Maximum pressure target maximum" })).not.toHaveValue("");
   await expect(wizard.locator("[data-synthesis-filter]")).toHaveCount(6);
   const velocityTarget = await wizard.getByRole("textbox", { name: "Muzzle velocity target", exact: true }).inputValue();
+  const velocityMinimum = wizard.getByRole("textbox", { name: "Muzzle velocity target minimum" });
+  const velocityMaximum = wizard.getByRole("textbox", { name: "Muzzle velocity target maximum" });
+  const velocityFilterMinimum = wizard.locator('[data-synthesis-filter="muzzleVelocityMs"] [data-filter-below]');
+  await expect(velocityMinimum).toBeDisabled();
+  await expect(velocityMaximum).toBeDisabled();
+  await expect(velocityFilterMinimum).toBeDisabled();
   await wizard.getByRole("checkbox", { name: /Muzzle velocity/ }).check();
-  await expect(wizard.getByRole("textbox", { name: "Muzzle velocity target minimum" })).toHaveValue(velocityTarget);
-  await expect(wizard.getByRole("textbox", { name: "Muzzle velocity target maximum" })).toHaveValue(velocityTarget);
+  await expect(velocityMinimum).toBeEnabled();
+  await expect(velocityMaximum).toBeEnabled();
+  await expect(velocityMinimum).toHaveValue("0.0");
+  await expect(velocityMaximum).toHaveValue("0.0");
+  await expect(velocityFilterMinimum).toBeEnabled();
+  await expect(wizard.getByRole("button", { name: /Start synthesis/ })).toBeDisabled();
+  await velocityMinimum.fill("870");
+  await velocityMaximum.fill("890");
+  await expect(wizard.getByRole("button", { name: /Start synthesis/ })).toBeEnabled();
+  await wizard.getByRole("textbox", { name: "Muzzle velocity target", exact: true }).fill("880");
+  await wizard.getByRole("button", { name: "Reset Muzzle velocity target" }).click();
+  await expect(wizard.getByRole("textbox", { name: "Muzzle velocity target", exact: true })).toHaveValue(velocityTarget);
   await wizard.getByRole("checkbox", { name: /Muzzle velocity/ }).uncheck();
+  await expect(velocityMinimum).toBeDisabled();
+  await expect(velocityFilterMinimum).toBeDisabled();
 
+  const pressureMinimum = wizard.getByRole("textbox", { name: "Maximum pressure target minimum" });
+  const pressureMaximum = wizard.getByRole("textbox", { name: "Maximum pressure target maximum" });
+  await wizard.getByRole("button", { name: "Clear Maximum pressure limits" }).click();
+  await expect(pressureMinimum).toHaveValue("0");
+  await expect(pressureMaximum).toHaveValue("0");
+  await expect(wizard.getByRole("button", { name: /Start synthesis/ })).toBeDisabled();
+  await wizard.getByLabel("Maximum pressure tolerance").fill("10");
+  await expect(wizard.getByRole("button", { name: /Start synthesis/ })).toBeEnabled();
+  await wizard.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(wizard.getByRole("tab", { name: "Propellant selection for the search" })).toHaveAttribute("aria-selected", "true");
+  await wizard.getByRole("tab", { name: "Conditions" }).click();
+
+  page.once("dialog", async (prompt) => {
+    expect(prompt.message()).toContain("249 propellants");
+    await prompt.accept();
+  });
   await wizard.getByRole("button", { name: /Start synthesis/ }).click();
   await expect(wizard.getByRole("button", { name: "Cancel process" })).toBeVisible();
   await expect(wizard.locator("[data-live-synthesis-powder]")).toContainText("Testing:");
@@ -419,23 +468,51 @@ test("runs, cancels, previews, applies, and undoes Generic Tolerance Synthesis",
     name: "powder-search.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({
       version: 1,
       search: { direction: "both", maximumPercent: 100, similarity: { factor: "Brp", slider: 100 }, parameters: {} },
-      windows: { maxPressureBar: { target: 3900, min: 3000, max: 4000 } },
-      resultFilters: { maxPressureBar: { below: true, above: false } },
+      windows: { maxPressureBar: { target: 3900, min: 3000, max: 3001 } },
+      resultFilters: { maxPressureBar: { below: false, above: true } },
       records: [{ mname: "Vihtavuori", pname: "N140", lotid: "" }]
     }))
   });
   await expect(wizard.locator("[data-synthesis-error]")).toHaveText("Configuration loaded.");
   await expect(wizard.getByRole("textbox", { name: "Maximum pressure target", exact: true })).toHaveValue("3900");
-  await expect(wizard.locator('[data-synthesis-filter="maxPressureBar"] [data-filter-below]')).toBeChecked();
+  await expect(wizard.locator('[data-synthesis-filter="maxPressureBar"] [data-filter-above]')).toBeChecked();
   const configDownload = page.waitForEvent("download");
+  await wizard.locator(".parametric-dialog-menubar summary", { hasText: "File" }).click();
   await wizard.getByRole("button", { name: /Save configuration/ }).click();
   await expect.poll(async () => (await configDownload).suggestedFilename()).toBe("parametric-powder-search.json");
   await wizard.getByRole("button", { name: /Start synthesis/ }).click();
   await expect(wizard.locator("[data-synthesis-progress-text]")).toContainText("finished");
+  expect(await wizard.locator(".synthesis-results-scroll").evaluate((table) => ({
+    flexGrow: getComputedStyle(table).flexGrow,
+    maxHeight: getComputedStyle(table).maxHeight
+  }))).toEqual({ flexGrow: "1", maxHeight: "none" });
+  const showOutOfSpec = wizard.getByRole("checkbox", { name: "Show out-of-spec results" });
+  await expect(showOutOfSpec).not.toBeChecked();
+  await expect(wizard.locator(".synthesis-results-scroll tbody tr")).toHaveCount(0);
+  await showOutOfSpec.check();
+  await expect(wizard.locator(".synthesis-results-scroll tbody tr")).toHaveCount(1);
+  await expect(wizard.locator(".synthesis-results-scroll tbody tr")).toContainText("Out of spec. tolerance");
+  await wizard.locator(".synthesis-results-scroll tbody tr").click();
+  await expect(wizard.getByRole("button", { name: "OK", exact: true })).toBeEnabled();
+  await showOutOfSpec.uncheck();
+  await expect(wizard.locator(".synthesis-results-scroll tbody tr")).toHaveCount(0);
+  await expect(wizard.getByRole("button", { name: "OK", exact: true })).toBeDisabled();
+  await showOutOfSpec.check();
+  await expect(wizard.locator("[data-synthesis-sort]")).toHaveCount(0);
+  const pressureSort = wizard.locator('[data-synthesis-result-sort="pressure"]');
+  await pressureSort.click();
+  await expect(pressureSort.locator("xpath=..")).toHaveAttribute("aria-sort", "ascending");
+  await pressureSort.click();
+  await expect(pressureSort.locator("xpath=..")).toHaveAttribute("aria-sort", "descending");
   const resultRow = wizard.locator(".synthesis-results-scroll tbody tr").filter({ hasText: "Vihtavuori N140" });
   await expect(resultRow).toBeVisible();
   await resultRow.click();
   await expect(wizard.locator(".synthesis-preview .result-chart")).toBeVisible();
+  await expect.poll(async () => {
+    const chart = await wizard.locator(".synthesis-preview .chart-wrap").boundingBox();
+    const results = await wizard.locator(".synthesis-results-scroll").boundingBox();
+    return chart && results ? results.y - (chart.y + chart.height) : -1;
+  }).toBeGreaterThanOrEqual(0);
   await expect(wizard.getByRole("button", { name: "Results: Text" })).toBeEnabled();
   await expect(wizard.getByRole("button", { name: "Results: HTML" })).toBeEnabled();
   const textDownload = page.waitForEvent("download");
@@ -444,7 +521,7 @@ test("runs, cancels, previews, applies, and undoes Generic Tolerance Synthesis",
   const htmlDownload = page.waitForEvent("download");
   await wizard.getByRole("button", { name: "Results: HTML" }).click();
   await expect.poll(async () => (await htmlDownload).suggestedFilename()).toBe("parametric-powder-results.html");
-  await wizard.getByRole("button", { name: "Apply", exact: true }).click();
+  await wizard.getByRole("button", { name: "OK", exact: true }).click();
 
   await expect(page.locator(".component-title")).toContainText("Vihtavuori N140");
   await expect(page.getByRole("textbox", { name: "Propellant Mass", exact: true })).not.toHaveValue(originalCharge);
@@ -2184,6 +2261,24 @@ test("switches and persists every native theme", async ({ page }) => {
     expect(surfaces).toEqual({ window: windowColor, chart: baseColor, drawing: baseColor, alternate: altColor, highlight: highlightColor, highlightedText });
     expect(splitter).not.toBe(windowColor);
   }
+  await openMenu(page, "Wizard");
+  await page.locator("#propellant-mass-wizard").click();
+  const massWizard = page.getByRole("dialog", { name: "Propellant Mass" });
+  await expect(massWizard).toHaveCSS("background-color", "rgb(48, 52, 70)");
+  await expect(massWizard.getByRole("textbox", { name: "Load ratio target" })).toHaveCSS("background-color", "rgb(41, 44, 60)");
+  await expect(massWizard.locator("[data-wizard-result]")).toHaveCSS("background-color", "rgb(65, 69, 89)");
+  await massWizard.getByRole("button", { name: "Cancel", exact: true }).click();
+
+  await openMenu(page, "Wizard");
+  await page.locator("#parametric-powder-wizard").click();
+  const powderWizard = page.getByRole("dialog", { name: "Parametric Powder Search" });
+  await expect(powderWizard).toHaveCSS("background-color", "rgb(48, 52, 70)");
+  await expect(powderWizard.getByLabel("Reference propellant")).toHaveCSS("background-color", "rgb(41, 44, 60)");
+  const selectedWizardTab = powderWizard.getByRole("tab", { name: "Propellant selection for the search" });
+  await expect(selectedWizardTab).toHaveCSS("background-color", "rgb(140, 170, 238)");
+  await expect(selectedWizardTab).toHaveCSS("color", "rgb(35, 38, 52)");
+  await powderWizard.getByRole("button", { name: "Cancel", exact: true }).click();
+
   const themedSettings = await openSettings(page);
   const checkboxColors = await themedSettings.evaluate((dialog) => {
     const rounded = getComputedStyle(dialog.querySelector("#settings-rounded-dialogs")!);
@@ -2407,6 +2502,35 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await page.locator(".view-menu > summary").click();
   await page.locator(".view-menu .menu-submenu > summary").nth(1).click();
   await expect(page.getByRole("menuitemradio", { name: "Deutsch (Deutschland)", exact: true })).toHaveAttribute("aria-checked", "true");
+});
+
+test("localizes both wizard workflows in German", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("csr-ui-language", "de_DE");
+    localStorage.setItem("csr-disclaimer-accepted", "yes");
+  });
+  await page.goto("/");
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await openMenu(page, "Assistent");
+  await page.locator("#propellant-mass-wizard").click();
+  const massWizard = page.getByRole("dialog", { name: "Treibladungsmasse" });
+  await expect(massWizard.getByText("Ziel", { exact: true })).toBeVisible();
+  await expect(massWizard.getByRole("textbox", { name: "Ziel Maximaldruck" })).toBeVisible();
+  await expect(massWizard.getByRole("button", { name: "Berechnen", exact: true })).toBeVisible();
+  await expect(massWizard.locator("[data-wizard-limit]")).toHaveText("Ein Ziel eingeben und dann Berechnen anklicken");
+  await massWizard.getByRole("button", { name: "Abbrechen", exact: true }).click();
+
+  await openMenu(page, "Assistent");
+  await page.locator("#parametric-powder-wizard").click();
+  const powderWizard = page.getByRole("dialog", { name: "Parametrische Pulversuche" });
+  await expect(powderWizard.getByRole("heading", { name: "Generische Toleranzsynthese" })).toBeVisible();
+  await expect(powderWizard.getByRole("tab", { name: "Treibladungsauswahl für die Suche" })).toBeVisible();
+  await expect(powderWizard.getByRole("radio", { name: "Manuelle Pulverauswahl" })).toBeChecked();
+  await expect(powderWizard.getByLabel("Alle angezeigten Pulver auswählen")).toBeVisible();
+  await powderWizard.getByRole("tab", { name: "Bedingungen" }).click();
+  await expect(powderWizard.getByRole("heading", { name: "Primäre Bedingungen" })).toBeVisible();
+  await expect(powderWizard.getByRole("button", { name: "Synthese starten…" })).toBeVisible();
+  await powderWizard.getByRole("button", { name: "Abbrechen", exact: true }).click();
 });
 
 test("renders representative French and Italian database and load surfaces", async ({ page }) => {

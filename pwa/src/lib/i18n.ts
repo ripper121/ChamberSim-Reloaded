@@ -1,4 +1,5 @@
 import type { AppLanguage } from "./language";
+import { webCatalogText } from "./webcatalog";
 
 type Message = string | readonly string[];
 type Catalog = Map<string, Message>;
@@ -71,7 +72,7 @@ export class I18n {
   }
 
   text(context: string, source: string, ...args: readonly (string | number)[]): string {
-    const message = this.catalog.get(key(context, source));
+    const message = webCatalogText(this.language, context, source) ?? this.catalog.get(key(context, source));
     return substitute(typeof message === "string" ? message : source, args);
   }
 

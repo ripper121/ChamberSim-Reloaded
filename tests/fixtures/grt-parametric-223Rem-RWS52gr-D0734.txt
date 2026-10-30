@@ -1,0 +1,85 @@
+--------------------------------------------------------------------------------Gordons Reloading Tool 2021.2030-NIGHTLYParametric powder search by generic tolerance synthesis--------------------------------------------------------------------------------File            : 223Rem_RWS52gr_D0734.grtloadCaliber         : .223 Rem. (5.56 x 45 NATO)Projectile      : RWS, SG-M 13343, 0.224, 52.00 grain, 16.20 mmSeating depth   : 6.25 mmCase            : 30.34 grain H2O, 44.70 mmCartridge length: 54.65 mmInitial pressure: 250 bar--------------------------------------------------------------------------------Tolerance-Window               :  Target    Min.     Max.   Unitmaximum pressure               :   3646     3001     4291   barMuzzle velocity                :    -        -        -     m/sBarrel Time general (BT)       :    -        -        -     msBullet Lead Time 10% pmax (BLT):    -        -        -     msLoad ratio                     :  92.04      95      100    %burnt propellant               :    -       100       -     %--------------------------------------------------------------------------------A T T E N T I O N - A T T E N T I O N - A T T E N T I O N--------------------------------------------------------------------------------Depending on the setting of the limiting tolerance windows, the charges can
+exceed the specified maximum pressures, or have no meaningful, or even
+a dangerous value. Please check a load prior to use for plausibility. 
+
+The order of the list depends on the composition of the powder list.--------------------------------------------------------------------------------
+propellant                                             mass   load ratio  pmax    v0     E0   burnt  eff.    BT     BLT    recoil
+                                                       grain      %        bar    m/s    J      %     %      ms      ms      J     
+Accurate LT-30 (2021-10-DEV-2)                         25.31     92.6     3645   924.1  1439  93.2   20.4  0.7795  0.7262    -     
+Hodgdon LeverEvolution (2021-01-28)                    28.80     98.9     3644   921.7  1431  85.1   19.2  0.7969  0.7399    -     
+Shooters World Tactical Rifle (D073-08) (2020-08-01)   25.63     98.0     3645   916.0  1414  87.3   21.3  0.7751  0.7236    -     
+Hodgdon H4895 (2020-12-01)                             26.44     98.4     3644   905.9  1383  86.2   21.0  0.7905  0.7350    -     
+Ramshot X-Terminator (2019-11-22)                      25.30     92.0     3646   905.3  1381  94.9   22.7  0.8026  0.7419    -     
+Accurate 2230 (2019-11-22)                             25.30     92.0     3646   905.3  1381  94.9   22.7  0.8026  0.7419    -     
+Lovex D073-04 (2020-12-28)                             25.30     92.0     3646   905.3  1381  94.9   22.7  0.8026  0.7419    -     
+Shooters World AR Plus (D073-04) (2019-11-22)          25.30     92.0     3646   905.3  1381  94.9   22.7  0.8026  0.7419    -     
+IMR 3031 (2021-11-13)                                  25.90     99.4     3643   905.1  1380  87.5   21.7  0.7813  0.7290    -     
+Lovex D073-05 (2020-12-28)                             26.60     95.8     3644   904.9  1380  91.1   21.8  0.7926  0.7372    -     
+Accurate 2460 (2020-08-11)                             26.04     93.8     3644   904.7  1379  93.6   22.2  0.7956  0.7383    -     
+Ramshot TAC (2021-04-18)                               27.48     99.6     3643   895.6  1351  84.1   20.2  0.7695  0.7235    -     
+Winchester 748 (2020-08-11)                            27.00     99.7     3614   895.5  1351  83.3   20.9  0.7658  0.7215    -     
+ReloadSwiss RS 40 (2020-09-29)                         25.35     96.9     3642   894.3  1347  82.5   20.6  0.7741  0.7252    -     
+Baschieri & Pellagri BP 107 Medium Rifle (2020-09-28)  26.67     96.6     3645   891.6  1339  82.9   20.9  0.7714  0.7244    -     
+Vihtavuori N130 (2021-05-30)                           23.42     96.6     3647   891.1  1338  100.0  23.8  0.7830  0.7290    -     
+Alliant AR-Comp (2020-08-11)                           25.38     97.7     3645   890.1  1335  87.2   21.9  0.7859  0.7328    -     
+IMR 4895 (2020-08-11)                                  26.90     99.9     3555   889.4  1333  80.9   19.9  0.7927  0.7422    -     
+Vihtavuori N530 (2019-10)                              25.90     99.9     3589   888.8  1331  81.2   20.1  0.7825  0.7336    -     
+Somchem S321 (2020-06-16)                              26.38     95.6     3645   887.6  1327  85.6   21.2  0.7806  0.7311    -     
+Vihtavuori N133 (2021-04-18)                           24.20     99.8     3575   887.3  1326  98.9   23.5  0.7928  0.7395    -     ERROR! (invalid/impossible synthesis)
+ADI AR 2219 (2020-02-04)                               24.86     94.9     3647   886.6  1324  91.7   22.1  0.7624  0.7181    -     
+Hodgdon H322 (2020-02-04)                              24.86     94.9     3647   886.6  1324  91.7   22.1  0.7624  0.7181    -     
+Accurate LT-32 (2020-10-DEV-1)                         24.96     98.8     3647   886.5  1324  83.7   21.5  0.7755  0.7261    -     
+Alliant Reloder 10x (2020-04-30)                       23.52     95.3     3646   886.0  1323  91.5   22.5  0.7956  0.7358    -     
+Vihtavuori N135 (2020-12-01)                           25.60     99.8     3433   885.4  1321  94.6   22.4  0.8196  0.7642    -     
+Alliant Reloder 7 (2020-02-07)                         22.69     91.4     3651   884.4  1318  100.0  24.9  0.7923  0.7332    -     
+Hodgdon H335 (2020-12-12)                              26.46     94.0     3645   880.7  1307  82.2   20.1  0.7782  0.7297    -     
+Accurate 2015 (2021-03-17)                             24.58     91.6     3646   879.6  1304  85.7   21.5  0.7831  0.7306    -     
+Alliant 1200-R (2021-04-02)                            23.11     93.7     3648   879.5  1303  93.6   23.2  0.7910  0.7333    -     
+Somchem S335 (2021-04-11)                              26.05     99.5     3642   878.0  1299  84.0   20.2  0.7762  0.7285    -     
+Shooters World Match Rifle (D073-06) (2021-03-17)      27.00     99.8     3299   877.7  1298  82.4   19.9  0.8091  0.7655    -     
+Lovex D073-06 (2021-03-17)                             27.00     99.8     3299   877.7  1298  82.4   19.9  0.8091  0.7655    -     
+IMR 8208 XBR (2019-11-08)                              25.60     99.8     3391   877.3  1297  82.1   21.0  0.7889  0.7462    -     
+Hodgdon Varget (2021-05-12)                            26.70     99.8     3417   875.6  1292  78.3   18.9  0.7866  0.7448    -     
+Hodgdon Benchmark (2020-08-22)                         25.30    100.2     3574   875.3  1291  83.7   20.9  0.7827  0.7350    -     ERROR! (invalid/impossible synthesis)
+RWS-Rottweil R903 (2020-12-01)                         27.20     99.6     3643   873.9  1287  76.6   19.3  0.7751  0.7295    -     
+ADI AR 2206H (2020-04-14)                              25.90     99.9     3256   873.4  1285  80.4   19.1  0.8188  0.7739    -     
+Norma 200 (2020-03-06)                                 23.30     92.9     3649   873.2  1285  89.5   23.3  0.8052  0.7400    -     
+Vihtavuori N140 (2021-03-11)                           26.81     98.2     3642   871.4  1279  85.1   20.5  0.7787  0.7317    -     
+Hodgdon Varget (2021-10-30-2)                          26.70     99.8     3302   870.8  1278  78.5   18.5  0.8012  0.7598    -     
+ADI BM 2 (2020-04-30)                                  25.13     92.0     3646   870.7  1277  83.9   21.4  0.7736  0.7268    -     
+IMR 4064 (2020-12-12)                                  26.00    100.0     3513   870.7  1277  82.1   20.0  0.7932  0.7454    -     
+Somchem S341 (2021-08-29)                              27.60    100.0     3379   867.4  1268  79.3   19.6  0.7972  0.7548    -     
+Hodgdon BL-C2 (2020-10-02)                             27.70     99.9     3169   866.8  1266  80.4   18.1  0.8106  0.7735    -     
+Lovex S060-02 (2021-03-17)                             25.30    100.8     3465   866.2  1264  78.5   19.8  0.7868  0.7429    -     ERROR! (invalid/impossible synthesis)
+Vectan SP 9 (2021-04-18)                               26.39     99.6     3138   863.9  1257  80.6   19.3  0.8228  0.7831    -     
+Norma 201 (2021-01-03)                                 25.30    100.8     3355   863.2  1255  78.9   19.2  0.8224  0.7706    -     ERROR! (invalid/impossible synthesis)
+Kazan Sunar 308 - 4/17K (2021-04-08)                   24.05     95.4     3649   861.8  1251  85.5   22.9  0.7773  0.7277    -     
+Accurate 2520 (2020-09-29)                             27.00     99.8     3315   860.2  1246  78.2   19.1  0.8022  0.7612    -     
+Vihtavuori N540 (2021-09-30)                           26.20    100.0     3095   859.6  1245  82.0   18.3  0.8292  0.7904    -     
+RWS-Rottweil R901 (2018-11)                            25.30    103.7     3303   859.3  1244  78.4   19.4  0.8469  0.7865    -     ERROR! (invalid/impossible synthesis)
+Vectan Tubal 3000 (2021-05-12)                         24.20     99.8     3349   855.5  1233  82.9   20.7  0.8059  0.7608    -     ERROR! (invalid/impossible synthesis)
+Norma 202 (2021-04-18)                                 25.30    100.3     3144   850.1  1218  82.3   19.8  0.8307  0.7891    -     ERROR! (invalid/impossible synthesis)
+Hodgdon CFE-223 (2020-03-07)                           27.30     99.9     â–¼2978  842.2  1195  76.6   17.8  0.8248  0.7987    -     Out of spec. tolerance
+Alliant Reloder 15 (2021-01-07)                        26.00     99.7     3028   838.9  1186  78.4   17.6  0.8380  0.8026    -     
+ReloadSwiss RS 52 (2020-12-01)                         26.39     99.6     â–¼2735  835.9  1177  78.7   17.6  0.8577  0.8446    -     Out of spec. tolerance
+IMR 4166 (2020-08-22)                                  25.30    100.8     3085   830.6  1162  73.7   18.4  0.8238  0.7895    -     ERROR! (invalid/impossible synthesis)
+Vectan Tubal 5000 (2021-03-07)                         25.30    104.3     3100   828.7  1157  80.8   19.1  0.8175  0.7846    -     ERROR! (invalid/impossible synthesis)
+RWS-Rottweil R902 (2018-11)                            25.30    102.5     â–¼2963  827.9  1155  75.6   18.2  0.8631  0.8244    -     ERROR! (invalid/impossible synthesis)
+ADI AR 2208 (2021-10-08)                               25.30    100.8     â–¼2949  826.2  1150  77.0   17.9  0.8316  0.8055    -     ERROR! (invalid/impossible synthesis)
+Ramshot Big Game (2020-08-01)                          27.30     99.9     3121   826.1  1150  68.7   16.2  0.8181  0.7860    -     
+Shooters World Precision (S062-02) (2021-08-29)        25.30    100.8     â–¼2818  821.4  1137  73.8   17.8  0.8547  0.8340    -     ERROR! (invalid/impossible synthesis)
+Norma 203B (2020-09-11)                                25.60     99.8     â–¼2667  813.4  1115  75.1   17.2  0.8808  0.8727    -     Out of spec. tolerance
+Lovex S062-02 (2021-10-17)                             25.30    100.8     â–¼2777  812.3  1112  78.4   17.8  0.8569  0.8401    -     ERROR! (invalid/impossible synthesis)
+Vectan SP11 (2020-10-01)                               27.00     99.8     â–¼2578  810.8  1108  75.2   16.3  0.8748  0.8748    -     BLT is invalid, because initial pressure is higher than 10% Pmax, Out of spec. tolerance
+Alliant Reloder TS 15.5 (2021-09-30)                   25.30    100.3     â–¼2516  810.8  1107  77.1   17.3  0.8890  0.8890    -     ERROR! (invalid/impossible synthesis)
+Vihtavuori N150 (2021-11-13)                           25.30    102.0     â–¼2602  804.4  1090  78.1   17.5  0.8782  0.8778    -     ERROR! (invalid/impossible synthesis)
+ReloadSwiss RS 50 (2020-02-22)                         26.60     99.7     â–¼2735  800.8  1080  72.2   16.5  0.8693  0.8563    -     Out of spec. tolerance
+Alliant 2000-MR (2021-03-01)                           26.39     99.6     â–¼2515  796.9  1070  70.9   16.0  0.8833  0.8833    -     BLT is invalid, because initial pressure is higher than 10% Pmax, Out of spec. tolerance
+Vihtavuori N550 (2021-09-27)                           26.39     99.6     â–¼2353  791.4  1055  73.0   15.6  0.9101  0.9101    -     BLT is invalid, because initial pressure is higher than 10% Pmax, Out of spec. tolerance
+Somchem S355 (2019-11-13)                              25.30    100.8     â–¼2648  790.3  1052  79.5   17.9  0.8845  0.8794    -     ERROR! (invalid/impossible synthesis)
+Kazan Irbis 30-06 1/20K (2021-09-30)                   25.70     99.9     â–¼2316  770.4  1000  73.3   16.2  0.9166  0.9166    -     BLT is invalid, because initial pressure is higher than 10% Pmax, Out of spec. tolerance
+RWS-Rottweil R907 (2021-04-16)                         25.30    100.3     â–¼2370  770.3  1000  66.4   15.5  0.9054  0.9054    -     ERROR! (invalid/impossible synthesis)
+Shooters World Long Rifle (S065-01) (2021-08-29)       25.30     99.7     â–¼2479  770.3  1000  65.9   15.6  0.9100  0.9100    -     BLT is invalid, because initial pressure is higher than 10% Pmax, Out of spec. tolerance
+Lovex S065-01 (2021-08-29)                             25.30     99.7     â–¼2479  770.3  1000  65.9   15.6  0.9100  0.9100    -     BLT is invalid, because initial pressure is higher than 10% Pmax, Out of spec. tolerance
+Lovex S070-02 (2021-08-29)                             26.70     99.8     â–¼2653  756.8  965   75.1   16.2  0.8901  0.8854    -     Out of spec. tolerance
+

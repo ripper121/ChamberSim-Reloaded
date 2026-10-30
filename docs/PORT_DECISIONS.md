@@ -1,6 +1,6 @@
 # PWA Port Decisions
 
-Last updated: 2026-10-28
+Last updated: 2026-10-30
 
 This file retains only decisions needed to maintain the completed port. Detailed feature-to-source evidence is in [parity-checklist.md](parity-checklist.md).
 
@@ -39,6 +39,8 @@ The packaged v0.10 `csr_fitpowder.exe` omitted a Physical data resource. Current
 ## D-030 / D-049 — Use authoritative catalogs, but keep report syntax portable
 
 Consume the shipped Qt catalogs for English, German, French and Italian UI text and parse/format numbers using the active UI locale. Keep default report-template source and its explicit C-style format grammar locale-invariant because templates are portable data, not translated UI strings.
+
+PWA-only features that have no native Qt source context, such as the built-in Wizards, use the typed browser supplement in `pwa/src/lib/webcatalog.ts`. Merge that supplement over the native catalogs at lookup time; keep placeholders and all supported languages covered by direct tests rather than modifying upstream-native catalog contexts with browser-only strings.
 
 ## D-038 — Preserve native navigation within browser constraints
 

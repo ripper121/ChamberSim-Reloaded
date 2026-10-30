@@ -28,6 +28,13 @@ export interface PowderSynthesisSolution {
   inTolerance: boolean;
 }
 
+export interface PowderSynthesisOptions {
+  onEvaluation?: (solution: PowderSynthesisSolution) => void;
+  shouldCancel?: () => boolean;
+  yieldEvery?: number;
+  yieldControl?: () => Promise<void>;
+}
+
 const parameterNames: readonly PowderSearchParameter[] = ["Qex", "k", "Ba", "a0", "z1", "z2", "pc", "pcd"];
 
 function number(record: ProjectRecord, name: string): number {
@@ -94,6 +101,18 @@ export function searchParametricPowders(referenceRecord: ProjectRecord, records:
 
 const synthesisMetrics: readonly SynthesisMetric[] = ["maxPressureBar", "muzzleVelocityMs", "loadRatio", "burntFraction", "efficiency", "muzzleTimeMs", "bulletLeadTimeMs"];
 
+const gramsPerGrain = 1 / 15.432358353;
+
+/**
+ * Charge increments used by GRT's InnerBallistikToleranceSynthesis.Compute_Charge.
+ *
+ * The native routine walks this array from coarse to fine, retaining the last
+ * acceptable/improving charge before continuing with the next increment.
+ */
+export const grtSynthesisChargeStepsG: readonly number[] = [
+  0.05, 0.03, 0.02, 0.01, 0.005, 0.003, 0.001, 0.0005, 0.0001, 0.00005, 0.00001
+].map((grains) => grains * gramsPerGrain);
+
 function synthesisScore(result: SimResult, windows: SynthesisWindows): { score: number; inTolerance: boolean } {
   if (result.status !== "ok") return { score: Number.POSITIVE_INFINITY, inTolerance: false };
   let score = 0, inTolerance = true, count = 0;
@@ -117,40 +136,74 @@ function synthesisScore(result: SimResult, windows: SynthesisWindows): { score: 
   return { score: count ? score / count : Number.POSITIVE_INFINITY, inTolerance: count > 0 && inTolerance };
 }
 
-/** Find the charge that best satisfies all enabled GRT tolerance-synthesis windows. */
-export function synthesizePowderCharge(evaluate: (chargeG: number) => SimResult, currentChargeG: number, minChargeG: number,
-  maxChargeG: number, windows: SynthesisWindows, coarseSteps = 28, refinementSteps = 3): PowderSynthesisSolution | undefined {
+function hasTarget(windows: SynthesisWindows): boolean {
+  return synthesisMetrics.some((metric) => windows[metric]?.target !== undefined);
+}
+
+/** Find the charge using GRT's coarse-to-fine, charge-step tolerance synthesis. */
+export async function synthesizePowderCharge(evaluate: (chargeG: number) => SimResult, currentChargeG: number, minChargeG: number,
+  maxChargeG: number, windows: SynthesisWindows, options: PowderSynthesisOptions = {}): Promise<PowderSynthesisSolution | undefined> {
   if (!(minChargeG > 0) || !(maxChargeG > minChargeG) || !synthesisMetrics.some((metric) => {
     const window = windows[metric];
     return window?.target !== undefined || window?.min !== undefined || window?.max !== undefined;
   })) return undefined;
   const cache = new Map<number, PowderSynthesisSolution>();
-  const candidate = (chargeG: number): PowderSynthesisSolution => {
-    const charge = Math.min(Math.max(chargeG, minChargeG), maxChargeG);
+  let evaluations = 0;
+  const candidate = (chargeG: number, clamp = true): PowderSynthesisSolution => {
+    const charge = clamp ? Math.min(Math.max(chargeG, minChargeG), maxChargeG) : chargeG;
     const key = Math.round(charge * 1e10);
     const known = cache.get(key);
     if (known) return known;
     const result = evaluate(charge), scored = synthesisScore(result, windows);
     const solution = { chargeG: charge, result, ...scored };
     cache.set(key, solution);
+    evaluations += 1;
+    options.onEvaluation?.(solution);
     return solution;
+  };
+  const yieldIfNeeded = async (): Promise<void> => {
+    if (options.yieldControl && options.yieldEvery && evaluations > 0 && evaluations % options.yieldEvery === 0) {
+      await options.yieldControl();
+    }
   };
   const better = (left: PowderSynthesisSolution, right: PowderSynthesisSolution | undefined): boolean => !right
     || left.score < right.score - 1e-12
     || Math.abs(left.score - right.score) <= 1e-12 && Math.abs(left.chargeG - currentChargeG) < Math.abs(right.chargeG - currentChargeG);
-  let low = minChargeG, high = maxChargeG, best: PowderSynthesisSolution | undefined;
-  const current = candidate(currentChargeG);
-  if (better(current, best)) best = current;
-  for (let pass = 0; pass <= refinementSteps; pass += 1) {
-    const steps = pass === 0 ? coarseSteps : 8;
-    for (let index = 0; index <= steps; index += 1) {
-      const value = candidate(low + (high - low) * index / steps);
-      if (better(value, best)) best = value;
+  // GRT always evaluates and preserves the load's current charge first. If a
+  // replacement powder cannot move toward the criteria before its capacity
+  // limit, its invalid/impossible result therefore retains that original mass.
+  let cursor = candidate(currentChargeG, false), best = cursor;
+  if (cursor.inTolerance && !hasTarget(windows)) return cursor;
+
+  // GRT chooses an increasing/decreasing mode once, then traverses its fixed
+  // charge-step array. A finest-step probe reproduces that mode choice without
+  // assuming that every enabled result increases with charge (BT and BLT do not).
+  const directionStep = grtSynthesisChargeStepsG.at(-1)!;
+  const belowCharge = cursor.chargeG - directionStep, aboveCharge = cursor.chargeG + directionStep;
+  const below = belowCharge >= minChargeG && belowCharge <= maxChargeG ? candidate(belowCharge) : undefined;
+  const above = aboveCharge >= minChargeG && aboveCharge <= maxChargeG ? candidate(aboveCharge) : undefined;
+  await yieldIfNeeded();
+  let direction: -1 | 1 | undefined;
+  if (below && better(below, cursor) && (!above || !better(above, below))) direction = -1;
+  else if (above && better(above, cursor)) direction = 1;
+  else if (cursor.result.status === "bullet_stuck" || cursor.result.status === "invalid_input") direction = 1;
+  else if (cursor.result.status === "charge_too_high") direction = -1;
+  if (!direction) return Number.isFinite(best.score) ? best : undefined;
+
+  for (const step of grtSynthesisChargeStepsG) {
+    while (true) {
+      if (options.shouldCancel?.()) return Number.isFinite(best.score) ? best : undefined;
+      const nextCharge = cursor.chargeG + direction * step;
+      if (nextCharge < minChargeG || nextCharge > maxChargeG) break;
+      const next = candidate(nextCharge);
+      const recovering = cursor.result.status !== "ok"
+        && (direction === 1 && cursor.result.status !== "charge_too_high"
+          || direction === -1 && cursor.result.status === "charge_too_high");
+      if (!recovering && !better(next, cursor)) break;
+      cursor = next;
+      if (better(cursor, best)) best = cursor;
+      await yieldIfNeeded();
     }
-    if (!best || !Number.isFinite(best.score)) break;
-    const span = (high - low) / steps;
-    low = Math.max(minChargeG, best.chargeG - span);
-    high = Math.min(maxChargeG, best.chargeG + span);
   }
   return best && Number.isFinite(best.score) ? best : undefined;
 }

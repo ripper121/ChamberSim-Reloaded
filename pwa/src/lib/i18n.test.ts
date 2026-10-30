@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadI18n, parseQtCatalog } from "./i18n";
+import { webCatalogSources, webCatalogText } from "./webcatalog";
 
 describe("Qt translation catalog", () => {
   it("loads finished translations from the shipped catalogs and removes Qt mnemonics", async () => {
@@ -32,5 +33,21 @@ describe("Qt translation catalog", () => {
 
   it("rejects malformed XML and falls back for unfinished messages", () => {
     expect(() => parseQtCatalog("<TS><broken></TS>")) .toThrow("Invalid Qt translation catalog");
+  });
+
+  it("provides complete PWA wizard catalogs in every supported non-English language", async () => {
+    for (const context of ["MainWindow", "PropellantMassWizard", "ParametricPowderWizard"]) {
+      const sources = webCatalogSources(context);
+      expect(sources.length).toBeGreaterThan(2);
+      for (const language of ["de_DE", "fr_FR", "it_IT"] as const) {
+        for (const source of sources) expect(webCatalogText(language, context, source), `${language}: ${context}/${source}`).toBeTruthy();
+      }
+    }
+    const [german, french, italian] = await Promise.all([loadI18n("de_DE"), loadI18n("fr_FR"), loadI18n("it_IT")]);
+    expect(german.text("MainWindow", "&Wizard")).toBe("Assistent");
+    expect(german.text("PropellantMassWizard", "Target: %1", "Maximaldruck")).toBe("Ziel: Maximaldruck");
+    expect(french.text("ParametricPowderWizard", "Start synthesis…")).toBe("Démarrer la synthèse…");
+    expect(italian.text("ParametricPowderWizard", "The synthesis contains %1 propellants and may take a long time. Continue?", 24))
+      .toBe("La sintesi contiene 24 propellenti e potrebbe richiedere molto tempo. Continuare?");
   });
 });
