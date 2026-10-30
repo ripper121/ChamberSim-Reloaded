@@ -199,6 +199,32 @@ Use statuses `TODO`, `IN PROGRESS`, `PASS`, `DIFF`, or `BLOCKED`. Do not mark `P
 
 - Never execute unknown binaries with elevated privileges. Inspect provenance and run in a safe environment; avoid destructive operations and modifying reference builds.
 
+## Wizard implementation conventions
+
+Treat built-in PWA wizards as internal feature modules, not runtime-loaded plugins. Wizards ship with the trusted offline application and need direct access to its load model, solver, units, localization, history, and cache invalidation; a dynamic plugin API adds complexity without useful isolation.
+
+When adding a wizard:
+
+1. **Establish the reference behavior first.** Inspect the original source, GUI, CLI, screenshots, documentation, and existing PWA result fields. Inventory every displayed value, unit, default, shortcut, validation rule, enabled state, calculation trigger, Apply/Cancel effect, and error/unreachable state. A screenshot establishes visible controls but does not by itself establish calculation semantics.
+
+2. **Create one pure domain module per wizard** under `pwa/src/lib/wizards/`, for example `pwa/src/lib/wizards/propellantmass.ts`, with its focused test beside it as `<wizard>.test.ts`. Put formulas, target/state types, search/root logic, and deterministic validation there. Do not put DOM access, browser dialogs, global application state, or hardcoded fixture results in the domain module.
+
+3. **Port exact domain behavior.** Reuse the existing solver and source-derived helpers where simulation is required. Use direct source formulas for quantities that remain defined outside a successful simulation (for example, load ratio from charge, bulk density, and free volume). Do not clamp an unreachable or failed calculation to the nearest successful simulation and present it as the requested target. Return a clear unavailable/unreachable state instead.
+
+4. **Keep application orchestration at the application boundary.** Add the accessible Wizard menu entry and dialog wiring in the existing shell (`pwa/src/main.ts`, with only necessary functional CSS in `pwa/src/styles.css`). The shell supplies the active load, effective solver profile/calibration, unit preferences, locale parsing/formatting, status messages, and history. If several wizards later share substantial UI code, extract only that shared presentation/controller code into a dedicated wizard UI helper; do not mix it into the pure domain modules.
+
+5. **Preserve workflow semantics.** Enable a wizard action only when its required context exists. Match whether calculation is explicit or live; expensive calculation must run only from the intended action (for example, a Calculate button) when that is the specified workflow. Preserve mutual exclusivity between inputs where required, reset stale results after input changes, disable Apply until a valid calculation exists, and keep Cancel side-effect free.
+
+6. **Make Apply transactional and undoable.** Apply through `LoadHistory`/the established edit path, invalidate all affected simulation and measurement caches, rerender derived results, set a useful status, and verify Undo/Redo restores the complete prior state. Do not mutate the active load while the user is merely editing wizard targets or calculating a preview.
+
+7. **Use native units and locale behavior.** Store and calculate in base units; display and parse through `UnitPreferences` and the shared locale-aware unit helpers. Constrain browser inputs to the real domain while also validating parsed values in code. Never silently coerce invalid, out-of-range, failed, or non-finite values into plausible results.
+
+8. **Verify at three levels.** Add deterministic unit cases for formulas, directionality, bounds, discontinuities, unreachable targets, and reported regressions. Add an Edge end-to-end workflow covering menu state, every control/value shown by the reference, calculation timing, input interactions, Apply, derived results, and Undo. Run typecheck and production build; expand to the full unit/browser gates in proportion to shared-code impact.
+
+9. **Record the evidence.** Add or update the wizard row in `docs/parity-checklist.md`, update `docs/PORT_PROGRESS.md` with commands and results, and record a decision in `docs/PORT_DECISIONS.md` only when the architecture or a platform deviation changes. Do not mark a wizard `PASS` merely because its dialog renders or its happy path was implemented.
+
+The Propellant Mass Wizard in `pwa/src/lib/wizards/propellantmass.ts` and its browser workflow in `pwa/e2e/app.spec.ts` are the current structural example. Follow their separation of pure calculation from app-shell orchestration, while deriving each new wizard's behavior independently from its own original reference.
+
 ## Browser versus desktop constraints
 
 Some desktop APIs may not map directly to a PWA (filesystem, native dialogs, background processes, process execution, custom windows, or hardware access). For these:

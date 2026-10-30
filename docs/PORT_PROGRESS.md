@@ -12,6 +12,7 @@ Working and not blocked. Propellant Mass Wizard calculation, UI, Apply and Undo 
 
 ## Completed since previous checkpoint
 
+- Added repository-wide Wizard implementation conventions to `AGENTS.md`: internal feature modules under `pwa/src/lib/wizards/`, exact source behavior, pure-domain/app-shell separation, locale/unit handling, explicit calculation semantics, transactional Apply/Undo, three-level verification, and required parity documentation.
 - Added a top-level Wizard menu whose Propellant Mass action is enabled only for an active load.
 - Added all five screenshot targets: Load ratio (restricted to 0-100%), Maximum pressure, Muzzle velocity, Barrel Time general (BT), and Bullet Lead Time 10% pmax (BLT), with units, clear/reset controls and the load-ratio slider.
 - Enforced one active target: entering, sliding, resetting or choosing a pressure shortcut clears every other target.
