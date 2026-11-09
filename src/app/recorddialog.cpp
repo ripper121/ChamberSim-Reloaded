@@ -24,6 +24,7 @@
 #include "barrel.h"
 #include "numeric.h"
 #include "recordfields.h"
+#include "theme.h"
 #include "unitprefs.h"
 
 #include <QBuffer>
@@ -71,11 +72,6 @@ QString labelText(const csr::dbfields::Field &f)
     QString unit = f.unitText;
     if (const auto *u = unitOf(f)) unit = QString::fromUtf8(u->symbol);
     return (unit.isEmpty() ? f.label : QStringLiteral("%1 [%2]").arg(f.label, unit)) + (f.required ? u" *"_s : u""_s) + u':';
-}
-
-QString shownNumber(const csr::dbfields::Field &f, double stored)
-{
-    return recordfields::shownNumber(f, stored);
 }
 
 std::optional<double> parseNumber(const csr::dbfields::Field &f, const QString &text)
@@ -144,7 +140,8 @@ RecordDialog::RecordDialog(const csr::Database &db, csr::Table table, Mode mode,
             {
                 // a fixed list: no free text, so the values stay consistent (the program reads some of them)
                 auto *combo = new QComboBox;
-                if (f.column != u"gValid") combo->addItem(tr("– not specified –"), QString());  // a yes/no column always has a value
+                // a yes/no column always has a value; the material's empty value is a choice of its own (jacketed)
+                if (f.column != u"gValid" && f.column != u"gmaterial") combo->addItem(tr("– not specified –"), QString());
                 for (const auto &[value, text] : csr::dbfields::choices(table, f.column))
                 {
                     if (f.column != u"gValid")
@@ -198,7 +195,7 @@ RecordDialog::RecordDialog(const csr::Database &db, csr::Table table, Mode mode,
                 }
                 else if (f.kind == Kind::Number)
                 {
-                    edit->setText(stored.isValid() ? shownNumber(f, stored.toDouble()) : QString());
+                    edit->setText(stored.isValid() ? recordfields::shownNumber(f, stored.toDouble()) : QString());
                 }
                 else
                 {
@@ -284,7 +281,7 @@ void RecordDialog::calculateBoreCrossSection()
     }
     // the fields hold the stored (base) unit values of their columns: mm for the lengths, mm² for Q
     if (const Editor *q = editor(u"c_Q"_s))
-        setText(u"c_Q"_s, shownNumber(q->field, csr::boreCrossSection_mm2(*bore, *groove, *count, *width)));
+        setText(u"c_Q"_s, recordfields::shownNumber(q->field, csr::boreCrossSection_mm2(*bore, *groove, *count, *width)));
 }
 
 const RecordDialog::Editor *RecordDialog::editor(const QString &column) const
@@ -497,7 +494,7 @@ void RecordDialog::accept()
     for (const Editor &e : m_editors)
     {
         const bool bad = (e.field.required && text(e.field.column).trimmed().isEmpty()) || !valueOf(e);
-        e.widget->setStyleSheet(bad ? u"background: #f6c6c6; color: black;"_s : QString());
+        e.widget->setStyleSheet(bad ? u"background: %1; color: black;"_s.arg(QLatin1String(theme::kBadFill)) : QString());
     }
     if (!wrong.isEmpty())
     {

@@ -20,12 +20,21 @@
 #pragma once
 
 #include "loadfile.h"
+#include "numeric.h"
 #include "physicalpowders.h"
 
 #include <optional>
 
 namespace csr
 {
+
+// The bullet material of a projectile record and a load (gmaterial): empty = jacketed (the default), "lead" = cast or swaged lead
+// without a jacket. Only the physical model distinguishes them (Calibration::leadSlideFactor).
+inline constexpr QStringView kLeadMaterial = u"lead";
+[[nodiscard]] inline bool isLeadBullet(QStringView material)
+{
+    return material.trimmed().compare(kLeadMaterial, Qt::CaseInsensitive) == 0;
+}
 
 // All inputs of one interior-ballistics simulation. Units are those of the
 // *.grtload file and are part of the member names.
@@ -37,7 +46,7 @@ struct SimInput
     double boreArea_mm2{};
     double grooveDiameter_mm{};    // 0: unknown
     double caliberBurnScale{1.0};  // factor on the physical burn rate for this caliber (data/physical/calibers.json)
-    double sebert{0.5};
+    double sebert{kDefaultSebert};
     double startPressure_bar{250.0};
     double primerOffset_bar{};  // start pressure of the load's primer type - 250 bar: added by the physical model only (primer.h)
     double maxPressure_bar{};   // permitted maximum (CIP), informative only
@@ -64,6 +73,7 @@ struct SimInput
     double tailDiameterB_mm{};
     int tailType{};  // 0 flat base, 1 hollow base, 2 boat tail
     double extraFriction_bar{};
+    bool leadBullet{};  // no jacket: cast or swaged lead (gmaterial "lead"); the physical model's own sliding friction
 
     // propellant
     double vivacityBa{};
@@ -76,7 +86,7 @@ struct SimInput
     double covolumeEta{1.0};
     double density_kgm3{1600.0};
     double bulkDensity_kgm3{900.0};
-    double temperature_C{21.0};
+    double temperature_C{kPowderReferenceTemperature_C};
     double coldCoeff{};
     double hotCoeff{};
     double charge_g{};

@@ -1,6 +1,6 @@
 # Entering a load
 
-The left half of a load tab has three input tabs, the right half shows
+The left half of a load tab has four input tabs, the right half shows
 the results.
 
 ## Cartridge & gun
@@ -11,11 +11,12 @@ effective area, maximum permitted pressure, barrel length, twist length,
 seating depth and more. Below the table the drawings show the cartridge,
 the chamber and (when available) the powder.
 
-The Sebert factor (0 to 1) is kept as the file has it, 0 included, and
-all models use it as it is (the Physical model no longer replaces 0 by
-0.5 in the propellant impulse and the recoil). A value outside 0 to 1
-becomes 0.5 when the load is opened; the panel accepts only 0 to 1. The
-report shows the value the simulation used.
+The Sebert factor (0 to 1) is kept as the file has it, 0 included. The
+Original and Tuned models and the recoil figures use it as it is; the
+Physical model keeps its calibrated share of 1/4 of the charge for the
+moving gas, whatever the file holds. A value outside 0 to 1 becomes 0.5
+when the load is opened; the panel accepts only 0 to 1. The report shows
+the value the simulation used.
 
 ### Primer and start pressure.
 
@@ -84,6 +85,31 @@ the load (heat of explosion, gas properties, densities and the burn
 values), *Use the physical values…* only adds the physical burn values
 and keeps the load’s own values. To get the same result as selecting the
 powder again from the database, use the database values first.
+
+## Charge
+
+The charge and the load development ladder in large input fields, so
+that they are easy to reach while you try charges. A switch in the
+corner of the charge card changes the unit of the charge and of the
+charge step between grains and grams (the same per-field units as in the
+propellant table; the value in the other unit is shown below the field).
+
+Propellant charge  
+the charge; with a ladder, the highest charge.
+
+Steps  
+the number of ladder steps, 1 to 10; 1 means no ladder.
+
+Charge step  
+the powder taken away from one step to the next (only with two or more
+steps).
+
+A line below the fields shows the range the ladder covers. The table
+Ladder results lists the charge, maximum pressure and velocity of every
+step; a step above the permitted pressure is marked red. Click a row to
+show its curve in the chart. The values are the same fields as in the
+propellant table: a change in one place shows in the other, and Undo
+takes it back.
 
 ## Editing values
 

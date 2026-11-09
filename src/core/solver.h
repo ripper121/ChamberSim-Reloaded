@@ -212,6 +212,10 @@ struct Calibration
     // the engraving resistance and the sliding stress by max(1 + k e, 0.25); 0: the bullet's fit does not matter
     double engravingInterference{0.0};
     double slideInterference{0.0};
+    // Lead bullets without a jacket (cast or swaged, projectile gmaterial "lead"): factor on the sliding friction stress (lubricated
+    // lead slides more easily than a jacket). Pistol and revolver cartridges have their own (< 0: the rifle value applies).
+    double leadSlideFactor{1.0};
+    double leadSlideFactorHandgun{-1.0};
     double caliberBurnScaling{
         1.0};  // 1: the physical burn rates are scaled per caliber (physicalCaliberScale), 0: not (fits of the scales)
     double heatTransferFactor{0.5};  // x the Dittus-Boelter coefficient of turbulent pipe flow (heat loss to the walls)
@@ -237,9 +241,9 @@ struct Calibration
     double initialGasFactor{0.536312};  // weight of the initial-gas energy offset (1 = reproduces ps exactly)
     // Pistol and revolver cartridges (C.I.P. table IV): the start pressure is at least this fraction of the permitted pressure (0: the load's
     // own value). The published handgun loads of high-pressure cartridges (9 mm Luger, .40 S&W, .357 Magnum) need about 600 bar, low-pressure ones less.
+    // It holds in every barrel: the barrel length cannot change the shot start, and the carbine loads (.357, .44 Mag. at 406-510 mm) need it too.
     double handgunStartFraction{0.0};
-    double handgunMaxBarrel_mm{400.0};  // longer barrels (carbines, rifles chambered for handgun cartridges) keep the load's own value
-    double burnZ0Factor{0.0};           // the form function sees z + burnZ0Factor * z0 (initial gas counts as burnt)
+    double burnZ0Factor{0.0};  // the form function sees z + burnZ0Factor * z0 (initial gas counts as burnt)
     // Measured on the original with fast powders: the energy of the burnt powder reaches the gas only by the fraction
     // 1 - exp(-ignitionRate * (step + ignitionLead)), counted in steps of the original's 2000 point position grid
     // (independent of the bullet mass and charge; simulate() converts other step counts). It limits the peak pressure of fast powders; slow ones have burnt little by then.

@@ -149,6 +149,7 @@ private slots:
     void replacingTheCaliberCanResetDependentValues();
     void primerGivesTheStartPressure();
     void sebertBetweenZeroAndOneIsKept();
+    void leadBulletSlidesMoreEasily();
 };
 
 void CoreTest::initTestCase()
@@ -838,7 +839,7 @@ void CoreTest::physicalModel()
     QVERIFY(qAbs(cylinderCurve[50] - ballCurve[1]) > 1e-3);
     QVERIFY(csr::simulate(ball, cal).ok());
 
-    csr::Calibration otherShare = cal;  // the Lagrange share is used by the model
+    csr::Calibration otherShare = cal;  // the Lagrange share is used by the model, not the load's Sebert factor
     otherShare.gasMassShare = 0.10;
     QVERIFY(csr::simulate(in, otherShare).maxPressure_bar != r.maxPressure_bar);
     csr::Calibration instantPrimer = cal;  // a finite primer release changes the start
@@ -866,6 +867,18 @@ void CoreTest::physicalModel()
     sameForBoth.engravingLengthHandgun_mm = -1.0;
     QVERIFY(csr::simulate(pistol, cal).maxPressure_bar != csr::simulate(pistol, sameForBoth).maxPressure_bar);
     QCOMPARE(csr::simulate(in, cal).maxPressure_bar, csr::simulate(in, sameForBoth).maxPressure_bar);  // rifles are not affected
+    // the handgun start pressure holds in every barrel: the peak pressure must not jump with the barrel length (issue #11, 15" -> 16")
+    for (const auto [shorter, longer] : {std::pair{381.0, 406.4}, std::pair{254.0, 610.0}})
+    {
+        csr::SimInput a = pistol, b = pistol;
+        a.barrelLength_mm = shorter;
+        b.barrelLength_mm = longer;
+        const csr::SimResult ra = csr::simulate(a, cal), rb = csr::simulate(b, cal);
+        QVERIFY(ra.ok() && rb.ok());
+        QVERIFY2(qAbs(rb.maxPressure_bar / ra.maxPressure_bar - 1.0) < 0.01,
+                 qPrintable(u"%1 / %2 bar"_s.arg(ra.maxPressure_bar).arg(rb.maxPressure_bar)));
+        QVERIFY(rb.muzzleVelocity_ms > ra.muzzleVelocity_ms);
+    }
     csr::SimInput jump = in;
     jump.bulletJump_mm = 1.0;
     QVERIFY(csr::simulate(jump, cal).ok());
@@ -1676,8 +1689,9 @@ void CoreTest::projectRecordsArePartOfTheDatabase()
     // projectiles: one file per manufacturer with an array of records; a bad record does not cost the others
     write(u"projectiles/acme.json"_s, R"([{"mname": "Acme", "pname": "B1", "gdia": 7.82, "glen": 30, "gValid": true, "gmass": 150},
         {"mname": "Acme", "pname": "B2", "gdia": 7.82, "glen": "long", "gmass": 168},
-        {"mname": "Acme", "pname": "B3", "gdia": 7.82, "glen": 33, "gmass": 180},
-        {"mname": "Acme", "pname": "B4", "gdia": 7.82, "glen": 33, "gValid": 1, "gmass": 180}])");
+        {"mname": "Acme", "pname": "B3", "gdia": 7.82, "glen": 33, "gmass": 180, "gmaterial": "lead"},
+        {"mname": "Acme", "pname": "B4", "gdia": 7.82, "glen": 33, "gValid": 1, "gmass": 180},
+        {"mname": "Acme", "pname": "B5", "gdia": 7.82, "glen": 33, "gmass": 180, "gmaterial": "steel"}])");
 
     csr::Database::setProjectDataLocation(dir.filePath(u"data"_s));
     csr::Database db;
@@ -1689,6 +1703,8 @@ void CoreTest::projectRecordsArePartOfTheDatabase()
     QCOMPARE(db.record(csr::Table::Projectile, csr::Database::kProjectIdBase + 1)->value(u"pname"_s).toString(), u"B3"_s);  // file order
     QVERIFY(db.record(csr::Table::Projectile, csr::Database::kProjectIdBase)->value(u"gValid"_s).toBool());
     QVERIFY(!db.record(csr::Table::Projectile, csr::Database::kProjectIdBase + 1)->value(u"gValid"_s).toBool());  // not in the file
+    QCOMPARE(db.record(csr::Table::Projectile, csr::Database::kProjectIdBase + 1)->value(u"gmaterial"_s).toString(), u"lead"_s);
+    QCOMPARE(db.record(csr::Table::Projectile, csr::Database::kProjectIdBase)->value(u"gmaterial"_s).toString(), QString());  // jacketed
     QCOMPARE(db.count(csr::Table::Propellant), 1);
     const auto rec = db.record(csr::Table::Propellant, csr::Database::kProjectIdBase);
     QVERIFY(rec);
@@ -1705,6 +1721,7 @@ void CoreTest::projectRecordsArePartOfTheDatabase()
     QVERIFY(errors.contains(u"calibers/unknown-column.json: unknown column \"colour\""_s));
     QVERIFY2(errors.contains(u"projectiles/acme.json #2 (B2): \"glen\" must be a number"_s), qPrintable(errors));
     QVERIFY(errors.contains(u"projectiles/acme.json #4 (B4): \"gValid\" must be true or false"_s));
+    QVERIFY(errors.contains(u"projectiles/acme.json #5 (B5): \"gmaterial\" must be empty (jacketed) or \"lead\""_s));
     // read-only; a copy becomes an own record
     QVERIFY(!db.update(csr::Table::Propellant, csr::Database::kProjectIdBase, {{u"Ba"_s, 0.7}}));
     QVERIFY(!db.remove(csr::Table::Propellant, csr::Database::kProjectIdBase));
@@ -1893,8 +1910,9 @@ void CoreTest::loadBuilderMatchesOriginal()
     // (the sample's bullet is spelled "FMJ-BT #2910", the database has "FMJ-BT 2910")
     QCOMPARE(QString(built.title).remove(u'#'), QString(orig->title).remove(u'#'));
     QCOMPARE(built.caliber.text(u"CaliberName"), orig->caliber.text(u"CaliberName"));
-    for (const char16_t *k : {u"oal", u"caselen", u"Dz", u"Aeff", u"pMaxZul", u"sebert", u"ps"})
+    for (const char16_t *k : {u"oal", u"caselen", u"Dz", u"Aeff", u"pMaxZul", u"ps"})
         QCOMPARE(built.caliber.number(k), orig->caliber.number(k));
+    QCOMPARE(built.caliber.number(u"sebert"), csr::kDefaultSebert);  // new loads start with the physical model's factor, not the record's
     QCOMPARE(built.caliber.text(u"method"), orig->caliber.text(u"method"));
     // the original's case volume was entered by hand (4.1100 cm3); the database says 4.1017 cm3
     QVERIFY(std::abs(built.caliber.number(u"casevol") / orig->caliber.number(u"casevol") - 1.0) < 0.003);
@@ -1906,13 +1924,13 @@ void CoreTest::loadBuilderMatchesOriginal()
     for (const char16_t *k : {u"Ba", u"Qex", u"k", u"a0", u"z1", u"z2", u"pc", u"pcd", u"mc", u"laddermc"})
         QCOMPARE(built.propellant.number(k), orig->propellant.number(k));
 
-    // same set and order of fields as the original program writes (the primer and the additional start pressure are this program's,
-    // left out of the export)
+    // same set and order of fields as the original program writes (the primer, the additional start pressure and the bullet material
+    // are this program's, left out of the export)
     QCOMPARE(built.caliber.text(u"primer"), u"LR"_s);
     for (const auto sel : {&csr::LoadFile::caliber, &csr::LoadFile::gun, &csr::LoadFile::projectile, &csr::LoadFile::propellant})
     {
         std::vector<csr::Entry> a = (built.*sel).entries();
-        std::erase_if(a, [](const csr::Entry &e) { return e.name == u"primer" || e.name == u"psadd"; });
+        std::erase_if(a, [](const csr::Entry &e) { return e.name == u"primer" || e.name == u"psadd" || e.name == u"gmaterial"; });
         const auto &b = ((*orig).*sel).entries();
         QCOMPARE(a.size(), b.size());
         for (std::size_t i = 0; i < a.size(); ++i)
@@ -2471,8 +2489,8 @@ void CoreTest::defaultReportRendersEverything()
     QVERIFY(html.contains(u"page-break-before"_s));  // the diagrams start on a new page
 }
 
-// A caliber record without Sebert factor (the project's records) gives 0.5 in the load, not 0; the physical model treats a 0 of older
-// loads as 0.5, the Original model keeps it (the original program computes with 0).
+// A new load gets the default Sebert factor 0.25 whatever the caliber record holds (the project's records have none); the physical
+// model treats a 0 of older loads as 0.25, the Original model keeps it (the original program computes with 0).
 void CoreTest::sebertDefault()
 {
     const QString dbPath = QStringLiteral(CSR_SOURCE_DIR "/tools/GordonsReloadingTool.plain.db");
@@ -2484,17 +2502,23 @@ void CoreTest::sebertDefault()
     const auto pro = findRecord(db, csr::Table::Propellant, u"mname = 'Vihtavuori' AND pname = 'N150' AND lotid = '2021-11-13'"_s);
     QVERIFY(cal && prj && pro);
     cal->insert(u"sebert"_s, 0.0);
-    QCOMPARE(csr::buildLoad(*cal, *prj, *pro, {.charge_g = 2.7}).caliber.number(u"sebert"), 0.5);
+    QCOMPARE(csr::buildLoad(*cal, *prj, *pro, {.charge_g = 2.7}).caliber.number(u"sebert"), csr::kDefaultSebert);
+    cal->insert(u"sebert"_s, 0.7);
+    QCOMPARE(csr::buildLoad(*cal, *prj, *pro, {.charge_g = 2.7}).caliber.number(u"sebert"), csr::kDefaultSebert);
     cal->remove(u"sebert"_s);
-    QCOMPARE(csr::buildLoad(*cal, *prj, *pro, {.charge_g = 2.7}).caliber.number(u"sebert"), 0.5);
+    QCOMPARE(csr::buildLoad(*cal, *prj, *pro, {.charge_g = 2.7}).caliber.number(u"sebert"), csr::kDefaultSebert);
 
     csr::SimInput zero = csr::SimInput::fromLoad(csr::buildLoad(*cal, *prj, *pro, {.charge_g = 2.7}));
-    const csr::SimInput half = zero;
+    const csr::SimInput half = zero;  // the default factor
     zero.sebert = 0.0;
     const csr::Calibration physical = csr::calibrationFor(csr::CalibrationProfile::Physical);
     QCOMPARE(csr::simulate(zero, physical).maxPressure_bar, csr::simulate(half, physical).maxPressure_bar);
     const csr::Calibration original = csr::calibrationFor(csr::CalibrationProfile::Original);
     QVERIFY(csr::simulate(zero, original).maxPressure_bar != csr::simulate(half, original).maxPressure_bar);
+    // the physical model has its own share of the charge and ignores the load's factor
+    csr::SimInput heavy = half;
+    heavy.sebert = 0.6;
+    QCOMPARE(csr::simulate(heavy, physical).maxPressure_bar, csr::simulate(half, physical).maxPressure_bar);
 }
 
 // An own database of an older version (caliber table without the SAAMI pressure) gets the column when it is opened; the project's
@@ -2511,6 +2535,9 @@ void CoreTest::saamiColumnMigration()
         QVERIFY(q.exec(u"CREATE TABLE caliber (id INTEGER PRIMARY KEY AUTOINCREMENT, cipname TEXT NOT NULL, Pmax FLOAT NOT NULL, "
                        "PK FLOAT NOT NULL)"_s));
         QVERIFY(q.exec(u"INSERT INTO caliber (id, cipname, Pmax, PK) VALUES (10000001, 'Old', 3500, 4000)"_s));
+        QVERIFY(q.exec(u"CREATE TABLE projectile (id INTEGER PRIMARY KEY AUTOINCREMENT, mname TEXT NOT NULL, pname TEXT NOT NULL, "
+                       "gtailtype INTEGER NOT NULL, descr TEXT NOT NULL)"_s));
+        QVERIFY(q.exec(u"INSERT INTO projectile (id, mname, pname, gtailtype, descr) VALUES (10000001, 'Old', 'B', 0, '')"_s));
         old.close();
     }
     QSqlDatabase::removeDatabase(u"old"_s);
@@ -2521,6 +2548,12 @@ void CoreTest::saamiColumnMigration()
     const auto rec = db.record(csr::Table::Caliber, 10000001);
     QVERIFY(rec);
     QCOMPARE(rec->value(u"PmaxSAAMI"_s).toDouble(), 0.0);  // no SAAMI value known
+    // the bullet material: added to an older projectile table, shown next to the base type, empty (jacketed) for the old records
+    const QStringList oldBulletCols = db.columns(csr::Table::Projectile);
+    QCOMPARE(oldBulletCols.indexOf(u"gmaterial"_s), oldBulletCols.indexOf(u"gtailtype"_s) + 1);
+    const auto bullet = db.record(csr::Table::Projectile, 10000001);
+    QVERIFY(bullet);
+    QCOMPARE(bullet->value(u"gmaterial"_s).toString(), QString());
 
     csr::Database fresh;
     QVERIFY(fresh.open({}, dir.filePath(u"new.db"_s)));
@@ -2528,6 +2561,7 @@ void CoreTest::saamiColumnMigration()
     QCOMPARE(freshCols.indexOf(u"PmaxSAAMI"_s), freshCols.indexOf(u"Pmax"_s) + 1);
     const QStringList bulletCols = fresh.columns(csr::Table::Projectile);
     QCOMPARE(bulletCols.indexOf(u"gValid"_s), bulletCols.indexOf(u"glen"_s) + 1);  // the length's "measured" flag
+    QCOMPARE(bulletCols.indexOf(u"gmaterial"_s), bulletCols.indexOf(u"gtailtype"_s) + 1);
 }
 
 // A manufacturer's bullet file: the header fills in the maker and the source, bad bullets are reported and left out, and the written file reads back.
@@ -2740,8 +2774,8 @@ void CoreTest::primerGivesTheStartPressure()
     QVERIFY(std::abs(csr::primerStartPressure_bar(u"LR"_s, 12.0) - 150.0) < 1e-9);
 }
 
-// Every Sebert factor in 0..1 (0 included) is kept when a load is opened and used as it is; values outside become 0.5. A new load of a
-// record without a factor gets 0.5.
+// Every Sebert factor in 0..1 (0 included) is kept when a load is opened and used as it is; values outside become 0.25. A new load of a
+// record without a factor gets 0.25.
 void CoreTest::sebertBetweenZeroAndOneIsKept()
 {
     const QVariantMap caliber{{u"cipname"_s, u"308 Win."_s},
@@ -2757,7 +2791,7 @@ void CoreTest::sebertBetweenZeroAndOneIsKept()
     const QVariantMap powder{{u"mname"_s, u"Test"_s}, {u"pname"_s, u"P"_s}, {u"Ba"_s, 0.5},   {u"Qex"_s, 3800.0},
                              {u"k"_s, 1.24},          {u"pc"_s, 1600.0},    {u"pcd"_s, 900.0}};
     csr::LoadFile lf = csr::buildLoad(caliber, bullet, powder);
-    QCOMPARE(lf.caliber.number(u"sebert"), 0.5);  // the record has none
+    QCOMPARE(lf.caliber.number(u"sebert"), csr::kDefaultSebert);  // the record has none
     for (const double v : {0.0, 0.33, 1.0})
     {
         lf.caliber.set(u"sebert", v);
@@ -2771,8 +2805,65 @@ void CoreTest::sebertBetweenZeroAndOneIsKept()
     {
         lf.caliber.set(u"sebert", QString::fromUtf16(bad));
         QVERIFY(csr::ensureSebert(lf));
-        QCOMPARE(lf.caliber.number(u"sebert"), 0.5);
+        QCOMPARE(lf.caliber.number(u"sebert"), csr::kDefaultSebert);
     }
+}
+
+// The bullet material: a lead bullet (gmaterial "lead") of a rifle cartridge slides with less friction in the physical model, so it is
+// faster than the same jacketed bullet; a handgun's lead bullet keeps the jacketed friction. The material goes from the record into the
+// load, survives a *.csrload, is left out of the *.grtload export, and an older load gets the entry empty (jacketed, same results).
+void CoreTest::leadBulletSlidesMoreEasily()
+{
+    const QVariantMap caliber{{u"cipname"_s, u"308 Win."_s},
+                              {u"ciptype"_s, u"1 rimless"_s},
+                              {u"P1"_s, 11.96},
+                              {u"L3"_s, 51.18},
+                              {u"V"_s, 56.0},
+                              {u"c_Z"_s, 7.82},
+                              {u"c_Q"_s, 47.5},
+                              {u"Pmax"_s, 4150.0},
+                              {u"G1"_s, 7.85}};
+    QVariantMap bullet{{u"mname"_s, u"Lyman"_s}, {u"pname"_s, u"#311291"_s}, {u"gdia"_s, 7.85}, {u"glen"_s, 28.0}, {u"gmass"_s, 170.0}};
+    const QVariantMap powder{{u"mname"_s, u"Test"_s}, {u"pname"_s, u"P"_s}, {u"Ba"_s, 0.9},   {u"Qex"_s, 3800.0},
+                             {u"k"_s, 1.24},          {u"pc"_s, 1600.0},    {u"pcd"_s, 900.0}};
+    const csr::LoadParams params{.charge_g = 1.2, .barrelLength_mm = 610.0};
+    const csr::Calibration cal = csr::calibrationFor(csr::CalibrationProfile::Physical);
+    QVERIFY(cal.leadSlideFactor > 0.0 && cal.leadSlideFactor < 1.0);
+
+    const csr::LoadFile jacketed = csr::buildLoad(caliber, bullet, powder, params);
+    QVERIFY(jacketed.projectile.find(u"gmaterial"));
+    QVERIFY(jacketed.projectile.text(u"gmaterial").isEmpty());
+    bullet.insert(u"gmaterial"_s, u"Lead"_s);  // the case does not matter
+    const csr::LoadFile lead = csr::buildLoad(caliber, bullet, powder, params);
+    QCOMPARE(lead.projectile.text(u"gmaterial"), u"lead"_s);
+    const csr::SimInput inJ = csr::SimInput::fromLoad(jacketed), inL = csr::SimInput::fromLoad(lead);
+    QVERIFY(!inJ.leadBullet && inL.leadBullet);
+    const csr::SimResult rJ = csr::simulate(inJ, cal), rL = csr::simulate(inL, cal);
+    QVERIFY(rJ.ok() && rL.ok());
+    QVERIFY(rL.muzzleVelocity_ms > rJ.muzzleVelocity_ms);
+    QVERIFY(rL.frictionForce_N < rJ.frictionForce_N);
+    // the original's model has no material
+    const csr::Calibration original = csr::calibrationFor(csr::CalibrationProfile::Original);
+    QCOMPARE(csr::simulate(inL, original).muzzleVelocity_ms, csr::simulate(inJ, original).muzzleVelocity_ms);
+    // a handgun's lead bullet: the jacketed friction (factor 1)
+    csr::SimInput handJ = inJ, handL = inL;
+    handJ.handgun = handL.handgun = true;
+    QCOMPARE(csr::simulate(handL, cal).muzzleVelocity_ms, csr::simulate(handJ, cal).muzzleVelocity_ms);
+
+    // *.csrload keeps it, the *.grtload export leaves it out
+    const auto own = csr::LoadFile::parse(lead.toXml(csr::FileFormat::Reload));
+    QVERIFY(own);
+    QCOMPARE(own->projectile.text(u"gmaterial"), u"lead"_s);
+    const QByteArray exported = lead.toXml(csr::FileFormat::Original);
+    QVERIFY(!exported.contains("gmaterial"));
+    // a load without the entry (older version, the original): added empty, with its description; only once
+    auto old = csr::LoadFile::parse(exported);
+    QVERIFY(old && !old->projectile.find(u"gmaterial"));
+    QVERIFY(csr::ensureBulletMaterial(*old));
+    QVERIFY(old->projectile.find(u"gmaterial") && old->projectile.text(u"gmaterial").isEmpty());
+    QVERIFY(!old->projectile.find(u"gmaterial")->descr.isEmpty());
+    QVERIFY(!csr::ensureBulletMaterial(*old));
+    QVERIFY(!csr::SimInput::fromLoad(*old).leadBullet);
 }
 
 QTEST_GUILESS_MAIN(CoreTest)

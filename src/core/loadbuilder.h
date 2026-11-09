@@ -36,7 +36,7 @@ struct LoadParams
     double seatingDepth_mm{};  // default: overall length = the cartridge's maximum length
     double twistLength_mm{240.0};
     double gunWeight_kg{};
-    double powderTemperature_C{21.0};
+    double powderTemperature_C{kPowderReferenceTemperature_C};
 };
 
 // Case capacity in cm^3 (the database stores grains of water).
@@ -67,7 +67,10 @@ bool ensurePrimer(LoadFile &load);
 // A load without a <caliberfile> block (a *.grtload from another tool) gets the record of the caliber it names (CaliberName), which the
 // cartridge drawing, the primer and the pistol calibration need. Returns whether a record was attached.
 bool attachCaliberRecord(LoadFile &load, const QVariantMap &record);
-// A Sebert factor outside 0..1 (or not a number) is invalid and becomes 0.5; every value in 0..1 is kept. Returns whether it changed.
+// A load of an older version or of the original (*.grtload) gets the bullet material entry (gmaterial) of this program, empty: a jacketed
+// bullet, so its results stay the same. Returns whether it was added (or its description completed).
+bool ensureBulletMaterial(LoadFile &load);
+// A Sebert factor outside 0..1 (or not a number) is invalid and becomes the default (0.25); every value in 0..1 is kept. Returns whether it changed.
 bool ensureSebert(LoadFile &load);
 // Sets ps and gpressure from psadd; nothing for a load without psadd.
 void updateStartPressure(LoadFile &load);

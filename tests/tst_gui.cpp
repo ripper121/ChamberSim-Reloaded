@@ -616,6 +616,29 @@ void GuiTest::codedFieldsShowReadableText()
     PropertyPanel panel2;
     panel2.setSections({{0, u"projectile"_s, u"Projectile"_s, &odd}});
     QCOMPARE(tableOf(panel2)->item(rowOf(tableOf(panel2), u"gTailType"_s), 1)->text(), u"type 3"_s);
+
+    // the bullet material: empty is "jacketed", "lead" the cast or swaged lead bullet; a shotshell's shot column has none
+    csr::EntryList bullet;
+    bullet.entries().push_back({.name = u"gmaterial"_s,
+                                .value = {},
+                                .unit = {},
+                                .type = u"string"_s,
+                                .descr = u"bullet material (jacketed or lead: cast, swaged)"_s});
+    PropertyPanel panel3;
+    panel3.setSections({{0, u"projectile"_s, u"Projectile"_s, &bullet}});
+    QTableWidget *t3 = tableOf(panel3);
+    const int rMaterial = rowOf(t3, u"gmaterial"_s);
+    QCOMPARE(t3->item(rMaterial, 0)->text(), u"Bullet Material"_s);
+    QCOMPARE(t3->item(rMaterial, 1)->text(), u"jacketed"_s);
+    QSignalSpy materialSpy(&panel3, &PropertyPanel::valueEdited);
+    t3->item(rMaterial, 1)->setText(u"lead (cast, swaged)"_s);
+    QCOMPARE(materialSpy.count(), 1);
+    QCOMPARE(materialSpy.at(0).at(2).toString(), u"lead"_s);
+    csr::EntryList shell;
+    shell.set(u"shotshell", u"true"_s);
+    PropertyPanel panel4;
+    panel4.setSections({{0, u"caliber"_s, u"Caliber"_s, &shell}, {1, u"projectile"_s, u"Projectile"_s, &bullet}});
+    QCOMPARE(rowOf(tableOf(panel4), u"gmaterial"_s), -1);
 }
 
 // The solver uses the seating depth; the cartridge overall length is derived from it, so editing the length must change the depth.
@@ -894,10 +917,8 @@ void GuiTest::ladderCurvesAndFocus()
     QVERIFY(std::abs(view.focusCharge_g() - mc) < 1e-12);
 
     // a tab per charge above the chart and a row per charge in the comparison table
-    QTabBar *bar = nullptr;
-    for (QTabBar *b : view.findChildren<QTabBar *>())
-        if (b->count() == 4) bar = b;
-    QVERIFY(bar && bar->isVisible());
+    QTabBar *bar = view.findChild<QTabBar *>(u"ladderTabs"_s);
+    QVERIFY(bar && bar->isVisible() && bar->count() == 4);
     QTableWidget *table = nullptr;
     for (QTableWidget *w : view.findChildren<QTableWidget *>())
         if (w->columnCount() == 5 && w->rowCount() == 4) table = w;
@@ -1737,10 +1758,11 @@ void GuiTest::inputsAreGroupedInThreeTabs()
     const auto tabs = view.findChildren<QTabWidget *>();
     QTabWidget *inputs = nullptr;
     for (QTabWidget *t : tabs)
-        if (t->count() == 3) inputs = t;
+        if (t->count() == 4 && t->tabText(1) == u"Projectile"_s) inputs = t;
     QVERIFY(inputs);
     QCOMPARE(inputs->tabText(1), u"Projectile"_s);
     QCOMPARE(inputs->tabText(2), u"Propellant"_s);
+    QVERIFY(inputs->tabText(3).startsWith(u"Charge"_s));
     // every tab has a "Select <component>" button; it is off until a database is available
     const auto buttons = view.findChildren<QPushButton *>();
     int selectButtons = 0;

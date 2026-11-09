@@ -20,6 +20,8 @@
 #include "powderfitdialog.h"
 
 #include "screenfit.h"
+#include "theme.h"
+#include "displayformat.h"
 #include "unitprefs.h"
 
 #include <QApplication>
@@ -42,13 +44,7 @@ namespace
 QString shown(double base, Quantity q, int decimals)
 {
     const csr::units::Unit &u = UnitPreferences::instance().unitFor(q);
-    return base > 0.0 ? csr::units::format(base, u, decimals) : QStringLiteral("–");
-}
-
-QString percent(double value, double reference)
-{
-    if (value <= 0.0 || reference <= 0.0) return QStringLiteral("–");
-    return QStringLiteral("%1 %").arg(QLocale().toString(100.0 * (value / reference - 1.0), 'f', 1));
+    return base > 0.0 ? csr::units::format(base, u, decimals) : noValueText();
 }
 
 QTableWidgetItem *cell(const QString &text)
@@ -99,7 +95,7 @@ PowderFitDialog::PowderFitDialog(std::vector<csr::powderfit::Sample> samples, QS
     warn->setVisible(!warnings.isEmpty());
     QStringList escaped;
     for (const QString &w : warnings) escaped << w.toHtmlEscaped();
-    warn->setText(u"<span style='color:#c0392b'>"_s + escaped.join(u"<br>"_s) + u"</span>"_s);
+    warn->setText(u"<span style='color:"_s + QLatin1String(theme::kWarningColor) + u"'>"_s + escaped.join(u"<br>"_s) + u"</span>"_s);
 
     const auto sym = [](Quantity q) { return QString::fromUtf8(UnitPreferences::instance().unitFor(q).symbol); };
     m_table->setHorizontalHeaderLabels({tr("Load"), tr("Charge [%1]").arg(sym(Quantity::BulletMass)), tr("Shots"),
@@ -196,9 +192,9 @@ void PowderFitDialog::showResult()
         {
             const csr::powderfit::Result *res = resultOf(m);
             const csr::powderfit::SampleResult *r = res && i < res->samples.size() ? &res->samples[i] : nullptr;
-            m_table->setItem(row, col++, cell(r ? percent(r->velocityBefore, s.velocity_ms) : QString()));
-            m_table->setItem(row, col++, cell(r ? percent(r->velocityAfter, s.velocity_ms) : QString()));
-            m_table->setItem(row, col++, cell(r && s.pressureShots > 0 ? percent(r->pressureAfter, s.pressure_bar) : QString()));
+            m_table->setItem(row, col++, cell(r ? percentDifference(r->velocityBefore, s.velocity_ms) : QString()));
+            m_table->setItem(row, col++, cell(r ? percentDifference(r->velocityAfter, s.velocity_ms) : QString()));
+            m_table->setItem(row, col++, cell(r && s.pressureShots > 0 ? percentDifference(r->pressureAfter, s.pressure_bar) : QString()));
         }
     }
     m_table->setColumnHidden(6, !anyPressure);
@@ -233,7 +229,7 @@ void PowderFitDialog::showResult()
     }
     QString text = blocks.join(u"<br>"_s);
     if (m_samples.size() < m_results.front().params.size())
-        text += u"<br><span style='color:#c0392b'>"_s + tr("Fewer measured charges than values: the result is not well determined.") +
-                u"</span>"_s;
+        text += u"<br><span style='color:"_s + QLatin1String(theme::kWarningColor) + u"'>"_s +
+                tr("Fewer measured charges than values: the result is not well determined.") + u"</span>"_s;
     m_summary->setText(text);
 }

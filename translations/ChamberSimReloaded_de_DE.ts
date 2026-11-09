@@ -95,7 +95,7 @@
 <context>
     <name>CartridgeView</name>
     <message>
-        <location filename="../src/app/cartridgeview.cpp" line="+484"/>
+        <location filename="../src/app/cartridgeview.cpp" line="+466"/>
         <source>No cartridge data</source>
         <translation>Keine Patronendaten</translation>
     </message>
@@ -123,7 +123,7 @@
 <context>
     <name>ChamberView</name>
     <message>
-        <location filename="../src/app/chamberview.cpp" line="+201"/>
+        <location filename="../src/app/chamberview.cpp" line="+182"/>
         <source>No chamber data</source>
         <translation>Keine Patronenlagerdaten</translation>
     </message>
@@ -140,9 +140,100 @@
     </message>
 </context>
 <context>
+    <name>ChargeView</name>
+    <message>
+        <location filename="../src/app/chargeview.cpp" line="+117"/>
+        <source>1 (no ladder)</source>
+        <translation>1 (keine Leiter)</translation>
+    </message>
+    <message>
+        <location line="+53"/>
+        <source>Propellant charge</source>
+        <translation>Pulverladung</translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <source>Charge step</source>
+        <translation>Ladungsschritt</translation>
+    </message>
+    <message>
+        <location line="-62"/>
+        <source>The charge is the highest of the ladder; every further step has one charge step less powder. Click a row to show its curve.</source>
+        <translation>Die Ladung ist die höchste der Leiter; jede weitere Stufe hat einen Ladungsschritt weniger Pulver. Zeile anklicken, um ihre Kurve anzuzeigen.</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Charge</source>
+        <translation>Ladung</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Max. pressure</source>
+        <translation>Max. Druck</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Velocity</source>
+        <translation>Geschwindigkeit</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>grain</source>
+        <translation>Grain</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>gram</source>
+        <translation>Gramm</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Show the charge and the charge step in %1</source>
+        <translation>Ladung und Ladungsschritt in %1 anzeigen</translation>
+    </message>
+    <message>
+        <location line="+34"/>
+        <source>Load development ladder</source>
+        <translation>Ladeleiter</translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Steps</source>
+        <translation>Stufen</translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>Ladder results</source>
+        <translation>Ergebnisse der Leiter</translation>
+    </message>
+    <message numerus="yes">
+        <location line="+84"/>
+        <source>%n steps: %1 down to %2</source>
+        <translation>
+            <numerusform>%n Stufe: %1 bis %2</numerusform>
+            <numerusform>%n Stufen: %1 bis %2</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>No ladder: only the charge above is simulated.</source>
+        <translation>Keine Leiter: nur die Ladung oben wird simuliert.</translation>
+    </message>
+    <message>
+        <location line="+35"/>
+        <source>Above the permitted maximum pressure %1</source>
+        <translation>Über dem zulässigen Maximaldruck %1</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>charge too high</source>
+        <translation>Ladung zu hoch</translation>
+    </message>
+</context>
+<context>
     <name>ChronographImportDialog</name>
     <message>
-        <location filename="../src/app/chronographimportdialog.cpp" line="+70"/>
+        <location filename="../src/app/chronographimportdialog.cpp" line="+71"/>
         <source>Import chronograph file</source>
         <translation>Chronograph-Datei importieren</translation>
     </message>
@@ -313,30 +404,30 @@
 <context>
     <name>LoadView</name>
     <message>
-        <location filename="../src/app/loadview.cpp" line="+228"/>
-        <location line="+1058"/>
+        <location filename="../src/app/loadview.cpp" line="+221"/>
+        <location line="+1077"/>
         <source>Maximum pressure</source>
         <translation>Maximaldruck</translation>
     </message>
     <message>
-        <location line="-1050"/>
-        <location line="+1051"/>
+        <location line="-1069"/>
+        <location line="+1070"/>
         <source>Muzzle pressure</source>
         <translation>Mündungsdruck</translation>
     </message>
     <message>
-        <location line="-1058"/>
+        <location line="-1077"/>
         <source>Projectile energy</source>
         <translation>Geschossenergie</translation>
     </message>
     <message>
         <location line="-1"/>
-        <location line="+1060"/>
+        <location line="+1079"/>
         <source>Muzzle velocity</source>
         <translation>Mündungsgeschwindigkeit</translation>
     </message>
     <message>
-        <location line="-1059"/>
+        <location line="-1078"/>
         <source>Barrel time (BT)</source>
         <translation>Laufzeit (BT)</translation>
     </message>
@@ -388,12 +479,13 @@
     </message>
     <message>
         <location line="+89"/>
-        <location line="+828"/>
+        <location line="+78"/>
+        <location line="+765"/>
         <source>Charge</source>
         <translation>Ladung</translation>
     </message>
     <message>
-        <location line="-828"/>
+        <location line="-843"/>
         <source>Max. pressure</source>
         <translation>Max. Druck</translation>
     </message>
@@ -418,7 +510,7 @@
         <translation>Wegachse</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+5"/>
         <source>Load development ladder: click a charge to select its curve</source>
         <translation>Ladeleiter: eine Ladung anklicken, um ihre Kurve zu wählen</translation>
     </message>
@@ -428,47 +520,47 @@
         <translation>Patrone &amp;&amp; Waffe</translation>
     </message>
     <message>
-        <location line="-139"/>
-        <location line="+139"/>
-        <location line="+188"/>
-        <location line="+591"/>
+        <location line="-140"/>
+        <location line="+140"/>
+        <location line="+196"/>
+        <location line="+597"/>
         <source>Projectile</source>
         <translation>Geschoss</translation>
     </message>
     <message>
-        <location line="-917"/>
-        <location line="+138"/>
-        <location line="+189"/>
-        <location line="+591"/>
+        <location line="-932"/>
+        <location line="+139"/>
+        <location line="+197"/>
+        <location line="+597"/>
         <source>Propellant</source>
         <translation>Pulver</translation>
     </message>
     <message>
-        <location line="-982"/>
-        <location line="+203"/>
+        <location line="-997"/>
+        <location line="+204"/>
         <source>Select Caliber</source>
         <translation>Kaliber wählen</translation>
     </message>
     <message>
-        <location line="-203"/>
-        <location line="+203"/>
+        <location line="-204"/>
+        <location line="+204"/>
         <source>Select Projectile</source>
         <translation>Geschoss wählen</translation>
     </message>
     <message>
-        <location line="-203"/>
-        <location line="+203"/>
+        <location line="-204"/>
+        <location line="+204"/>
         <source>Select Propellant</source>
         <translation>Pulver wählen</translation>
     </message>
     <message>
         <location line="+14"/>
-        <location line="+206"/>
+        <location line="+216"/>
         <source>No database available</source>
         <translation>Keine Datenbank verfügbar</translation>
     </message>
     <message>
-        <location line="-190"/>
+        <location line="-194"/>
         <source>Cartridge</source>
         <translation>Patrone</translation>
     </message>
@@ -489,17 +581,17 @@
     </message>
     <message>
         <location line="+1"/>
-        <location line="+643"/>
+        <location line="+651"/>
         <source>Measurements</source>
         <translation>Messungen</translation>
     </message>
     <message>
-        <location line="-642"/>
+        <location line="-650"/>
         <source>Report</source>
         <translation>Bericht</translation>
     </message>
     <message>
-        <location line="+140"/>
+        <location line="+142"/>
         <source>Caliber / cartridge</source>
         <translation>Kaliber / Patrone</translation>
     </message>
@@ -509,12 +601,17 @@
         <translation>Waffe</translation>
     </message>
     <message>
-        <location line="+34"/>
+        <location line="+36"/>
         <source>Replace this component by another record of the database</source>
         <translation>Diese Komponente durch einen anderen Datensatz der Datenbank ersetzen</translation>
     </message>
     <message>
-        <location line="+560"/>
+        <location line="+80"/>
+        <source>Set default seating depth (maximum cartridge length)</source>
+        <translation>Setztiefe auf die Vorgabe setzen (maximale Patronenlänge)</translation>
+    </message>
+    <message>
+        <location line="+484"/>
         <source>Case volume</source>
         <translation></translation>
     </message>
@@ -539,12 +636,12 @@
         <translation>Geschosslänge</translation>
     </message>
     <message>
-        <location line="-490"/>
+        <location line="-494"/>
         <source>Also set barrel length, seating depth and charge to the defaults of the new caliber</source>
         <translation>Auch Lauflänge, Setztiefe und Ladung auf die Vorgaben des neuen Kalibers setzen</translation>
     </message>
     <message>
-        <location line="-435"/>
+        <location line="-446"/>
         <source>Bullet lead time (BLT)</source>
         <translation>Geschossvorlaufzeit (BLT)</translation>
     </message>
@@ -559,17 +656,12 @@
         <translation>Lauf</translation>
     </message>
     <message>
-        <location line="+440"/>
+        <location line="+451"/>
         <source>Show only bullets that fit the caliber</source>
         <translation>Nur Geschosse anzeigen, die zum Kaliber passen</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>Also set the seating depth to the default (maximum cartridge length)</source>
-        <translation>Auch die Setztiefe auf die Vorgabe setzen (maximale Patronenlänge)</translation>
-    </message>
-    <message>
-        <location line="+3"/>
+        <location line="+4"/>
         <source>Also set the charge to the default (70 % of the case capacity)</source>
         <translation>Auch die Ladung auf die Vorgabe setzen (70 % des Hülsenvolumens)</translation>
     </message>
@@ -589,7 +681,7 @@
         <translation>Wert ändern</translation>
     </message>
     <message>
-        <location line="+103"/>
+        <location line="+107"/>
         <location line="+18"/>
         <source>Fit to measurements</source>
         <translation>An Messungen anpassen</translation>
@@ -660,7 +752,12 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
         <translation>^ Ladung ^ Name ^ Schüsse ^ Geschwindigkeit ^ SD ^ ES ^ Simuliert ^ Δ ^ Druck ^ Simuliert ^ Δ ^</translation>
     </message>
     <message>
-        <location line="+153"/>
+        <location line="+126"/>
+        <source>Case volume with bullet</source>
+        <translation>Hülsenvolumen mit Geschoss</translation>
+    </message>
+    <message>
+        <location line="+30"/>
         <source>&lt;b&gt;Charge too high:&lt;/b&gt; the propellant charge does not fit into the case behind the bullet.</source>
         <translation>&lt;b&gt;Ladung zu hoch:&lt;/b&gt; die Pulverladung passt nicht hinter dem Geschoss in die Hülse.</translation>
     </message>
@@ -695,7 +792,7 @@ Abbrandrate %2, Formfunktion a0 %3, z1 %4, z2 %5. Sie ersetzen die skalierte Abb
         <translation>&lt;b&gt;Keine physikalischen Abbrandwerte&lt;/b&gt; für dieses Pulver (oder seine Abbrandwerte wurden geändert): die Abbrandrate der Ladung wird skaliert, die Ergebnisse sind ungenauer als bei den Pulvern des Physikalischen Modells.</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+11"/>
         <source>&lt;b&gt;Shotshell:&lt;/b&gt; wad and shot column as the projectile (shot + wad mass, column length, seated inside the hull, start pressure = crimp release about 20 bar). Fitted to published shotgun loads: velocity typically 5-7 % low; pressure right on average but up to 30 % off depending on the powder - check against the powder maker&apos;s data.</source>
         <translation>&lt;b&gt;Schrotpatrone:&lt;/b&gt; Pfropfen und Schrotsäule als Geschoss (Masse Schrot + Pfropfen, Säulenlänge, in der Hülse sitzend, Anfangsdruck = Öffnen der Bördelung etwa 20 bar). An veröffentlichte Schrotladungen angepasst: Geschwindigkeit typisch 5-7 % zu niedrig; Druck im Mittel richtig, je nach Pulver aber bis zu 30 % daneben - mit den Daten des Pulverherstellers vergleichen.</translation>
     </message>
@@ -1484,7 +1581,7 @@ Trotzdem exportieren?</translation>
 <context>
     <name>MeasurementView</name>
     <message>
-        <location filename="../src/app/measurementview.cpp" line="+128"/>
+        <location filename="../src/app/measurementview.cpp" line="+123"/>
         <source>New series</source>
         <translation>Neue Serie</translation>
     </message>
@@ -1525,13 +1622,13 @@ Trotzdem exportieren?</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+480"/>
+        <location line="+475"/>
         <location line="+12"/>
         <source>Import chronograph file</source>
         <translation>Chronograph-Datei importieren</translation>
     </message>
     <message>
-        <location line="-491"/>
+        <location line="-486"/>
         <source>Fit to measurements</source>
         <translation>An Messungen anpassen</translation>
     </message>
@@ -1616,7 +1713,7 @@ Trotzdem exportieren?</translation>
         <translation>Titel:</translation>
     </message>
     <message>
-        <location line="+106"/>
+        <location line="+101"/>
         <source>MEASUREMENTS %1</source>
         <translation>MESSUNGEN %1</translation>
     </message>
@@ -1743,7 +1840,7 @@ Trotzdem exportieren?</translation>
 <context>
     <name>NewLoadDialog</name>
     <message>
-        <location filename="../src/app/newloaddialog.cpp" line="+88"/>
+        <location filename="../src/app/newloaddialog.cpp" line="+89"/>
         <source>Show only bullets that fit the caliber</source>
         <translation>Nur Geschosse anzeigen, die zum Kaliber passen</translation>
     </message>
@@ -1895,7 +1992,7 @@ Trotzdem exportieren?</translation>
 <context>
     <name>PowderFitDialog</name>
     <message>
-        <location filename="../src/app/powderfitdialog.cpp" line="+69"/>
+        <location filename="../src/app/powderfitdialog.cpp" line="+65"/>
         <source>Fit</source>
         <translation>Anpassen</translation>
     </message>
@@ -2053,7 +2150,7 @@ Druck Δ</translation>
         <translation>Die Werte wurden nicht geändert: die bisherigen passen am besten.</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <source>Fewer measured charges than values: the result is not well determined.</source>
         <translation>Weniger gemessene Ladungen als Werte: das Ergebnis ist nicht gut bestimmt.</translation>
     </message>
@@ -2106,17 +2203,27 @@ Druck Δ</translation>
         <translation>ja</translation>
     </message>
     <message>
+        <location line="+2"/>
+        <source>jacketed</source>
+        <translation>mit Mantel</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>lead (cast, swaged)</source>
+        <translation>Blei (gegossen, gepresst)</translation>
+    </message>
+    <message>
         <location line="+17"/>
         <source>not specified</source>
         <translation>nicht angegeben</translation>
     </message>
     <message>
-        <location line="+38"/>
+        <location line="+39"/>
         <source>type %1</source>
         <translation>Typ %1</translation>
     </message>
     <message>
-        <location line="+122"/>
+        <location line="+124"/>
         <source>Property</source>
         <translation>Eigenschaft</translation>
     </message>
@@ -2131,7 +2238,7 @@ Druck Δ</translation>
         <translation>Einheit</translation>
     </message>
     <message>
-        <location line="+103"/>
+        <location line="+120"/>
         <source>Click to choose another unit for this field</source>
         <translation>Klicken, um eine andere Einheit für dieses Feld zu wählen</translation>
     </message>
@@ -2164,7 +2271,7 @@ Druck Δ</translation>
 <context>
     <name>RecordDialog</name>
     <message>
-        <location filename="../src/app/recorddialog.cpp" line="+102"/>
+        <location filename="../src/app/recorddialog.cpp" line="+98"/>
         <source>caliber</source>
         <translation>Kaliber</translation>
     </message>
@@ -2195,7 +2302,7 @@ Druck Δ</translation>
     </message>
     <message>
         <location line="+29"/>
-        <location filename="../src/app/recordviewdialog.cpp" line="+69"/>
+        <location filename="../src/app/recordviewdialog.cpp" line="+70"/>
         <source>flat base</source>
         <translation>Flachboden</translation>
     </message>
@@ -2212,7 +2319,7 @@ Druck Δ</translation>
         <translation>Boattail</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+9"/>
         <source>– not specified –</source>
         <translation>– nicht angegeben –</translation>
     </message>
@@ -2746,7 +2853,7 @@ Druck Δ</translation>
 <context>
     <name>TitleBar</name>
     <message>
-        <location filename="../src/app/titlebar.cpp" line="+123"/>
+        <location filename="../src/app/titlebar.cpp" line="+125"/>
         <source>Minimize</source>
         <translation>Minimieren</translation>
     </message>
@@ -2756,7 +2863,7 @@ Druck Δ</translation>
         <translation>Schließen</translation>
     </message>
     <message>
-        <location line="+70"/>
+        <location line="+73"/>
         <source>Restore</source>
         <translation>Wiederherstellen</translation>
     </message>
@@ -2973,7 +3080,7 @@ Druck Δ</translation>
 <context>
     <name>csr</name>
     <message>
-        <location filename="../src/core/chronograph.cpp" line="+83"/>
+        <location filename="../src/core/chronograph.cpp" line="+88"/>
         <source>Series %1</source>
         <translation>Serie %1</translation>
     </message>
@@ -3027,7 +3134,7 @@ Druck Δ</translation>
 <context>
     <name>csr::LoadFile</name>
     <message>
-        <location filename="../src/core/loadfile.cpp" line="+218"/>
+        <location filename="../src/core/loadfile.cpp" line="+224"/>
         <source>Not a ChamberSim Reloaded or GRT load file</source>
         <translation>Keine ChamberSim-Reloaded- oder GRT-Ladungsdatei</translation>
     </message>
@@ -3040,14 +3147,14 @@ Druck Δ</translation>
 <context>
     <name>csr::dbfields</name>
     <message>
-        <location filename="../src/core/dbfields.cpp" line="+54"/>
+        <location filename="../src/core/dbfields.cpp" line="+55"/>
         <location line="+52"/>
-        <location line="+21"/>
+        <location line="+22"/>
         <source>Name</source>
         <translation>Name</translation>
     </message>
     <message>
-        <location line="-72"/>
+        <location line="-73"/>
         <source>Case dimensions (CIP)</source>
         <translation>Hülsenmaße (CIP)</translation>
     </message>
@@ -3243,18 +3350,18 @@ Druck Δ</translation>
     </message>
     <message>
         <location line="+4"/>
-        <location line="+21"/>
+        <location line="+22"/>
         <source>Manufacturer</source>
         <translation>Hersteller</translation>
     </message>
     <message>
-        <location line="-19"/>
-        <location line="+21"/>
+        <location line="-20"/>
+        <location line="+22"/>
         <source>Lot</source>
         <translation>Los</translation>
     </message>
     <message>
-        <location line="-20"/>
+        <location line="-21"/>
         <source>Caliber designation</source>
         <translation>Kaliberbezeichnung</translation>
     </message>
@@ -3282,6 +3389,11 @@ Druck Δ</translation>
         <location line="+1"/>
         <source>Base type</source>
         <translation>Bodenform</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Material</source>
+        <translation>Material</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -3683,6 +3795,11 @@ Druck Δ</translation>
     </message>
     <message>
         <location line="+1"/>
+        <source>bullet material (jacketed or lead: cast, swaged)</source>
+        <translation>Geschossmaterial (mit Mantel oder Blei: gegossen, gepresst)</translation>
+    </message>
+    <message>
+        <location line="+1"/>
         <source>specific explosive heat</source>
         <translation>Spezifische Explosionswärme</translation>
     </message>
@@ -3793,7 +3910,7 @@ Druck Δ</translation>
 <context>
     <name>csr::units</name>
     <message>
-        <location filename="../src/core/units.cpp" line="+176"/>
+        <location filename="../src/core/units.cpp" line="+175"/>
         <source>Metric (mm, g, bar, m/s)</source>
         <translation>Metrisch (mm, g, bar, m/s)</translation>
     </message>

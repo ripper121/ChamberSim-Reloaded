@@ -20,6 +20,7 @@
 #include "loadbuilder.h"
 #include "physicalpowders.h"
 #include "primer.h"
+#include "simconfig.h"
 #include "log.h"
 
 #include "loadspec.h"
@@ -134,8 +135,8 @@ QVariantMap caliberFields(const QVariantMap &caliber)
             {u"Aeff"_s, fmt(num(caliber, "c_Q"))},
             {u"pMaxZul"_s, fmt(num(caliber, "Pmax"))},
             {u"method"_s, method},
-            // the project's records have no Sebert factor (the database then gives 0): 0 is never right, the original's records use 0.4-0.9
-            {u"sebert"_s, fmt(num(caliber, "sebert") > 0.0 ? num(caliber, "sebert") : 0.5)},
+            // new loads start with the physical model's value, whatever the caliber record holds (the original's records use 0.4-0.9)
+            {u"sebert"_s, fmt(kDefaultSebert)},
             {u"shotshell"_s, u"false"_s}};
 }
 
@@ -169,6 +170,7 @@ QVariantMap projectileFields(const QVariantMap &projectile)
             {u"g7bc"_s, fmt(num(projectile, "g7bc"))},
             {u"gUBCS"_s, str(projectile, "gUBCS")},
             {u"gfriction"_s, fmt(num(projectile, "gfriction"))},
+            {u"gmaterial"_s, isLeadBullet(str(projectile, "gmaterial")) ? kLeadMaterial.toString() : QString()},
             {u"mode"_s, str(projectile, "mode")}};
 }
 
@@ -317,6 +319,29 @@ bool ensurePrimer(LoadFile &lf)
     return true;
 }
 
+bool ensureBulletMaterial(LoadFile &lf)
+{
+    const auto it = std::ranges::find_if(spec::kProjectile, [](const spec::Field &f) { return QLatin1String(f.name) == u"gmaterial"; });
+    const Entry spec{.name = QString::fromLatin1(it->name),
+                     .value = {},
+                     .unit = QString::fromLatin1(it->unit),
+                     .type = QString::fromLatin1(it->type),
+                     .descr = QString::fromLatin1(it->descr)};
+    if (Entry *e =
+            lf.projectile.find(spec.name))  // set by a replaced bullet (EntryList::set): unit, type and description of the specification
+    {
+        const bool changed = e->descr != spec.descr || e->type != spec.type;
+        e->unit = spec.unit;
+        e->type = spec.type;
+        e->descr = spec.descr;
+        return changed;
+    }
+    auto &entries = lf.projectile.entries();
+    const auto after = std::ranges::find_if(entries, [](const Entry &x) { return x.name == u"gfrictionUnlock" || x.name == u"gfriction"; });
+    entries.insert(after == entries.end() ? after : after + 1, spec);  // empty: a jacketed bullet, as the load was simulated before
+    return true;
+}
+
 bool attachCaliberRecord(LoadFile &lf, const QVariantMap &record)
 {
     if (!lf.caliberFile.entries().empty() || record.isEmpty()) return false;
@@ -329,7 +354,7 @@ bool ensureSebert(LoadFile &lf)
     if (!lf.caliber.find(u"sebert")) return false;
     const double v = lf.caliber.number(u"sebert", -1.0);
     if (v >= 0.0 && v <= 1.0) return false;
-    lf.caliber.set(u"sebert", fmt(0.5));
+    lf.caliber.set(u"sebert", fmt(kDefaultSebert));
     return true;
 }
 
@@ -373,6 +398,7 @@ void applyCaliber(LoadFile &lf, const QVariantMap &caliber, const QStringList &c
 void applyProjectile(LoadFile &lf, const QVariantMap &projectile, bool resetDependent, const QVariantMap *caliber)
 {
     LOG_Debug() << "Load: projectile replaced, reset dependent values" << resetDependent;
+    ensureBulletMaterial(lf);
     setFields(lf.projectile, projectileFields(projectile));
     completeTail(lf.projectile);
     ensurePrimer(lf);

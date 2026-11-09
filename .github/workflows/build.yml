@@ -112,8 +112,10 @@ jobs:
           chmod +x linuxdeploy linuxdeploy-plugin-qt
           ./linuxdeploy --appdir AppDir --plugin qt \
             --desktop-file packaging/linux/chambersimreloaded.desktop \
-            --icon-file packaging/linux/chambersimreloaded.svg \
-            --output appimage
+            --icon-file packaging/linux/chambersimreloaded.svg
+          # current appimagetool wants a PNG named like the Icon= entry at the AppDir top level (it makes .DirIcon from it)
+          cp resources/icons/chambersimreloaded-256.png AppDir/chambersimreloaded.png
+          ./linuxdeploy --appdir AppDir --output appimage
           ls -l *.AppImage
 
       # the AppImage as it is (not wrapped in a zip)

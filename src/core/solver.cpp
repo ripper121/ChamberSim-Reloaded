@@ -65,8 +65,24 @@ namespace csr
 namespace
 {
 
-constexpr double kBar = 1.0e5;              // Pa per bar
+constexpr double kBar = kPaPerBar;
 constexpr double kReferenceSteps = 2000.0;  // position steps of the original program
+
+// Physical model
+constexpr double kMinBearingDiameters = 0.3;  // shortest bearing surface of a bullet, in calibers
+constexpr double kPrimerGasTemperature_K = 2500.0;
+constexpr double kMinFitFactor = 0.25;    // lowest factor an interference oversize may give the engraving and sliding force
+constexpr double kGasConductivity = 0.2;  // W/(m K)
+constexpr double kGasViscosity = 8e-5;    // Pa s
+constexpr double kGasPrandtl = 0.7;
+constexpr double kDittusBoelter = 0.023;     // Nusselt prefactor of turbulent pipe flow
+constexpr double kInitialStep_s = 1e-7;      // first integration step in the closed case
+constexpr double kBoreInitialStep_s = 1e-8;  // first integration step in the bore
+constexpr int kMaxSteps = 2000000;           // integration guard
+constexpr double kMaxTime_s = 0.1;           // a bullet that has not left the barrel by then is stuck
+constexpr double kDefaultTolerance = 1e-7;   // error per step of the integrator
+constexpr double kMinStepError = 1e-12;
+constexpr double kStepSafety = 0.9, kStepShrink = 0.2, kStepGrowth = 5.0;  // step size controller (order 5: exponent -1/5)
 
 // The pressure part of the burn law for a pressure in bar: p * (p / 1000 bar)^exponent.
 [[nodiscard]] double burnPressureTerm(double pBar, double exponent) noexcept
@@ -203,14 +219,8 @@ struct Model
     // dz/dt at the burnt fraction z and the pressure p [Pa]; 0 once everything has burnt.
     [[nodiscard]] double burnRate(double z, double p_Pa) const noexcept { return burnRateAt(z, pressureTerm(p_Pa / kBar)); }
 
-    // z after a time step dt: trapezoid rule between the rate at the start (zPrev, pPrev) and at the end (z, pNew),
-    // iterated because the end rate depends on the new z. Clamped at 1.
-    [[nodiscard]] double advanceBurn(double zPrev, double pPrev, double pNew, double dt) const noexcept
-    {
-        return advanceBurnFrom(zPrev, burnRate(zPrev, pPrev), pNew, dt);
-    }
-
-    // The same with the rate at the start of the step given (it does not change between the trials of a step).
+    // z after a time step dt: trapezoid rule between the rate r0 at the start (zPrev) and at the end (z, pNew), iterated
+    // because the end rate depends on the new z. r0 does not change between the trials of a step. Clamped at 1.
     [[nodiscard]] double advanceBurnFrom(double zPrev, double r0, double pNew, double dt) const noexcept
     {
         const double term = pressureTerm(pNew / kBar);  // the same in all iterations: the pressure is given
@@ -224,7 +234,7 @@ struct Model
 // `Ba` is the vivacity at 21 degC to use (default: the load's, times burnRateScale).
 [[nodiscard]] double burnCoefficient(const SimInput &in, const Calibration &cal, double Ba = 0.0) noexcept
 {
-    const double dT = in.temperature_C - 21.0;
+    const double dT = in.temperature_C - kPowderReferenceTemperature_C;
     if (Ba <= 0.0) Ba = in.vivacityBa * cal.burnRateScale;
     if (dT == 0.0) return Ba;
     // Measured on the original: with both coefficients 0 the built-in defaults apply. Otherwise each side uses its
@@ -291,7 +301,7 @@ double bulletIntrusionPhysical_m3(const SimInput &in)
     if (D <= 0.0 || L <= 0.0 || depth <= 0.0) return inside;
 
     const double tail = in.tailType == 2 ? in.tailLength_mm * 1e-3 : 0.0;
-    const double bearing = std::max(L - tail - D, 0.3 * D);  // the same bearing length as the physical model uses
+    const double bearing = std::max(L - tail - D, kMinBearingDiameters * D);  // the same bearing length as the physical model uses
     const double nose = std::max(L - tail - bearing, 0.0);
     const double noseStart = tail + bearing;
     if (nose <= 1e-12 || depth <= noseStart) return inside;
@@ -394,13 +404,12 @@ void summarize(SimResult &res, const SimInput &in, const Calibration &cal, doubl
     if (in.twistLength_mm > 0.0) res.muzzleRpm = last.v_ms / (in.twistLength_mm * 1e-3) * 60.0;
 
     // ---- derived quantities (formulas identified from the original's results) ----
-    constexpr double kFtPerM = 3.280839895;
     const double mc = in.charge_g * 1e-3, mp = in.bulletMass_g * 1e-3;
     res.burnoutPressure_bar = pts[res.indexBurnout].p_bar;
     res.propellantEnergy_J = in.heatQex_kJkg * 1e3 * mc * last.z;
     res.frictionForce_N = cal.frictionStress_MPa * std::numbers::pi * in.bulletDiameter_mm * in.bulletLength_mm;
     res.muzzleFrictionEnergy_J = res.frictionForce_N * (last.x_mm - pts.front().x_mm) * 1e-3;
-    res.ipscFactor = in.bulletMass_g / kGrainToGram * last.v_ms * kFtPerM / 1000.0;
+    res.ipscFactor = in.bulletMass_g / kGrainToGram * last.v_ms * kFeetPerMeter / 1000.0;
     res.mipFactor = cal.mipFactor * res.ipscFactor;
     res.projectileImpulse_Ns = mp * last.v_ms;
     res.propellantImpulse_Ns = in.sebert * mc * last.v_ms;
@@ -600,8 +609,8 @@ SimResult simulatePhysical(const SimInput &in, const Calibration &cal, int steps
                                                 : 0.0;
     m.mBullet = mp * (1.0 + spin);
     m.mc = in.charge_g * 1e-3;
-    // a moving powder charge without kinetic energy is not physical: Sebert 0 (loads built from the project's caliber records by earlier
-    // versions, which have none) counts as 0.5 like the original's default; the Original model keeps 0 (the original program does)
+    // the moving share of the charge is the calibration's (the Lagrange value), whatever Sebert factor the load holds: the powder burn
+    // values are fitted with it; the Original model uses the load's factor (0 included, as the original program does)
     m.mMove = m.mBullet + cal.gasMassShare * m.mc;
     m.gasMassShare = cal.gasMassShare;
     m.x0 = in.startPosition_mm() * 1e-3;
@@ -611,7 +620,7 @@ SimResult simulatePhysical(const SimInput &in, const Calibration &cal, int steps
     const auto perClass = [&](double rifle, double handgun) { return in.handgun && handgun >= 0.0 ? handgun : rifle; };
     m.engravingLength = std::max(perClass(cal.engravingLength_mm, cal.engravingLengthHandgun_mm) * 1e-3, 0.0);
     m.primerTime = std::max(cal.primerTime_ms * 1e-3, 0.0);
-    m.wallTemperature = in.temperature_C + 273.15;
+    m.wallTemperature = in.temperature_C + kKelvinOffset;
     // The free run is not part of the gas volume at rest: the bullet base starts at x0 and gasVolume() adds A (x - x0) while it
     // travels the jump. Adding A * jump here counted the freebore twice.
     m.V0 = cal.capacityFactor * in.caseVolume_cm3 * 1e-6 - bulletIntrusionPhysical_m3(in);
@@ -624,23 +633,25 @@ SimResult simulatePhysical(const SimInput &in, const Calibration &cal, int steps
     const double vg0 = m.gasVolume(m.x0, 0.0);
     if (m.V0 <= 0.0 || vg0 <= 0.0 || m.x0 <= 0.0) return res;
     m.ePrimer = cal.primerEnergy_J;
-    m.mPrimerGas = cal.primerEnergy_J * m.theta / (m.gasR * 2500.0);  // primer gas at about 2500 K
+    m.mPrimerGas = cal.primerEnergy_J * m.theta / (m.gasR * kPrimerGasTemperature_K);  // primer gas at about 2500 K
     // bearing surface: the bullet's length without the boat tail and about one calibre of nose (one calibre if the length is unknown)
     const double tail = in.tailType == 2 ? in.tailLength_mm * 1e-3 : 0.0;
-    m.bearing = std::max(in.bulletLength_mm > 0.0 ? in.bulletLength_mm * 1e-3 - tail - bulletDia : bulletDia, 0.3 * bulletDia);
+    m.bearing =
+        std::max(in.bulletLength_mm > 0.0 ? in.bulletLength_mm * 1e-3 - tail - bulletDia : bulletDia, kMinBearingDiameters * bulletDia);
     // relative oversize of the bullet over the groove diameter in percent (0 when the caliber has no groove diameter)
     const double oversize = in.grooveDiameter_mm > 0.0 && in.bulletDiameter_mm > 0.0
                                 ? 100.0 * (in.bulletDiameter_mm - in.grooveDiameter_mm) / in.grooveDiameter_mm
                                 : 0.0;
-    const auto fit = [oversize](double k) { return std::max(1.0 + k * oversize, 0.25); };
+    const auto fit = [oversize](double k) { return std::max(1.0 + k * oversize, kMinFitFactor); };
     // absolute engraving pressure of the bullet in the rifling, else the empirical share of the start pressure
     const double engravePressure = cal.engravingPressure_bar > 0.0 ? cal.engravingPressure_bar * kBar
                                                                    : perClass(cal.engravingShare, cal.engravingShareHandgun) * m.startP;
     m.engraveForce = fit(cal.engravingInterference) * engravePressure * m.A;
     m.slideForce = cal.slideStress_MPa * fit(cal.slideInterference) * 1e6 * n::pi * bulletDia * m.bearing;
+    if (in.leadBullet) m.slideForce *= std::max(perClass(cal.leadSlideFactor, cal.leadSlideFactorHandgun), 0.0);
     m.extraForce = in.extraFriction_bar * kBar * m.A;
-    // gas: lambda 0.2 W/(m K), mu 8e-5 Pa s, Pr 0.7
-    m.heatCoeff = cal.heatTransferFactor * 0.023 * 0.2 * std::pow(0.7, 0.4) * std::pow(8e-5, -0.8) * std::pow(m.D, -0.2);
+    m.heatCoeff = cal.heatTransferFactor * kDittusBoelter * kGasConductivity * std::pow(kGasPrandtl, 0.4) * std::pow(kGasViscosity, -0.8) *
+                  std::pow(m.D, -0.2);
     const double rc = std::sqrt(m.V0 / (n::pi * m.x0));
     m.chamberSurface = 2.0 * n::pi * rc * m.x0 + 2.0 * n::pi * rc * rc;
     // the powder's physical burn values when the load has them, else the load's (original model's) values with the scaled burn rate
@@ -652,8 +663,9 @@ SimResult simulatePhysical(const SimInput &in, const Calibration &cal, int steps
     m.phi = formFunction(in, cal, pb);
 
     const double xe = in.barrelLength_mm * 1e-3;
-    const double tol = cal.integrationTolerance > 0.0 ? cal.integrationTolerance : 1e-7;
-    const auto grow = [](double err) { return std::clamp(0.9 * std::pow(std::max(err, 1e-12), -0.2), 0.2, 5.0); };
+    const double tol = cal.integrationTolerance > 0.0 ? cal.integrationTolerance : kDefaultTolerance;
+    const auto grow = [](double err)
+    { return std::clamp(kStepSafety * std::pow(std::max(err, kMinStepError), -0.2), kStepShrink, kStepGrowth); };
     PhysState y{m.x0, 0.0, 0.0, 0.0, 0.0, 0.0};
     PhysState yn{};
     const auto stuck = [&]
@@ -663,7 +675,7 @@ SimResult simulatePhysical(const SimInput &in, const Calibration &cal, int steps
     };
 
     // ---- the powder burns in the closed case until the pressure reaches the start pressure ----
-    double h = 1e-7;
+    double h = kInitialStep_s;
     bool released = m.gasPressure(y) >= m.startP;
     for (int guard = 0; !released; ++guard)
     {
@@ -697,11 +709,11 @@ SimResult simulatePhysical(const SimInput &in, const Calibration &cal, int steps
     { samples.push_back({t, s[0], s[1], s[2], m.breechPressure(m.rates(s, true), true)}); };
     const double dxOut = (xe - m.x0) / (steps - 1);
     double t = 0.0;
-    h = 1e-8;
+    h = kBoreInitialStep_s;
     sample(t, y);
     for (int guard = 0;; ++guard)
     {
-        if (guard > 2000000 || t > 0.1) return stuck();
+        if (guard > kMaxSteps || t > kMaxTime_s) return stuck();
         h = std::min(h, dxOut / std::max(y[1], 1.0));  // at least one sample per output step
         const double err = dopriStep(m, true, y, h, tol, yn);
         if (err > 1.0)
@@ -791,8 +803,7 @@ SimResult simulate(const SimInput &in, const Calibration &calibration, int steps
         if (cal.model == SolverModel::Physical && !in.shotshell) adjusted.startPressure_bar += in.primerOffset_bar;
         return simulate(adjusted, calibration, steps);
     }
-    if (in.handgun && !in.shotshell && in.barrelLength_mm < cal.handgunMaxBarrel_mm &&
-        cal.handgunStartFraction * in.maxPressure_bar > in.startPressure_bar)
+    if (in.handgun && !in.shotshell && cal.handgunStartFraction * in.maxPressure_bar > in.startPressure_bar)
     {
         SimInput adjusted = in;
         adjusted.startPressure_bar = cal.handgunStartFraction * in.maxPressure_bar;
@@ -1091,6 +1102,11 @@ Calibration calibrationFor(CalibrationProfile profile)
         cal.engravingLengthHandgun_mm = 0.0;
         cal.slideStress_MPa = 0.700469;
         cal.slideInterference = 1.5;  // 2026-10-11: sliding stress +1.5 % per percent of bullet oversize over the groove (scan_physical.py)
+        // 2026-11-02: lead bullets (gmaterial "lead") slide with 0.45 x the stress, fitted on the cast-bullet rifle loads of the Lyman Cast
+        // Bullet Handbook (3rd and 4th ed., powders' Ba from the jacketed loads; held-out cartridges 7.1 -> 6.3 % velocity rms); the pistol
+        // and revolver loads gain nothing from any factor (the two halves of the cartridges disagree): 1
+        cal.leadSlideFactor = 0.45;
+        cal.leadSlideFactorHandgun = 1.0;
         cal.heatTransferFactor = 0.0618079;
         cal.heatVelocity_ms = 169.199;
         cal.burnExponent = -0.05;
@@ -1142,7 +1158,6 @@ std::vector<NamedParameter> parameters(Calibration &cal)
             {"burnZ0Factor", &cal.burnZ0Factor},
             {"initialGasFactor", &cal.initialGasFactor},
             {"handgunStartFraction", &cal.handgunStartFraction},
-            {"handgunMaxBarrel_mm", &cal.handgunMaxBarrel_mm},
             {"shotCapacityFactor", &cal.shotCapacityFactor},
             {"shotFrictionShare", &cal.shotFrictionShare},
             {"shotEnergyFactor", &cal.shotEnergyFactor},
@@ -1168,6 +1183,8 @@ std::vector<NamedParameter> parameters(Calibration &cal)
             {"slideStress_MPa", &cal.slideStress_MPa},
             {"engravingInterference", &cal.engravingInterference},
             {"slideInterference", &cal.slideInterference},
+            {"leadSlideFactor", &cal.leadSlideFactor},
+            {"leadSlideFactorHandgun", &cal.leadSlideFactorHandgun},
             {"caliberBurnScaling", &cal.caliberBurnScaling},
             {"heatTransferFactor", &cal.heatTransferFactor},
             {"heatVelocity_ms", &cal.heatVelocity_ms},

@@ -26,6 +26,7 @@
 #include "solverprefs.h"
 
 #include "cartridgeview.h"
+#include "chargeview.h"
 #include "chamberview.h"
 #include "curvechart.h"
 #include "loadbuilder.h"
@@ -34,9 +35,12 @@
 #include "measurementview.h"
 #include "powderfitdialog.h"
 #include "buttonstyle.h"
+#include "chargeview.h"
 #include "propertypanel.h"
 #include "reportview.h"
 #include "selectrecorddialog.h"
+#include "theme.h"
+#include "displayformat.h"
 #include "unitprefs.h"
 #include "vivacitychart.h"
 
@@ -73,23 +77,12 @@ namespace
 
 QLabel *valueLabel()
 {
-    auto *l = new QLabel(QStringLiteral("–"));
+    auto *l = new QLabel(noValueText());
     l->setTextInteractionFlags(Qt::TextSelectableByMouse);
     QFont f = l->font();
     f.setBold(true);
     l->setFont(f);
     return l;
-}
-
-void setRow(QFormLayout *form, int row, const QString &text)
-{
-    if (auto *item = form->itemAt(row, QFormLayout::FieldRole))
-        if (auto *l = qobject_cast<QLabel *>(item->widget())) l->setText(text);
-}
-
-void setTip(QFormLayout *form, int row, const QString &tip)
-{
-    if (auto *item = form->itemAt(row, QFormLayout::FieldRole)) item->widget()->setToolTip(tip);
 }
 
 QString num(double v, int decimals)
@@ -145,6 +138,75 @@ protected:
         p.setPen(palette().color(QPalette::Mid));
         p.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 6, 6);
     }
+};
+
+// A small line icon for a result card, painted in the palette's text colour (follows the theme, no image files).
+class CardGlyph : public QWidget
+{
+public:
+    enum class Kind
+    {
+        Pressure,
+        Velocity,
+        Energy,
+        Time
+    };
+
+    explicit CardGlyph(Kind kind, QWidget *parent = nullptr)
+        : QWidget(parent)
+        , m_kind(kind)
+    {
+        setFixedSize(18, 18);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        QColor c = palette().color(QPalette::WindowText);
+        c.setAlphaF(0.75);
+        QPen pen(c, 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        p.setPen(pen);
+        p.setBrush(Qt::NoBrush);
+        p.scale(width() / 18.0, height() / 18.0);
+        switch (m_kind)
+        {
+        case Kind::Pressure:  // gauge: dial arc with a needle
+        {
+            p.drawArc(QRectF(2, 3, 14, 14), -30 * 16, 240 * 16);
+            p.drawLine(QPointF(9, 10), QPointF(13, 6));
+            p.drawPoint(QPointF(9, 10));
+            break;
+        }
+        case Kind::Velocity:  // arrow with speed lines
+        {
+            p.drawLine(QPointF(6, 9), QPointF(16, 9));
+            p.drawLine(QPointF(12.5, 5.5), QPointF(16, 9));
+            p.drawLine(QPointF(12.5, 12.5), QPointF(16, 9));
+            p.drawLine(QPointF(2, 5.5), QPointF(7, 5.5));
+            p.drawLine(QPointF(2, 12.5), QPointF(7, 12.5));
+            break;
+        }
+        case Kind::Energy:  // lightning bolt
+        {
+            QPolygonF bolt;
+            bolt << QPointF(10.5, 1.5) << QPointF(4, 10) << QPointF(8.5, 10) << QPointF(7.5, 16.5) << QPointF(14, 7.5) << QPointF(9.5, 7.5);
+            p.drawPolygon(bolt);
+            break;
+        }
+        case Kind::Time:  // clock
+        {
+            p.drawEllipse(QRectF(2, 2, 14, 14));
+            p.drawLine(QPointF(9, 9), QPointF(9, 5));
+            p.drawLine(QPointF(9, 9), QPointF(12, 10.5));
+            break;
+        }
+        }
+    }
+
+private:
+    Kind m_kind;
 };
 
 // A notice above the results in fixed colours (the same in every theme): an icon and a rich-text label; hidden until shown.
@@ -239,6 +301,8 @@ LoadView::LoadView(QWidget *parent)
               {tr("Load ratio"), tr("Burnt propellant"), tr("Effective efficiency"), tr("Heat / friction loss"),
                tr("Gas outflow velocity")}}};
 
+    constexpr std::array<CardGlyph::Kind, 4> glyphs = {CardGlyph::Kind::Pressure, CardGlyph::Kind::Velocity, CardGlyph::Kind::Energy,
+                                                       CardGlyph::Kind::Time};
     auto *cardRow = new QHBoxLayout;
     cardRow->setSpacing(8);
     for (std::size_t i = 0; i < cards.size(); ++i)
@@ -250,7 +314,11 @@ LoadView::LoadView(QWidget *parent)
         auto *cl = new QVBoxLayout(card);
         cl->setContentsMargins(10, 6, 10, 8);
         cl->setSpacing(2);
-        cl->addWidget(caption);
+        auto *captionRow = new QHBoxLayout;
+        captionRow->setSpacing(6);
+        captionRow->addWidget(new CardGlyph(glyphs[i]));
+        captionRow->addWidget(caption, 1);
+        cl->addLayout(captionRow);
         cl->addWidget(value);
         m_values[i] = value;
         cardRow->addWidget(card, 1);
@@ -344,6 +412,7 @@ LoadView::LoadView(QWidget *parent)
     m_xAxis->addItem(tr("Time axis"), static_cast<int>(CurveChart::XAxis::Time));
     m_xAxis->addItem(tr("Position axis"), static_cast<int>(CurveChart::XAxis::Position));
     auto *chartBar = new QHBoxLayout;
+    m_ladderTabs->setObjectName(u"ladderTabs"_s);
     m_ladderTabs->setExpanding(false);
     m_ladderTabs->setDrawBase(false);
     m_ladderTabs->setToolTip(tr("Load development ladder: click a charge to select its curve"));
@@ -400,6 +469,12 @@ LoadView::LoadView(QWidget *parent)
         m_inputTabs->addTab(page, tabTitles[i]);
         connect(m_selectButtons[i], &QPushButton::clicked, this, [this, i] { chooseRecord(static_cast<Component>(i)); });
     }
+
+    m_chargeView = new ChargeView;
+    m_inputTabs->addTab(m_chargeView, tr("Charge"));
+    connect(m_chargeView, &ChargeView::edited, this,
+            [this](const QString &key, const QString &base) { onValueEdited(Propellant, key, base); });
+    connect(m_chargeView, &ChargeView::stepSelected, this, [this](int i) { setFocus(i); });
 
     auto *leftColumn = new QSplitter(Qt::Vertical);
     leftColumn->addWidget(m_inputTabs);
@@ -497,6 +572,7 @@ bool LoadView::load(const QString &path, QString *error)
     if (csr::attachPhysicalBurn(m_file.propellant)) LOG_Info() << "Physical burn values added to" << path;
     csr::ensureShotParts(m_file.caliber);  // a shotshell load of an older file: the entries for shell, wad and primer (not chosen)
     if (csr::ensureSebert(m_file)) LOG_Info() << "Sebert factor of" << path << "outside 0..1, set to 0.5";
+    csr::ensureBulletMaterial(m_file);  // a load of an older version or of the original: the material entry (empty: jacketed)
     // a load without the caliber's record (from another tool): the record of the caliber it names
     if (m_db && m_db->isOpen() && m_file.caliberFile.entries().empty() && !m_file.caliber.flag(u"shotshell"))
         if (const auto rec = m_db->caliberByName(m_file.caliber.text(u"CaliberName")); rec && csr::attachCaliberRecord(m_file, *rec))
@@ -523,6 +599,7 @@ void LoadView::setNewLoad(csr::LoadFile file)
     m_file = std::move(file);
     csr::ensureShotParts(m_file.caliber);
     csr::ensurePrimer(m_file);
+    csr::ensureBulletMaterial(m_file);
     m_path.clear();
     rebuildPanels();
     loadMeasurement();
@@ -563,6 +640,8 @@ void LoadView::rebuildPanels()
         {{Caliber, u"caliber"_s, tr("Caliber / cartridge"), &m_file.caliber}, {Gun, u"gun"_s, tr("Gun"), &m_file.gun}});
     m_projectilePanel->setSections({{Projectile, u"projectile"_s, tr("Projectile"), &m_file.projectile}});
     m_propellantPanel->setSections({{Propellant, u"propellant"_s, tr("Propellant"), &m_file.propellant}});
+    m_chargeView->setValues(m_file.propellant.number(u"mc"), csr::toIntClamped(m_file.propellant.number(u"laddercnt", 1.0), 1, 1000),
+                            m_file.propellant.number(u"laddermc"));
 }
 
 namespace
@@ -674,7 +753,7 @@ void LoadView::chooseRecord(Component component)
     {
         const double dz = m_file.caliber.number(u"Dz");
         if (dz > 0.0) dlg.setRestriction(QStringLiteral("ABS(gdia - %1) < 0.25").arg(dz), tr("Show only bullets that fit the caliber"));
-        dlg.setResetOption(tr("Also set the seating depth to the default (maximum cartridge length)"), false);
+        dlg.setResetOption(tr("Set default seating depth (maximum cartridge length)"), false);
         break;
     }
     case Component::Propellant: dlg.setResetOption(tr("Also set the charge to the default (70 % of the case capacity)"), false); break;
@@ -721,6 +800,9 @@ void LoadView::onValueEdited(int sectionId, const QString &key, const QString &t
     else if (sectionId == Projectile && key == u"Dbul") csr::completeTail(prj, previousDiameter);
     m_cartridgePanel->syncValues();
     m_projectilePanel->syncValues();
+    m_propellantPanel->syncValues();
+    m_chargeView->setValues(m_file.propellant.number(u"mc"), csr::toIntClamped(m_file.propellant.number(u"laddercnt", 1.0), 1, 1000),
+                            m_file.propellant.number(u"laddermc"));
     setModified(true);
     recompute();
 }
@@ -755,6 +837,7 @@ void LoadView::recompute()
         if (std::abs(step.charge_g - m_focusInput.charge_g) > 1e-9) charges.push_back(step.charge_g);
     m_measurements->setSuggestedCharges(std::move(charges));
     updateLadderUi();
+    m_chargeView->setLadder(m_ladder, m_focus, m_input.maxPressure_bar);
     showResult();
     m_report->invalidate();
 }
@@ -851,7 +934,7 @@ void LoadView::updateOutdatedNotice()
     QString text = tr("<b>Powder values differ from the database.</b> The load uses its own values of %1. "
                       "<a href=\"powder\">Use the database values…</a>")
                        .arg(propellantName().toHtmlEscaped());
-    text.replace(u"<a href=\"powder\">"_s, u"<a href=\"powder\" style=\"color:#2b1a00\">"_s);
+    text.replace(u"<a href=\"powder\">"_s, u"<a href=\"powder\" style=\"color:%1\">"_s.arg(QLatin1String(theme::kTextOnOrange)));
     m_outdatedNoticeText->setText(text);
     m_outdatedNotice->show();
 }
@@ -971,7 +1054,7 @@ void LoadView::updateLadderUi()
         else
         {
             cell(1, tr("charge too high"));
-            for (int c = 2; c < 5; ++c) cell(c, QStringLiteral("–"));
+            for (int c = 2; c < 5; ++c) cell(c, noValueText());
         }
     }
     m_ladderTabs->setCurrentIndex(m_focus);
@@ -1158,7 +1241,10 @@ QString LoadView::headingHtml() const
         cell(tr("L3/CL"), shown(in.caseLength_mm, Quantity::Length)) +
             cell(tr("L6/OAL"), shown(m_file.caliber.number(u"oal"), Quantity::Length)) +
             cell(tr("Seating depth"), shown(in.seatingDepth_mm, Quantity::Length)),
-        cell(tr("Projectile length"), shown(in.bulletLength_mm, Quantity::Length)),
+        cell(tr("Projectile length"), shown(in.bulletLength_mm, Quantity::Length)) +
+            cell(tr("Case volume with bullet"),
+                 shown(m_result.ok() ? m_result.effectiveCaseVolume_cm3 : in.caseVolume_cm3 - csr::bulletIntrusion_m3(in) * 1e6,
+                       Quantity::Volume)),
     };
     QString html = u"<span style='font-size:large'><b>%1</b></span><table cellspacing='0' cellpadding='1'>"_s.arg(
         m_file.caliber.text(u"CaliberName").toHtmlEscaped());
@@ -1181,7 +1267,7 @@ void LoadView::showResult()
     m_values[0]->setStyleSheet({});
     const auto clearAll = [&]
     {
-        for (QLabel *l : m_values) l->setText(QStringLiteral("–"));
+        for (QLabel *l : m_values) l->setText(noValueText());
     };
     if (!m_result.ok())
     {
@@ -1211,7 +1297,8 @@ void LoadView::showResult()
                 : tr("<b>No physical burn values</b> for this propellant (or its burn values were changed): the load's burn rate is "
                      "scaled, "
                      "the results are less accurate than for the powders of the Physical Model.");
-        text.replace(u"<a href=\"physical\">"_s, u"<a href=\"physical\" style=\"color:#2b1a00\">"_s);  // dark on the orange in every theme
+        text.replace(u"<a href=\"physical\">"_s, u"<a href=\"physical\" style=\"color:%1\">"_s.arg(
+                                                     QLatin1String(theme::kTextOnOrange)));  // dark on the orange in every theme
         m_burnNoticeText->setText(text);
         m_burnNotice->show();
     }
@@ -1244,7 +1331,7 @@ void LoadView::showResult()
                                         .arg(shown(r.maxPressure_bar, Quantity::Pressure),
                                              num(100.0 * (r.maxPressure_bar / permitted - 1.0), 1), shown(permitted, Quantity::Pressure)));
         m_overpressure->show();
-        m_values[0]->setStyleSheet(u"color: #e0453a;"_s);
+        m_values[0]->setStyleSheet(u"color: %1;"_s.arg(QLatin1String(theme::kOverpressureColor)));
     }
     put(4, shown(r.muzzlePressure_bar, Quantity::Pressure));
     put(2, shown(r.muzzleEnergy_J, Quantity::Energy));
@@ -1252,8 +1339,8 @@ void LoadView::showResult()
     put(3, tr("%1 ms").arg(num(r.muzzleTime_ms, 4)));
     put(5, r.burnoutInBarrel ? shown(r.burnoutPressure_bar, Quantity::Pressure) : tr("not burnt out"));
     // mean velocity of the powder gases leaving the muzzle (gas impulse / charge mass), as in the report
-    put(15, m_input.charge_g > 0.0 ? shown(r.gasImpulse_Ns / (m_input.charge_g * 1e-3), Quantity::Velocity) : QStringLiteral("–"));
-    put(8, r.muzzleRpm > 0 ? tr("%1 k/min").arg(num(r.muzzleRpm / 1000.0, 1)) : QStringLiteral("–"));
+    put(15, m_input.charge_g > 0.0 ? shown(r.gasImpulse_Ns / (m_input.charge_g * 1e-3), Quantity::Velocity) : noValueText());
+    put(8, r.muzzleRpm > 0 ? tr("%1 k/min").arg(num(r.muzzleRpm / 1000.0, 1)) : noValueText());
     put(9, r.recoilEnergy_J > 0 ? shown(r.recoilEnergy_J, Quantity::Energy) : tr("– (gun weight 0)"));
     put(10, QStringLiteral("%1, %2").arg(num(r.ipscFactor, 0), num(r.mipFactor, 0)));
     put(11, QStringLiteral("%1 %").arg(num(100.0 * r.loadRatio, 1)));
@@ -1270,7 +1357,7 @@ void LoadView::showResult()
         const QString node = r.optimalBarrelNode > whole ? tr("#%1 ½").arg(whole) : tr("#%1").arg(whole);
         put(7, tr("%1 ms, node %2").arg(num(r.optimalBarrelTime_ms, 4), node));
     }
-    else put(7, QStringLiteral("–"));
+    else put(7, noValueText());
 
     if (!m_reference) return;
     struct Row

@@ -3,6 +3,66 @@
 Changes in ChamberSim Reloaded. Pre-built binaries are on the
 [releases page](https://github.com/Schildkroet/ChamberSim-Reloaded/releases).
 
+## 0.16
+
+### Added and changed
+
+- **Bullet material.** Projectile records and loads have a *Material* field: jacketed (the default) or lead (cast,
+  swaged). In the Physical Model a lead bullet in a rifle cartridge slides with 0.45 times the friction of a jacket;
+  against the loads of the Lyman Cast Bullet Handbook (3rd and 4th edition) the rifle cast loads improve from 7.24 %
+  to 6.12 % velocity rms (pressure median +15.6 % to +10.3 %). Pistol and revolver cast loads gain nothing and keep
+  the full friction; shotgun loads are not concerned. Older loads open as jacketed and give the same results; the
+  field is left out of the *.grtload export. 61 project records of unplated lead bullets are marked.
+- **Refit with the Speer Reloading Manual #14** (9,360 loads): the physical burn values of IMR SR 4759, Alliant
+  Green Dot, Hodgdon H870 and Universal, IMR 4198, Accurate 1680 and No. 7 and Vihtavuori N340 are 2 to 14 % lower.
+  Rifle 4.30 % to 4.27 % velocity rms against the published loads, on Speer's web data (not used by the fit)
+  5.08 % to 4.87 %; pistol and revolver unchanged at 7.89 %. The Original profile and the accuracy table are not
+  affected.
+
+## 0.15
+
+### Fixed
+
+- **Peak pressure jumped with the barrel length** for pistol and revolver cartridges in the Physical Model: between a
+  15" and a 16" barrel a .357 Magnum load fell from about 54,000 to 36,000 psi (issue 11). The higher start pressure
+  of these cartridges now holds in every barrel; the carbine loads of the manuals (.357 Magnum, .44 Rem. Mag. and
+  .45 Colt at 16" to 20") need it as well. Pistol and revolver loads overall: 7.94 % to 7.83 % velocity and 16.1 % to
+  16.0 % peak pressure rms against the published data. The burn rates of ADI AR2205, IMR 4227, Vihtavuori N105,
+  Winchester W540 and W571 and Accurate 8700 were refitted with the new rule (1.6 to 3.5 % lower).
+
+## 0.14
+
+### Added and changed
+
+- **Charge tab.** A fourth input tab after *Propellant* with large fields for the propellant charge, the number of
+  ladder steps and the charge step, a grain/gram switch for the charge and the step, and a table of the ladder's
+  charges, maximum pressures and velocities (click a row to show its curve). It edits the same fields as the
+  propellant table.
+- **Gun weight in the New load dialog**, so a new load has recoil figures without editing the file afterwards.
+- **Sebert factor.** New loads start with 0.25. The Physical Model keeps its calibrated share of 1/4 for the gas whatever
+  factor the load holds (the older files' 0.5 would have given 14 % less peak pressure, issue 10); the Original and
+  Tuned profiles and the recoil figures use the load's factor.
+- **Chronograph import** accepts thousands separators in speeds (Xero CSV `1,397.6`).
+- **New records.** Nine calibers (.22 BR Rem, .22 K-Hornet, .338-06, 6.5-06, 6.5-284 Win, 6.5 mm TCU, 7 mm TCU,
+  7.7x58 Arisaka, 8mm-06) and 22 propellants (among them Hodgdon H450 and H870, Accurate 8700 and the Norma
+  powders) from the Hornady, Lyman and wildcat handbooks and the maker guides; the dimensions of the calibers are
+  read from the books' drawings.
+- **Refitted physical powder values** with the Hornady, Lyman and Lee loads: 69 powders adopted, 32 powders have
+  their first physical entry. Against about 92,700 published loads: rifle 4.53 % to 4.18 % velocity and 12.6 % to 11.9 %
+  peak pressure rms, pistol and revolver 8.20 % to 7.93 % and 16.4 % to 16.1 %. The Original profile and the
+  accuracy table are not affected.
+- **Shotshell powders.** IMR 700-X, 800-X and SR 4756, Winchester WSL, Hodgdon WSF and Alliant e3 have shotshell
+  records (before, a shotgun load with them was 10 to 30 % low in velocity and up to 60 % low in pressure). Over
+  6,472 published shotshell loads the error is 3.5 % in velocity and 16.4 % in peak pressure (was 7.7 % and 27.7 %).
+
+### Fixed
+
+- **macOS:** the menu bar (File, Edit, View, Tools, Help) was missing; it is now the native menu at the top of the
+  screen (the own title bar, if switched on, still holds it). The unit drop-downs in the property tables no longer
+  show the cell's text through the box (issue 9).
+- **Tests on Qt 6.12:** `tst_core` crashed because it ran without an application object; `tools/build.sh` works on
+  macOS (no `nproc`).
+
 ## 0.13
 
 ### Added and changed

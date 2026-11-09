@@ -19,6 +19,8 @@
 
 #include "chronograph.h"
 
+#include "numeric.h"
+
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QLocale>
@@ -41,18 +43,21 @@ namespace
 double velocityFactor(QString unit)
 {
     unit = unit.trimmed().toLower();
-    if (unit == u"ft/s" || unit == u"fps") return 0.3048;
+    if (unit == u"ft/s" || unit == u"fps") return kMetersPerFoot;
     if (unit == u"m/s" || unit == u"mps") return 1.0;
     if (unit == u"km/h" || unit == u"kph") return 1.0 / 3.6;
     if (unit == u"mph") return 0.44704;
     return 0.0;
 }
 
-// A decimal number with '.' or ',' as separator.
+// A decimal number with '.' or ',' as separator; with both ("1,397.6", "1.397,6") the last one is the decimal separator and the other
+// one groups thousands.
 std::optional<double> number(QString text)
 {
     text = text.trimmed();
     if (text.isEmpty()) return std::nullopt;
+    const qsizetype lastComma = text.lastIndexOf(u','), lastDot = text.lastIndexOf(u'.');
+    if (lastComma >= 0 && lastDot >= 0) text.remove(lastComma < lastDot ? u',' : u'.');
     text.replace(u',', u'.');
     bool ok = false;
     const double v = text.toDouble(&ok);
