@@ -243,7 +243,8 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .result-summary { width: 100%; min-width: 0; display: grid; gap: 10px; }
 .result-cards { display: grid; grid-template-columns: repeat(4, minmax(125px, 1fr)); gap: 8px; }
 .result-card { min-width: 0; margin: 0; padding: 6px 10px 8px; color: inherit; background: var(--scheme-alt, var(--result-card-bg)); border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: 6px; }
-.result-card dt { margin-bottom: 2px; white-space: nowrap; }
+.result-card dt { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; white-space: nowrap; }
+.result-card-glyph { width: 18px; height: 18px; flex: 0 0 18px; color: currentColor; opacity: .75; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .result-card dd { margin: 0; white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; }
 .result-card-number { font-size: 2rem; line-height: 1.1; }
 .result-card-unit { font-size: 1.25rem; font-weight: 400; }

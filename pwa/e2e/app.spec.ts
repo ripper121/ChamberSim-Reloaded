@@ -1451,6 +1451,16 @@ test("runs verified Physical and Original simulations in the results view", asyn
   const resultCards = page.locator(".result-cards .result-card");
   await expect(resultCards).toHaveCount(4);
   await expect(resultCards.locator("dt")).toHaveText(["Maximum pressure", "Muzzle velocity", "Projectile energy", "Barrel time (BT)"]);
+  const cardGlyphs = resultCards.locator(".result-card-glyph");
+  await expect(cardGlyphs).toHaveCount(4);
+  expect(await cardGlyphs.evaluateAll((glyphs) => glyphs.map((glyph) => ({
+    hidden: glyph.getAttribute("aria-hidden"), viewBox: glyph.getAttribute("viewBox"), kind: glyph.getAttribute("data-card-glyph")
+  })))).toEqual([
+    { hidden: "true", viewBox: "0 0 18 18", kind: "pressure" },
+    { hidden: "true", viewBox: "0 0 18 18", kind: "velocity" },
+    { hidden: "true", viewBox: "0 0 18 18", kind: "energy" },
+    { hidden: "true", viewBox: "0 0 18 18", kind: "time" }
+  ]);
   expect(await resultCards.locator("dd").first().evaluate((node) => getComputedStyle(node).fontWeight)).toBe("700");
   expect(await resultCards.locator(".result-card-number").first().evaluate((node) => Number.parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThan(25);
   await expect(page.locator(".result-details .result-group > h3")).toHaveText(["Barrel", "Projectile", "Propellant"]);

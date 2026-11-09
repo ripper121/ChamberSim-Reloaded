@@ -582,15 +582,25 @@ function resultView(load: LoadFile): string {
   const value = (html: string): string => resultOk ? html : dash;
   const obtWholeNode = Math.trunc(result.optimalBarrelNode);
   const obtNode = `#${obtWholeNode}${result.optimalBarrelNode > obtWholeNode ? " ½" : ""}`;
-  const card = (label: string, text: string, className = ""): string => {
+  const cardGlyph = (kind: "pressure" | "velocity" | "energy" | "time"): string => {
+    const drawing = kind === "pressure"
+      ? '<path d="M2.9 13.9a7 7 0 1 1 12.2 0"/><path d="M9 10l4-4"/><circle cx="9" cy="10" r=".6" fill="currentColor" stroke="none"/>'
+      : kind === "velocity"
+        ? '<path d="M6 9h10m-3.5-3.5L16 9l-3.5 3.5M2 5.5h5M2 12.5h5"/>'
+        : kind === "energy"
+          ? '<path d="M10.5 1.5L4 10h4.5l-1 6.5L14 7.5H9.5z"/>'
+          : '<circle cx="9" cy="9" r="7"/><path d="M9 9V5m0 4l3 1.5"/>';
+    return `<svg class="result-card-glyph" data-card-glyph="${kind}" aria-hidden="true" viewBox="0 0 18 18">${drawing}</svg>`;
+  };
+  const card = (label: string, text: string, kind: "pressure" | "velocity" | "energy" | "time", className = ""): string => {
     const displayed = value(text);
     const split = resultOk ? displayed.lastIndexOf(" ") : -1;
     const number = split < 0 ? displayed : displayed.slice(0, split);
     const unit = split < 0 ? "" : displayed.slice(split + 1);
-    return `<dl class="result-card"><dt>${loadLabel(label)}</dt><dd${className ? ` class="${className}"` : ""}><span class="result-card-number">${escapeHtml(number)}</span>${unit ? ` <span class="result-card-unit">${escapeHtml(unit)}</span>` : ""}</dd></dl>`;
+    return `<dl class="result-card"><dt>${cardGlyph(kind)}<span>${loadLabel(label)}</span></dt><dd${className ? ` class="${className}"` : ""}><span class="result-card-number">${escapeHtml(number)}</span>${unit ? ` <span class="result-card-unit">${escapeHtml(unit)}</span>` : ""}</dd></dl>`;
   };
   const group = (title: string, entries: ReadonlyArray<readonly [string, string]>): string => `<section class="result-group"><h3>${loadLabel(title)}</h3><dl>${entries.map(([label, displayed]) => `<dt>${loadLabel(label)}</dt><dd>${value(displayed)}</dd>`).join("")}</dl></section>`;
-  const summary = `<div class="result-summary"><div class="result-cards">${card("Maximum pressure", shown(result.maxPressureBar, "pressure"), overpressure ? "overpressure-value" : "")}${card("Muzzle velocity", shown(result.muzzleVelocityMs, "velocity"))}${card("Projectile energy", shown(result.muzzleEnergyJ, "energy"))}${card("Barrel time (BT)", loadText("%1 ms", formatNumber(result.muzzleTimeMs, 4)))}</div><div class="result-details">${group("Barrel", [
+  const summary = `<div class="result-summary"><div class="result-cards">${card("Maximum pressure", shown(result.maxPressureBar, "pressure"), "pressure", overpressure ? "overpressure-value" : "")}${card("Muzzle velocity", shown(result.muzzleVelocityMs, "velocity"), "velocity")}${card("Projectile energy", shown(result.muzzleEnergyJ, "energy"), "energy")}${card("Barrel time (BT)", loadText("%1 ms", formatNumber(result.muzzleTimeMs, 4)), "time")}</div><div class="result-details">${group("Barrel", [
     ["Muzzle pressure", shown(result.muzzlePressureBar, "pressure")],
     ["Burnout pressure", result.burnoutInBarrel ? shown(result.burnoutPressureBar, "pressure") : loadLabel("not burnt out")],
     ["Bullet lead time (BLT)", escapeHtml(loadText("%1 ms", formatNumber(result.bulletLeadTimeMs, 4)))],

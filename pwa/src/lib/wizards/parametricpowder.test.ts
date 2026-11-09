@@ -162,6 +162,28 @@ describe("parametric powder search wizard", () => {
     expect(solution?.inTolerance).toBe(true);
   });
 
+  it("replays GRT's simultaneous pressure and velocity compromise", async () => {
+    const path = resolve(import.meta.dirname, "../../../../tests/fixtures/223Rem_RWS52gr_D0734.grtload");
+    const load = parseLoadXml(readFileSync(path, "utf8"), path);
+    const input = simInputFromLoad(load), calibration = activeCalibrationFor("original", input);
+    const capacity = input.bulkDensityKgM3 * 1e-3 * freeVolumeCm3(input, calibration);
+    const roundedGrainCharge = (chargeG: number): number => Math.round(chargeG * 15.432358353 * 10_000) / 15.432358353 / 10_000;
+    const solution = await synthesizePowderCharge((chargeG) => simulate({ ...input, chargeG }, calibration), input.chargeG,
+      roundedGrainCharge(capacity * 0.5), roundedGrainCharge(capacity * 1.05), {
+        maxPressureBar: { target: 3646, min: 3528, max: 4150 },
+        muzzleVelocityMs: { target: 880, min: 875.6, max: 884.4 },
+        loadRatio: { min: 0.5, max: 1.05 }, burntFraction: { min: 1 }
+      });
+    expect(solution).toBeDefined();
+    // Released GRT selects 24.78 grain / 3377 bar / 884.1 m/s. The PWA's
+    // current solver has a different numerical curve, but must make the same
+    // simultaneous normalized-error compromise instead of satisfying only one target.
+    expect(solution!.chargeG * 15.432358353).toBeCloseTo(25, 4);
+    expect(solution!.result.maxPressureBar).toBeCloseTo(3284.91, 1);
+    expect(solution!.result.muzzleVelocityMs).toBeCloseTo(881.1345, 3);
+    expect(solution!.inTolerance).toBe(false);
+  });
+
   it("reports the nearest synthesis result when windows conflict and rejects failed simulations", async () => {
     const solution = await synthesizePowderCharge((charge) => charge > 2 ? emptySimResult("charge_too_high")
       : ({ ...emptySimResult("ok"), maxPressureBar: charge * 1000, muzzleVelocityMs: charge * 100 }), 1, 0.1, 3, {

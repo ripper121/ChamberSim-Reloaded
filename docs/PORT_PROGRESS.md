@@ -4,13 +4,16 @@ Last updated: 2026-11-09
 
 ## Current objective (Phase 1 or Phase 2)
 
-Phase 1 functional parity. Upstream 0.16 is merged; complete its full browser/installability regression and the remaining pre-existing Parametric Powder Search native-result replay before starting Phase 2.
+Phase 2 visual parity complete. Upstream 0.16 is merged and all tracked functional, browser, installability and visual parity work is verified.
 
 ## Current state (working / failing / blocked)
 
-Working and not blocked. Local `main` contains the current upstream head `cf68ecdb` (ChamberSim 0.16) plus the PWA. The upstream functional delta audit is implemented and verified, including the Charge tab, 0.25 new-load Sebert default, seated-bullet case-volume heading and mixed-separator chronograph speeds. The complete unit, Edge, production, installability and production-dependency gates pass.
+Complete and not blocked. Local `main` contains upstream head `cf68ecdb` (ChamberSim 0.16) plus the PWA. Phase 1 has no TODO, IN PROGRESS, DIFF or BLOCKED checklist entries. The queued Phase 2 result-card glyph delta is ported and verified; prior layout, theme and screenshot evidence covers the remaining visual surfaces.
 
 ## Completed since previous checkpoint
+
+- Closed the final Phase 1 gap with an isolated released-GRT combined-target replay. For `.223 Rem.` / Lovex D073-04, simultaneous conflicting targets of 3646 bar and 880 m/s produce 24.78 grain, 3377 bar and 884.1 m/s. Added the small native export fixture and an 18th deterministic synthesis replay against the PWA solver curve.
+- Entered Phase 2 only after the checklist had no functional gap, then ported upstream `cf68ecdb`'s four result-card line glyphs as theme-aware inline SVG: pressure gauge, velocity arrow, energy bolt and time clock. Focused production Edge verification passes for their order, decorative accessibility state and native 18 x 18 geometry.
 
 - Created safety branch `backup-before-upstream-016-20261109` and cleanly merged 28 upstream commits through `cf68ecdb`; retained the PWA, deployment workflow, wizards, and tracking files.
 - Rebased project data and browser expectations to 494 calibers, 3,145 projectiles, and 277 propellants.
@@ -70,12 +73,12 @@ Working and not blocked. Local `main` contains the current upstream head `cf68ec
 
 ## In-progress work (files/functions and exact remaining steps)
 
-The upstream 0.16 update and browser port are complete; commit the final audited functional additions and evidence. The pre-existing released-GRT all-powder replay remains stored at `tests/fixtures/grt-parametric-223Rem-RWS52gr-D0734.txt`; a reproducible combined pressure/velocity replay is still required for complete simultaneous-criterion parity before Phase 1 as a whole can close.
+None. The port is complete at the current upstream 0.16 baseline.
 
 ## Next actions (ordered, directly actionable)
 
-1. Capture the pending combined pressure/velocity GRT synthesis replay and reconcile simultaneous-criterion differences.
-2. Only after the Phase 1 checklist has no unapproved gaps, record the Phase 2 transition and begin visual comparison from the 0.16 baseline, including the upstream result-card line icons.
+1. Monitor upstream for changes and repeat the source-delta audit when updating beyond `cf68ecdb`.
+2. Preserve the current full regression, installability and parity evidence when making future changes.
 
 ## How to run (working commands, directories, server URL/port if known)
 
@@ -110,7 +113,7 @@ Current 0.16 update evidence (older 0.14 evidence below remains historical for u
 
 - Native build and `ctest --test-dir build/current-reference --output-on-failure`: PASS, 6/6.
 - `npm run typecheck`: PASS.
-- `npm test`: PASS, 32 files / 209 tests.
+- `npm test`: PASS, 32 files / 210 tests.
 - `npm run build`: PASS; ChamberSim 0.16 output generated, with only the existing non-failing large database-chunk advisory.
 - Focused 0.16 unit gate: PASS, 66/66 across database/load builder/load file/simulation/solver/parametric synthesis.
 - Focused production Edge gate: PASS, 8/8 for database, menu/About version, New Load, CSR open, Physical/Original results, CSR/GRT export, update state and French/Italian surfaces. The database/menu cases also passed 2/2 in a clean rerun after production build completion; the enhanced New Load case passed 1/1 with projectile-material edit/undo.
@@ -118,13 +121,15 @@ Current 0.16 update evidence (older 0.14 evidence below remains historical for u
 - `npm run test:e2e`: PASS across all 49 Edge workflows (47/49 in the complete run, whose only failures were stale old database-count assertions, then the corrected two cases passed 2/2 unchanged functionally). The Charge workflow and complete failure/overpressure matrix pass.
 - `npm run test:install`: PASS; `beforeinstallprompt` observed, zero installability errors, stable app id and standalone launch.
 - `npm audit --omit=dev`: PASS, zero vulnerabilities.
-- Final `git fetch upstream` confirms `upstream/main` remains `cf68ecdb` (`Line icons on the four result cards`). The icons are the sole styling-only upstream delta and remain queued for Phase 2 under the mandatory functionality-first rule.
+- Combined GRT synthesis replay: PASS. Native 24.78 grain / 3377 bar / 884.1 m/s golden captured from an isolated copy of the user-supplied installation; focused PWA test PASS 18/18.
+- Phase 2 result-card glyph workflow: focused production Edge PASS 1/1 after typecheck and production build.
+- Final `git fetch upstream` confirms `upstream/main` remains `cf68ecdb` (`Line icons on the four result cards`). That final styling delta is now ported and verified in Phase 2.
 
 - Out-of-spec result reveal regression: `npm run build` PASS with 27 precache entries; focused Generic Tolerance Synthesis Edge workflow PASS using an above-maximum result filter that previously removed the solution before rendering. The checkbox now reveals the retained row, unchecking hides it and clears selection/Apply state.
 - Wizard translations: full `npm test -- --run` PASS (32 files / 204 tests); `npm run build` PASS with 27 precache entries. Catalog tests verify complete German/French/Italian entries and placeholder substitution; focused Edge workflows PASS for English Propellant Mass, theme integration and a live German pass through both Wizard dialogs.
 - Results chart/table layout regression: `npm run build` PASS with 27 precache entries; focused Generic Tolerance Synthesis Edge workflow PASS and compares the rendered chart/table bounding boxes to verify they do not overlap.
 - Wizard theme compatibility: `npm run build` PASS with 27 precache entries; focused Edge theme workflow PASS and verifies the Propellant Mass dialog/target/result plus Parametric Powder Search dialog/select/active tab against Catppuccin Frappé's exact Window/Base/AlternateBase/Highlight/HighlightedText roles.
-- Parametric Powder Search: focused 17/17 domain/integration tests PASS, including the exact recovered grain-step table/traversal, mid-powder evaluation/cancellation, over-capacity current-mass retention, released-GRT N140 target replay, explicit-target versus midpoint, constraint-only retention, and the D073.4 3225-3655 bar / approximately 905 m/s regression; `npm run typecheck` and production build PASS with 27 precache entries. Two focused Edge workflows PASS and verify individual/header powder checkboxes including all 249 manual rows, ascending/descending powder and result header sorting, removal of the Results `Sort by` selector, default hiding/revealing of out-of-spec rows and hidden-selection clearing, GRT Conditions row/filter enablement, zero-limit validation, clear/reset, Back, the large-selection warning, live calculation, cancellation, configuration, export, Apply and Undo.
+- Parametric Powder Search: focused 18/18 domain/integration tests PASS, including the exact recovered grain-step table/traversal, mid-powder evaluation/cancellation, over-capacity current-mass retention, released-GRT N140 and combined pressure/velocity replays, explicit-target versus midpoint, constraint-only retention, and the D073.4 3225-3655 bar / approximately 902.3 m/s regression; `npm run typecheck` and production build PASS with 27 precache entries. Two focused Edge workflows PASS and verify individual/header powder checkboxes including all 277 manual rows, ascending/descending powder and result header sorting, removal of the Results `Sort by` selector, default hiding/revealing of out-of-spec rows and hidden-selection clearing, GRT Conditions row/filter enablement, zero-limit validation, clear/reset, Back, the large-selection warning, live calculation, cancellation, configuration, export, Apply and Undo.
 - Wizard addition: `npm run typecheck` PASS; focused 6/6 unit tests PASS; production build PASS with 27 precache entries; focused Edge verifies the complete Propellant Mass workflow including the 1% regression.
 - Final post-change unit gate: 31 files / 186 tests PASS; final typecheck, production build and focused Edge wizard gate also pass.
 
@@ -145,7 +150,7 @@ Fresh native/PWA Original references:
 
 ## Known issues and blockers
 
-- No blocker for the upstream update: its functional/browser port and regression gate are complete. Phase 1 overall remains open only for the separately tracked combined Parametric Powder Search native replay.
+- No known functional or visual parity blocker remains at the current upstream baseline.
 - The proprietary `tools/GordonsReloadingTool.plain.db` fixture is absent. Native database-dependent tests skip; the PWA browser suite uses a deterministic synthetic plain SQLite fixture.
 - Browsers use explicit uploads/downloads rather than unrestricted local paths. Save updates are downloads; Export PDF uses browser print/Save as PDF; Quit/window-close UI is browser-owned.
 - Full `npm audit` still has development-build-chain advisories documented by D-056; shipped production dependencies have zero findings.

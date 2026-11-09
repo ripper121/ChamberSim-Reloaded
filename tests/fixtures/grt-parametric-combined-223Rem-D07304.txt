@@ -1,0 +1,27 @@
+--------------------------------------------------------------------------------
+Gordons Reloading Tool 2021.2030-NIGHTLY
+Parametric powder search by generic tolerance synthesis
+--------------------------------------------------------------------------------
+File            : 223Rem_RWS52gr_D0734.grtload
+Caliber         : .223 Rem. (5.56 x 45 NATO)
+Projectile      : RWS, SG-M 13343, 0.224, 52.00 grain, 16.20 mm
+Seating depth   : 6.25 mm
+Case            : 30.34 grain H2O, 44.70 mm
+Cartridge length: 54.65 mm
+Initial pressure: 250 bar
+--------------------------------------------------------------------------------
+Tolerance-Window               :  Target    Min.     Max.   Unit
+maximum pressure               :   3646     3528     4150   bar
+Muzzle velocity                :   880     875.6    884.4   m/s
+Barrel Time general (BT)       :    -        -        -     ms
+Bullet Lead Time 10% pmax (BLT):    -        -        -     ms
+Load ratio                     :  92.04      50      105    %
+burnt propellant               :    -       100       -     %
+--------------------------------------------------------------------------------
+propellant                  mass   load ratio  pmax   v0     E0   burnt  eff.    BT     BLT
+                            grain      %        bar   m/s    J      %     %      ms      ms
+Lovex D073-04 (2020-12-28)  24.78     90.1     3377  884.1  1317  92.7   22.1  0.8259  0.7711
+
+Reference capture: released GRT GUI, isolated installation copy, 2026-11-09.
+Both primary targets were enabled simultaneously. Result filters were disabled
+for this deliberately conflicting case so GRT's nearest compromise remained visible.
