@@ -87,7 +87,7 @@ function caliberValues(caliber: Partial<ProjectRecord>): Record<string, string> 
     CaliberName: name, caselen: format(number(caliber, "L3")), casevol: format(caseVolumeCm3(caliber)), Dz: format(number(caliber, "c_Z")),
     Aeff: format(number(caliber, "c_Q")), pMaxZul: format(number(caliber, "Pmax")),
     method: text(caliber, "standard") === "SAAMI" ? "Piezo SAAMI" : "Piezo CIP",
-    sebert: format(number(caliber, "sebert") > 0 ? number(caliber, "sebert") : 0.5),
+    sebert: format(0.25),
     primer: primerOfCaliber(caliber), shotshell: "false"
   };
 }

@@ -56,7 +56,7 @@ describe("native metallic primer compatibility", () => {
     for (const value of ["-0.1", "1.1", "bad"]) {
       load.caliber.find((item) => item.name === "sebert")!.value = value;
       expect(ensureSebert(load)).toBe(true);
-      expect(load.caliber.find((item) => item.name === "sebert")?.value).toBe("0.5");
+      expect(load.caliber.find((item) => item.name === "sebert")?.value).toBe("0.25");
     }
   });
 

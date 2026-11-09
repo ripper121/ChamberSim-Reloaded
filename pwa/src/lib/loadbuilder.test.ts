@@ -29,6 +29,7 @@ describe("native load builder", () => {
     expect(defaultBarrelLengthMm(caliber)).toBe(600);
     expect(defaultSeatingDepthMm(caliber, projectile)).toBeGreaterThanOrEqual(2);
     expect(defaultChargeG(caliber, propellant)).toBeCloseTo(0.70 * 910 * 1e-3 * 4.075851439, 9);
+    expect(Number(buildLoad({ ...caliber, sebert: 0.8 }, projectile, propellant).caliber.find((entry) => entry.name === "sebert")?.value)).toBe(0.25);
   });
 
   it("matches propellant names without spaces or case and keeps physical updates independent", () => {

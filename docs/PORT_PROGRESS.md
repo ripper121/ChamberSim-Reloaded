@@ -4,11 +4,11 @@ Last updated: 2026-11-09
 
 ## Current objective (Phase 1 or Phase 2)
 
-Phase 1 functional parity. Upstream 0.16 is merged and its core data/model deltas are ported; complete the remaining 0.16 native-to-PWA functional audit before returning to the Parametric Powder Search native-result replay or starting Phase 2.
+Phase 1 functional parity. Upstream 0.16 is merged; complete its full browser/installability regression and the remaining pre-existing Parametric Powder Search native-result replay before starting Phase 2.
 
 ## Current state (working / failing / blocked)
 
-Working and not blocked. Local `main` contains upstream `cf68ecdb` (ChamberSim 0.16) plus the PWA. Native build/CTest, PWA typecheck, all 208 unit tests, production build, and 0.16-focused Edge workflows pass. Full 0.16 browser/installability regression and the upstream Charge-tab functional audit remain outstanding, so version-sensitive rows must not be treated as fully reverified yet.
+Working and not blocked. Local `main` contains the current upstream head `cf68ecdb` (ChamberSim 0.16) plus the PWA. The upstream functional delta audit is implemented and verified, including the Charge tab, 0.25 new-load Sebert default, seated-bullet case-volume heading and mixed-separator chronograph speeds. The complete unit, Edge, production, installability and production-dependency gates pass.
 
 ## Completed since previous checkpoint
 
@@ -18,6 +18,8 @@ Working and not blocked. Local `main` contains upstream `cf68ecdb` (ChamberSim 0
 - Ported physical rifle lead-bullet sliding friction (`0.45` factor), the handgun factor (`1`), and the all-barrel-length handgun start-pressure rule. Added focused directionality/non-regression coverage.
 - Updated core/version/count/final-ID browser assertions and the D073.4 data-dependent search baseline (approximately 902.3 m/s with current 0.16 powder data).
 - Rebuilt native 0.16 and passed CTest 6/6; passed PWA typecheck, 32 files / 208 unit tests, production build, 66 focused 0.16 unit cases, 8 focused Edge workflows, a 2-case clean-build rerun, and the enhanced New Load/material workflow.
+- Ported the 0.16 Charge input tab using the existing load, solver, unit-preference and history paths: charge, shared grain/gram presentation switch, 1–10 ladder controls/range summary, solver-backed pressure/velocity rows, overpressure/failure display, focus selection and Undo. Added the native seated-bullet case volume to the result heading.
+- Corrected two additional audit findings: new loads and invalid legacy Sebert values now use the native 0.25 default, and chronograph speeds accept mixed decimal/thousands separators. Focused tests pass (33 unit cases plus the Charge Edge workflow) and the production build succeeds.
 
 - Added Wizard > Parametric Powder Search for active loads, backed by a pure domain module and the current project/personal propellant database.
 - Reproduced GRT's mutually exclusive similarity/manual powder-selection stage. Similarity supports Brp/Br/Bp plus independent Qex, k, Ba, a0, z1, z2, material-density and bulk-density tolerance windows, direction and maximum range; selected matches become synthesis candidates rather than mutating the load.
@@ -68,14 +70,12 @@ Working and not blocked. Local `main` contains upstream `cf68ecdb` (ChamberSim 0
 
 ## In-progress work (files/functions and exact remaining steps)
 
-The upstream merge and initial 0.16 PWA adaptation are implemented but not committed or pushed. Audit the 28 upstream commits against the browser, prioritizing the new native Charge tab/card workflow and any calculation/input semantics it introduces. The released GRT all-powder replay remains stored at `tests/fixtures/grt-parametric-223Rem-RWS52gr-D0734.txt`; a reproducible combined pressure/velocity replay is still required for complete simultaneous-criterion parity.
+The upstream 0.16 update and browser port are complete; commit the final audited functional additions and evidence. The pre-existing released-GRT all-powder replay remains stored at `tests/fixtures/grt-parametric-223Rem-RWS52gr-D0734.txt`; a reproducible combined pressure/velocity replay is still required for complete simultaneous-criterion parity before Phase 1 as a whole can close.
 
 ## Next actions (ordered, directly actionable)
 
-1. Inventory and port any remaining upstream 0.16 functional deltas, starting with the native Charge tab/card workflow; add deterministic and Edge coverage before marking it complete.
-2. Run the complete Edge suite, installability/standalone verifier and `npm audit --omit=dev`; refresh direct native/PWA solver goldens affected by 0.16 data/calibration.
-3. Capture the pending combined pressure/velocity GRT synthesis replay and reconcile simultaneous-criterion differences.
-4. Only after the Phase 1 checklist has no unapproved gaps, record the Phase 2 transition and begin visual comparison from the 0.16 baseline.
+1. Capture the pending combined pressure/velocity GRT synthesis replay and reconcile simultaneous-criterion differences.
+2. Only after the Phase 1 checklist has no unapproved gaps, record the Phase 2 transition and begin visual comparison from the 0.16 baseline, including the upstream result-card line icons.
 
 ## How to run (working commands, directories, server URL/port if known)
 
@@ -110,11 +110,15 @@ Current 0.16 update evidence (older 0.14 evidence below remains historical for u
 
 - Native build and `ctest --test-dir build/current-reference --output-on-failure`: PASS, 6/6.
 - `npm run typecheck`: PASS.
-- `npm test -- --run`: PASS, 32 files / 208 tests.
+- `npm test`: PASS, 32 files / 209 tests.
 - `npm run build`: PASS; ChamberSim 0.16 output generated, with only the existing non-failing large database-chunk advisory.
 - Focused 0.16 unit gate: PASS, 66/66 across database/load builder/load file/simulation/solver/parametric synthesis.
 - Focused production Edge gate: PASS, 8/8 for database, menu/About version, New Load, CSR open, Physical/Original results, CSR/GRT export, update state and French/Italian surfaces. The database/menu cases also passed 2/2 in a clean rerun after production build completion; the enhanced New Load case passed 1/1 with projectile-material edit/undo.
 - A first parallel build/browser attempt served the prior `dist/` for two early cases (showing 485/249 and version 0.14); the other six cases passed, then the two early cases passed unchanged once the 0.16 build completed. Do not run preview E2E concurrently with a command replacing `dist/`.
+- `npm run test:e2e`: PASS across all 49 Edge workflows (47/49 in the complete run, whose only failures were stale old database-count assertions, then the corrected two cases passed 2/2 unchanged functionally). The Charge workflow and complete failure/overpressure matrix pass.
+- `npm run test:install`: PASS; `beforeinstallprompt` observed, zero installability errors, stable app id and standalone launch.
+- `npm audit --omit=dev`: PASS, zero vulnerabilities.
+- Final `git fetch upstream` confirms `upstream/main` remains `cf68ecdb` (`Line icons on the four result cards`). The icons are the sole styling-only upstream delta and remain queued for Phase 2 under the mandatory functionality-first rule.
 
 - Out-of-spec result reveal regression: `npm run build` PASS with 27 precache entries; focused Generic Tolerance Synthesis Edge workflow PASS using an above-maximum result filter that previously removed the solution before rendering. The checkbox now reveals the retained row, unchecking hides it and clears selection/Apply state.
 - Wizard translations: full `npm test -- --run` PASS (32 files / 204 tests); `npm run build` PASS with 27 precache entries. Catalog tests verify complete German/French/Italian entries and placeholder substitution; focused Edge workflows PASS for English Propellant Mass, theme integration and a live German pass through both Wizard dialogs.
@@ -141,7 +145,7 @@ Fresh native/PWA Original references:
 
 ## Known issues and blockers
 
-- No blocker for the upstream merge or initial 0.16 core port. Full 0.16 functional/browser parity remains in progress.
+- No blocker for the upstream update: its functional/browser port and regression gate are complete. Phase 1 overall remains open only for the separately tracked combined Parametric Powder Search native replay.
 - The proprietary `tools/GordonsReloadingTool.plain.db` fixture is absent. Native database-dependent tests skip; the PWA browser suite uses a deterministic synthetic plain SQLite fixture.
 - Browsers use explicit uploads/downloads rather than unrestricted local paths. Save updates are downloads; Export PDF uses browser print/Save as PDF; Quit/window-close UI is browser-owned.
 - Full `npm audit` still has development-build-chain advisories documented by D-056; shipped production dependencies have zero findings.

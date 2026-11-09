@@ -54,7 +54,8 @@ const sessionPreferences = new SessionPreferences(localStorage);
 const sessionStore = new BrowserSessionStore();
 let sessionReady = false;
 let activeTab = "database";
-let activeInput = "cartridge";
+type ActiveInput = "cartridge" | "projectile" | "propellant" | "charge";
+let activeInput: ActiveInput = "cartridge";
 let activeResult = "results";
 const solverPreferences = new SolverPreferences(localStorage);
 let activeProfile: CalibrationProfile = solverPreferences.profile;
@@ -171,7 +172,7 @@ function standardButton(source: "OK" | "Save" | "Close" | "Cancel" | "Discard" |
   return escapeHtml(i18n.standardButton(source));
 }
 
-function resultHeading(load: LoadFile, input: SimInput, chargeG: number): string {
+function resultHeading(load: LoadFile, input: SimInput, chargeG: number, effectiveCaseVolumeCm3: number): string {
   const caliber = entryValue(load.caliber, "CaliberName");
   const projectile = entryValue(load.projectile, "ProjectileName");
   const propellant = `${entryValue(load.propellant, "mname")} ${entryValue(load.propellant, "pname")}`.trim();
@@ -181,7 +182,7 @@ function resultHeading(load: LoadFile, input: SimInput, chargeG: number): string
     <tr><th scope="row">${label("Projectile")}:</th><td colspan="5"><em>${escapeHtml(projectile)}</em></td></tr>
     <tr><th scope="row">${label("Propellant")}:</th><td><em>${escapeHtml(propellant)}</em></td><th scope="row">${label("Charge")}:</th><td><em>${shown(chargeG, "bulletMass")}</em></td><th scope="row">${label("Case volume")}:</th><td><em>${shown(input.caseVolumeCm3, "volume")}</em></td></tr>
     <tr><th scope="row">${label("L3/CL")}:</th><td><em>${shown(input.caseLengthMm, "length")}</em></td><th scope="row">${label("L6/OAL")}:</th><td><em>${shown(overallLengthMm, "length")}</em></td><th scope="row">${label("Seating depth")}:</th><td><em>${shown(input.seatingDepthMm, "length")}</em></td></tr>
-    <tr><th scope="row">${label("Projectile length")}:</th><td colspan="5"><em>${shown(input.bulletLengthMm, "length")}</em></td></tr>
+    <tr><th scope="row">${label("Projectile length")}:</th><td><em>${shown(input.bulletLengthMm, "length")}</em></td><th scope="row">${label("Case volume with bullet")}:</th><td colspan="3"><em>${shown(effectiveCaseVolumeCm3, "volume")}</em></td></tr>
   </tbody></table></section>`;
 }
 
@@ -607,7 +608,7 @@ function resultView(load: LoadFile): string {
   ])}</div></div>`;
   const statusClass = resultOk ? "result-status" : "result-status simulation-failure";
   return `<div class="result-view"${splitStyle("results")}>
-    <div class="result-top"><section>${resultHeading(load, input, focused.chargeG)}${overpressure}${summary}${outdatedNotice}${burnNotice}<p class="${statusClass}">${resultStatus}</p>${resultOk && reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>${loadLabel("Charge")}</th><th>${loadLabel("Max. pressure")}</th><th>${loadLabel("Velocity")}</th><th>${loadLabel("Energy")}</th><th>${loadLabel("Load ratio")}</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input, effectiveProfile)}</div>
+    <div class="result-top"><section>${resultHeading(load, input, focused.chargeG, resultOk ? result.effectiveCaseVolumeCm3 : freeVolumeCm3(input, activeCalibrationFor("original", input)))}${overpressure}${summary}${outdatedNotice}${burnNotice}<p class="${statusClass}">${resultStatus}</p>${resultOk && reference ? referenceComparison(result, reference) : ""}${ladder.length > 1 ? `<div class="table-scroll ladder-table"><table class="measurement-table result-table"><thead><tr><th>${loadLabel("Charge")}</th><th>${loadLabel("Max. pressure")}</th><th>${loadLabel("Velocity")}</th><th>${loadLabel("Energy")}</th><th>${loadLabel("Load ratio")}</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</section>${vivacityView(input, effectiveProfile)}</div>
     ${splitter("results", "horizontal", "Resize result summary and chart", 150, 300)}<div class="result-chart-pane"><div class="chart-controls">${tabs}<select id="chart-axis" aria-label="Horizontal axis"><option value="time" ${chartAxis === "time" ? "selected" : ""}>${loadLabel("Time axis")}</option><option value="position" ${chartAxis === "position" ? "selected" : ""}>${loadLabel("Position axis")}</option></select></div>
     ${chartView(result, ladder.filter((_, index) => index !== focus).map((entry) => entry.result), input, reference)}
     <div class="chart-legend"><span class="pressure-key">${escapeHtml(i18n.text("CurveChart", "Pressure"))}</span>${reference?.points.length ? `<span class="pressure-key reference-key">${escapeHtml(i18n.text("CurveChart", "Pressure (original)"))}</span>` : ""}<span class="permitted-key">${escapeHtml(i18n.text("CurveChart", "Pmax permitted"))}</span><span class="energy-key">${escapeHtml(i18n.text("CurveChart", "Energy"))}</span>${reference?.points.length ? `<span class="energy-key reference-key">${escapeHtml(i18n.text("CurveChart", "Energy (original)"))}</span>` : ""}<span class="velocity-key">${escapeHtml(i18n.text("CurveChart", "Velocity"))}</span>${reference?.points.length ? `<span class="velocity-key reference-key">${escapeHtml(i18n.text("CurveChart", "Velocity (original)"))}</span>` : ""}</div></div></div>`;
@@ -670,6 +671,44 @@ function drawingView(load: LoadFile): string {
   const bar = millimeters > 0 ? `<div class="photo-scale" style="width:${millimeters * photo.scale / photo.width * 100}%"><span>${millimeters >= 1 ? millimeters : millimeters.toFixed(1)} mm</span></div>` : "";
   const photoText = (source: string): string => escapeHtml(i18n.text("PhotoView", source));
   return `<div class="drawing-panel powder-photo-view">${tabs}<div class="photo-choice"><button data-photo-show="0" class="${selected === 0 ? "active" : ""}" ${photos[0] ? "" : "disabled"} title="${photoText("Photo of the powder grains")}">${photoText("Overview")}</button><button data-photo-show="1" class="${selected === 1 ? "active" : ""}" ${photos[1] ? "" : "disabled"} title="${photoText("Close-up photo of a grain")}">${photoText("Detail")}</button></div><figure data-enlarge-photo title="${photoText("Double-click to enlarge")}"><div class="photo-image-wrap"><img src="${escapeHtml(photo.dataUrl)}" alt="${escapeHtml(photo.name || i18n.text("PhotoView", "Photo of the powder grains"))}">${bar}</div><figcaption>${escapeHtml(photo.name)}</figcaption></figure></div>`;
+}
+
+function chargeView(load: LoadFile): string {
+  const text = (source: string, ...args: readonly (string | number)[]): string => i18n.text("ChargeView", source, ...args);
+  const label = (source: string): string => escapeHtml(text(source));
+  const chargeG = Number(entryValue(load.propellant, "mc")) || 0;
+  const stepG = Number(entryValue(load.propellant, "laddermc")) || 0;
+  const steps = clampInteger(Number(entryValue(load.propellant, "laddercnt")) || 1, 1, 10);
+  const chargeUnit = unitPreferences.unitForField("propellant/mc", "bulletMass");
+  const stepUnit = unitPreferences.unitForField("propellant/laddermc", "bulletMass");
+  const gram = unitsOf("bulletMass").find((unit) => unit.id === "g")!;
+  const grain = unitsOf("bulletMass").find((unit) => unit.id === "grain")!;
+  const otherUnit = chargeUnit.id === "grain" ? gram : grain;
+  const field = (name: "mc" | "laddermc", value: number, unit: typeof chargeUnit, disabled = false): string =>
+    `<div class="charge-input-wrap"><input data-charge-field="${name}" inputmode="decimal" value="${escapeHtml(formatUnit(value, unit, Math.max(unit.decimals, 1)))}" aria-label="${label(name === "mc" ? "Propellant charge" : "Charge step")}" ${disabled ? "disabled" : ""}><span>${escapeHtml(unit.symbol)}</span></div>`;
+  const lowestG = Math.max(0, chargeG - (steps - 1) * stepG);
+  const summary = steps >= 2 && stepG > 0
+    ? i18n.plural("ChargeView", "%n steps: %1 down to %2", steps,
+      `${formatUnit(chargeG, chargeUnit)} ${chargeUnit.symbol}`, `${formatUnit(lowestG, chargeUnit)} ${chargeUnit.symbol}`)
+    : text("No ladder: only the charge above is simulated.");
+  const ladder = simulationFor(load);
+  const focus = clampInteger(ladderFocus.get(load) ?? 0, 0, Math.max(ladder.length - 1, 0));
+  const maxPressureBar = simInputFromLoad(load).maxPressureBar;
+  const rows = ladder.map((entry, index) => {
+    const ok = entry.result.status === "ok";
+    const high = ok && maxPressureBar > 0 && entry.result.maxPressureBar > maxPressureBar;
+    const title = high ? ` title="${escapeHtml(text("Above the permitted maximum pressure %1", shown(maxPressureBar, "pressure")))}"` : "";
+    const pressure = ok ? `${high ? "⚠ " : ""}${shown(entry.result.maxPressureBar, "pressure")}` : label("charge too high");
+    return `<tr data-ladder="${index}" class="${index === focus ? "focused" : ""}" tabindex="0"><td>${shown(entry.chargeG, "bulletMass")}</td><td class="${high ? "overpressure-cell" : ""}"${title}>${pressure}</td><td>${ok ? shown(entry.result.muzzleVelocityMs, "velocity") : "—"}</td></tr>`;
+  }).join("");
+  const unitButton = (id: "grain" | "g", source: "grain" | "gram"): string =>
+    `<button type="button" data-charge-unit="${id}" class="${chargeUnit.id === id ? "active" : ""}" aria-pressed="${chargeUnit.id === id}" title="${escapeHtml(text("Show the charge and the charge step in %1", text(source)))}">${label(source)}</button>`;
+  const help = label("The charge is the highest of the ladder; every further step has one charge step less powder. Click a row to show its curve.");
+  return `<div class="charge-view">
+    <section class="charge-card"><header><h3>${label("Propellant charge")}</h3><div class="charge-unit-switch">${unitButton("grain", "grain")}${unitButton("g", "gram")}</div></header>${field("mc", chargeG, chargeUnit)}<p>= ${escapeHtml(formatUnit(chargeG, otherUnit))} ${escapeHtml(otherUnit.symbol)}</p></section>
+    <section class="charge-card"><h3>${label("Load development ladder")}</h3><div class="charge-ladder-fields"><label>${label("Steps")}<select data-charge-field="laddercnt" aria-label="${label("Steps")}">${Array.from({ length: 10 }, (_, index) => index + 1).map((count) => `<option value="${count}" ${count === steps ? "selected" : ""}>${count === 1 ? label("1 (no ladder)") : count}</option>`).join("")}</select></label><label>${label("Charge step")}${field("laddermc", stepG, stepUnit, steps < 2)}</label></div><p>${escapeHtml(summary)}</p></section>
+    <section class="charge-card charge-results"><h3>${label("Ladder results")}</h3><div class="table-scroll"><table class="measurement-table result-table" title="${help}"><thead><tr><th>${label("Charge")}</th><th>${label("Max. pressure")}</th><th>${label("Velocity")}</th></tr></thead><tbody>${rows}</tbody></table></div></section>
+  </div>`;
 }
 
 function storedReportScale(): number {
@@ -765,18 +804,21 @@ function loadWorkspace(load: LoadFile): string {
         { title: loadText("Gun"), groups: [{ section: "gun", entries: load.gun }] }
       ]
     : activeInput === "projectile" ? [{ title: loadText("Projectile"), groups: [{ section: "projectile", entries: load.projectile }] }]
-      : [{ title: loadText("Propellant"), groups: [{ section: "propellant", entries: load.propellant }, { section: "physical", entries: load.physical }] }];
+      : activeInput === "propellant" ? [{ title: loadText("Propellant"), groups: [{ section: "propellant", entries: load.propellant }, { section: "physical", entries: load.physical }] }] : [];
   const resultContent = activeResult === "measurements" ? measurementView(load) : activeResult === "report"
     ? reportView(load)
     : resultView(load);
-  const component: ProjectTable = activeInput === "cartridge" ? "caliber" : activeInput as ProjectTable;
-  const selectLabel = component === "caliber" ? "Select Caliber" : component === "projectile" ? "Select Projectile" : "Select Propellant";
   const loadLabel = (source: string): string => escapeHtml(i18n.text("LoadView", source));
   const replaceTitle = loadLabel("Replace this component by another record of the database");
   const componentTitle = activeInput === "cartridge" ? entryValue(load.caliber, "CaliberName")
     : activeInput === "projectile" ? entryValue(load.projectile, "ProjectileName")
       : `${entryValue(load.propellant, "mname")} ${entryValue(load.propellant, "pname")}${entryValue(load.propellant, "lotid") ? ` (${entryValue(load.propellant, "lotid")})` : ""}`.trim();
-  return `<main class="workspace"${splitStyle("main")}><aside class="inputs"${splitStyle("left")}><div class="subtabs"><button data-input="cartridge" class="${activeInput === "cartridge" ? "active" : ""}">${loadLabel("Cartridge && gun")}</button><button data-input="projectile" class="${activeInput === "projectile" ? "active" : ""}">${loadLabel("Projectile")}</button><button data-input="propellant" class="${activeInput === "propellant" ? "active" : ""}">${loadLabel("Propellant")}</button></div><div class="component-title"><span>${escapeHtml(componentTitle)}</span><button class="primary" data-select-component="${component}" ${projectDatabase && ownDatabaseReady ? "" : "disabled"} title="${replaceTitle}">${loadLabel(selectLabel)}…</button></div><div class="property-scroll">${table(inputSections)}</div>${splitter("left", "horizontal", "Resize input fields and technical drawing", 120, 340)}${drawingView(load)}</aside>${splitter("main", "vertical", "Resize input and output workspaces", 360, 320)}<section class="output"><div class="subtabs"><button data-result="results" class="${activeResult === "results" ? "active" : ""}">${loadLabel("Results")}</button><button data-result="measurements" class="${activeResult === "measurements" ? "active" : ""}">${loadLabel("Measurements")}</button><button data-result="report" class="${activeResult === "report" ? "active" : ""}">${loadLabel("Report")}</button></div>${resultContent}</section></main>`;
+  const componentContent = activeInput === "charge" ? chargeView(load) : (() => {
+    const component: ProjectTable = activeInput === "cartridge" ? "caliber" : activeInput;
+    const selectLabel = component === "caliber" ? "Select Caliber" : component === "projectile" ? "Select Projectile" : "Select Propellant";
+    return `<div class="component-title"><span>${escapeHtml(componentTitle)}</span><button class="primary" data-select-component="${component}" ${projectDatabase && ownDatabaseReady ? "" : "disabled"} title="${replaceTitle}">${loadLabel(selectLabel)}…</button></div><div class="property-scroll">${table(inputSections)}</div>`;
+  })();
+  return `<main class="workspace"${splitStyle("main")}><aside class="inputs ${activeInput === "charge" ? "charge-active" : ""}"${splitStyle("left")}><div class="subtabs"><button data-input="cartridge" class="${activeInput === "cartridge" ? "active" : ""}">${loadLabel("Cartridge && gun")}</button><button data-input="projectile" class="${activeInput === "projectile" ? "active" : ""}">${loadLabel("Projectile")}</button><button data-input="propellant" class="${activeInput === "propellant" ? "active" : ""}">${loadLabel("Propellant")}</button><button data-input="charge" class="${activeInput === "charge" ? "active" : ""}">${loadLabel("Charge")}</button></div>${componentContent}${splitter("left", "horizontal", "Resize input fields and technical drawing", 120, 340)}${drawingView(load)}</aside>${splitter("main", "vertical", "Resize input and output workspaces", 360, 320)}<section class="output"><div class="subtabs"><button data-result="results" class="${activeResult === "results" ? "active" : ""}">${loadLabel("Results")}</button><button data-result="measurements" class="${activeResult === "measurements" ? "active" : ""}">${loadLabel("Measurements")}</button><button data-result="report" class="${activeResult === "report" ? "active" : ""}">${loadLabel("Report")}</button></div>${resultContent}</section></main>`;
 }
 
 function combinedDatabaseRecords(table: ProjectTable): ProjectRecord[] {
@@ -3440,7 +3482,7 @@ function bindEvents(): void {
     openParametricPowderWizard();
   });
   app.querySelectorAll<HTMLElement>("[data-tab]").forEach((element) => element.addEventListener("click", () => { activeTab = element.dataset.tab ?? "database"; render(); }));
-  app.querySelectorAll<HTMLElement>("[data-input]").forEach((element) => element.addEventListener("click", () => { activeInput = element.dataset.input ?? "cartridge"; render(); }));
+  app.querySelectorAll<HTMLElement>("[data-input]").forEach((element) => element.addEventListener("click", () => { activeInput = (element.dataset.input ?? "cartridge") as ActiveInput; render(); }));
   app.querySelectorAll<HTMLElement>("[data-drawing]").forEach((element) => element.addEventListener("click", () => {
     const load = activeLoad(); if (!load) return;
     drawingModes.set(load, element.dataset.drawing as "cartridge" | "chamber" | "powder"); render();
@@ -3584,6 +3626,35 @@ function bindEvents(): void {
   app.querySelectorAll<HTMLSelectElement>("[data-field-unit]").forEach((element) => element.addEventListener("change", () => {
     unitPreferences.setFieldUnit(element.dataset.field ?? "", element.dataset.quantity as Exclude<Quantity, "none">, element.value);
     status = `Changed unit for ${element.getAttribute("aria-label")?.replace(/ unit$/, "") ?? "field"}`;
+    render();
+  }));
+  app.querySelectorAll<HTMLButtonElement>("[data-charge-unit]").forEach((element) => element.addEventListener("click", () => {
+    const id = element.dataset.chargeUnit ?? "grain";
+    unitPreferences.setFieldUnit("propellant/mc", "bulletMass", id);
+    unitPreferences.setFieldUnit("propellant/laddermc", "bulletMass", id);
+    status = i18n.text("ChargeView", "Show the charge and the charge step in %1", i18n.text("ChargeView", id === "g" ? "gram" : "grain"));
+    render();
+  }));
+  app.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-charge-field]").forEach((element) => element.addEventListener("change", () => {
+    const load = activeLoad();
+    if (!load) return;
+    const name = element.dataset.chargeField ?? "";
+    let base: number | undefined;
+    if (name === "laddercnt") {
+      const value = parseLocaleNumber(element.value);
+      base = value !== undefined && Number.isInteger(value) && value >= 1 && value <= 10 ? value : undefined;
+    } else {
+      const unit = unitPreferences.unitForField(`propellant/${name}`, "bulletMass");
+      const value = parseToBase(element.value, unit);
+      base = value !== undefined && value >= 0 && value <= 1000 ? value : undefined;
+    }
+    if (base === undefined || !historyFor(load).edit(load, "propellant", name, String(base))) {
+      status = i18n.text("MainWindow", "Invalid value; the previous value was restored");
+      render();
+      return;
+    }
+    invalidateLoad(load);
+    status = `Edited ${name === "mc" ? i18n.text("ChargeView", "Propellant charge") : i18n.text("ChargeView", name === "laddercnt" ? "Steps" : "Charge step")}`;
     render();
   }));
   app.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-property]").forEach((element) => element.addEventListener("change", () => {

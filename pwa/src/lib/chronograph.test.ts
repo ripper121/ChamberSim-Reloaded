@@ -41,6 +41,12 @@ describe("native chronograph compatibility", () => {
     expect(fit.series[0]!.velocitiesMs).toEqual([812.345, 815.2, 809.8, 811, 813.6]);
   });
 
+  it("accepts thousands separators in Xero speeds", () => {
+    const text = 'Range day\n#,Velocity (fps)\n1,"1,397.6"\n2,"1.397,6"\n';
+    const parsed = readChronograph(new TextEncoder().encode(text));
+    expect(parsed.series[0]!.velocitiesMs).toEqual([1397.6 * 0.3048, 1397.6 * 0.3048]);
+  });
+
   it.each([
     ["06-18-2024_15-47-11.fit", 10, 265.391],
     ["06-18-2024_15-50-06.fit", 15, 286.795],

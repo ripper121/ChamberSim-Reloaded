@@ -27,8 +27,12 @@ function velocityFactor(unit: string): number {
 }
 
 function number(text: string): number | undefined {
-  const normalized = text.trim().replaceAll(",", ".");
+  let normalized = text.trim();
   if (!normalized) return undefined;
+  const comma = normalized.lastIndexOf(",");
+  const dot = normalized.lastIndexOf(".");
+  if (comma >= 0 && dot >= 0) normalized = normalized.replaceAll(comma < dot ? "," : ".", "");
+  normalized = normalized.replaceAll(",", ".");
   const value = Number(normalized);
   return Number.isFinite(value) ? value : undefined;
 }

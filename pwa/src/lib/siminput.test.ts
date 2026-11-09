@@ -71,7 +71,7 @@ describe("SimInput::fromLoad parity", () => {
     load.propellant = setEntry(load.propellant, "k", "nan");
     load.propellant = setEntry(load.propellant, "laddercnt", "3.9");
     const input = simInputFromLoad(load);
-    expect(input.sebert).toBe(0.5);
+    expect(input.sebert).toBe(0.25);
     expect(input.startPressureBar).toBe(250);
     expect(input.bulletJumpMm).toBe(0);
     expect(input.tailType).toBe(2);

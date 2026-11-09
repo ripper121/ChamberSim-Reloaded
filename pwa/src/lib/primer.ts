@@ -118,7 +118,7 @@ export function ensureSebert(load: LoadFile): boolean {
   if (!entry) return false;
   const value = number(load.caliber, "sebert", -1);
   if (value >= 0 && value <= 1) return false;
-  entry.value = "0.5";
+  entry.value = "0.25";
   return true;
 }
 

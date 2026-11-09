@@ -636,7 +636,7 @@ test("copies, edits, exports, persists, and deletes a personal database record",
   await copyDialog.getByLabel("Burn rate coefficient (Ba)").fill("0.6");
   await copyDialog.getByRole("button", { name: "Save", exact: true }).click();
 
-  await expect(page.getByText("2 of 250 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("2 of 278 entries", { exact: true })).toBeVisible();
   const personalRow = page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "D073.4 Browser copy", exact: true }) });
   await expect(personalRow.getByRole("cell", { name: "Personal", exact: true })).toBeVisible();
   await expect(personalRow).toHaveAttribute("aria-selected", "true");
@@ -646,7 +646,7 @@ test("copies, edits, exports, persists, and deletes a personal database record",
 
   await page.reload();
   await page.getByRole("tab", { name: "Propellants" }).click();
-  await expect(page.getByText("250 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("278 entries", { exact: true })).toBeVisible();
   await page.getByLabel("Filter all columns").fill("Personal");
   const persistedRow = page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "D073.4 Browser copy", exact: true }) });
   await persistedRow.click();
@@ -987,7 +987,7 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
   await settings.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(settings.getByText("Original database imported.", { exact: true })).toBeVisible();
   await settings.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.locator("footer")).toHaveText("GordonsReloadingTool.plain.db: 1063 calibers, 8804 projectiles, 932 propellants");
+  await expect(page.locator("footer")).toHaveText("GordonsReloadingTool.plain.db: 1072 calibers, 8804 projectiles, 960 propellants");
   await openMenu(page, "Help");
   await page.locator("#about").click();
   const importedAbout = page.getByRole("dialog", { name: "About ChamberSim Reloaded" });
@@ -996,7 +996,7 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
 
   await page.getByRole("tab", { name: "Propellants" }).click();
   await page.getByLabel("Filter all columns").fill("Original GRT original-photo");
-  await expect(page.getByText("1 of 932 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 of 960 entries", { exact: true })).toBeVisible();
   const original = page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "Original Powder", exact: true }) });
   await original.click();
   await expect(original.getByRole("cell", { name: "Original GRT", exact: true })).toBeVisible();
@@ -1006,7 +1006,7 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
 
   await page.reload();
   await page.getByRole("tab", { name: "Propellants" }).click();
-  await expect(page.getByText("932 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("960 entries", { exact: true })).toBeVisible();
   await page.getByLabel("Filter all columns").fill("original-photo");
   await page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "Original Powder", exact: true }) }).click();
   await page.getByRole("button", { name: "Copy", exact: true }).click();
@@ -1035,7 +1035,7 @@ test("imports, persists, copies from, and removes a plain Original GRT database"
   await page.reload();
   await page.getByRole("tab", { name: "Propellants" }).click();
   await page.getByLabel("Filter all columns").fill("Personal original-photo");
-  await expect(page.getByText("1 of 250 entries", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 of 278 entries", { exact: true })).toBeVisible();
   await page.locator(".database-table tbody tr").filter({ has: page.getByRole("cell", { name: "Original Powder (copy)", exact: true }) }).click();
   await page.locator("#edit-record").click();
   await expect(page.getByRole("dialog", { name: /Edit propellant/ }).getByRole("img", { name: "Overview photo" })).toBeVisible();
@@ -1568,6 +1568,51 @@ test("focuses a ladder charge from both native-style selectors", async ({ page }
   await page.locator('tr[data-ladder="2"]').click();
   await expect(page.getByRole("definition").filter({ hasText: "2,995 bar" })).toBeVisible();
   await expect(page.getByRole("definition").filter({ hasText: "837.8 m/s" })).toBeVisible();
+});
+
+test("uses the native Charge tab workflow with shared units, ladder results, selection, and undo", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await setUnitSystem(page, "metric");
+  await page.locator("#file-picker").setInputFiles(referenceLoad);
+  await page.getByRole("button", { name: "Charge", exact: true }).click();
+
+  const charge = page.getByRole("textbox", { name: "Propellant charge", exact: true });
+  const step = page.getByRole("textbox", { name: "Charge step", exact: true });
+  const steps = page.getByRole("combobox", { name: "Steps", exact: true });
+  await expect(charge).toHaveValue("1.639");
+  await expect(page.getByText("= 25.30 grain", { exact: true })).toBeVisible();
+  await expect(steps).toHaveValue("1");
+  await expect(step).toBeDisabled();
+  await expect(page.getByText("No ladder: only the charge above is simulated.", { exact: true })).toBeVisible();
+  await expect(page.locator(".charge-results tbody tr")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "grain", exact: true }).click();
+  await expect(charge).toHaveValue("25.30");
+  await expect(step).toHaveValue("1.00");
+  await expect(page.getByText("= 1.639 g", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "grain", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: /223Rem_D0735_RWS\*/ })).toHaveCount(0); // presentation-only unit change
+
+  await steps.selectOption("3");
+  await expect(step).toBeEnabled();
+  await expect(page.getByText("3 steps: 25.30 grain down to 23.30 grain", { exact: true })).toBeVisible();
+  await expect(page.locator(".charge-results tbody tr")).toHaveCount(3);
+  // Like the native table, ladder results use the general display unit rather than the tab's field override.
+  await expect(page.locator(".charge-results tbody tr").nth(1)).toContainText("1.575 g");
+  await page.locator('.charge-results tr[data-ladder="2"]').click();
+  await expect(page.getByText("Selected ladder charge 1.510 g", { exact: true })).toBeVisible();
+  await expect(page.locator('.charge-results tr[data-ladder="2"]')).toHaveClass(/focused/);
+
+  await charge.fill("24.00");
+  await charge.press("Tab");
+  await expect(page.getByText("3 steps: 24.00 grain down to 22.00 grain", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /223Rem_D0735_RWS\*/ })).toBeVisible();
+  await page.keyboard.press("Control+z");
+  await expect(charge).toHaveValue("25.30");
+  await page.keyboard.press("Control+z");
+  await expect(steps).toHaveValue("1");
+  await expect(step).toBeDisabled();
 });
 
 test("edits numeric inputs, recalculates, validates, and supports undo and redo", async ({ page }) => {

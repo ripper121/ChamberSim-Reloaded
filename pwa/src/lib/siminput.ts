@@ -186,7 +186,7 @@ export function simInputFromLoad(load: LoadFile): SimInput {
     boreAreaMm2: number(caliber, "Aeff"),
     grooveDiameterMm: number(caliber, "Dz"),
     caliberBurnScale: shotshell ? 1 : physicalCaliberScale(text(load.caliberFile, "cipname"), rimRatio),
-    sebert: (() => { const value = number(caliber, "sebert", 0.5); return value >= 0 && value <= 1 ? value : 0.5; })(),
+    sebert: (() => { const value = number(caliber, "sebert", 0.25); return value >= 0 && value <= 1 ? value : 0.25; })(),
     startPressureBar: loadStartPressureBar(caliber),
     primerOffsetBar: primerOffsetBar(caliber),
     maxPressureBar: number(caliber, "pMaxZul"),
