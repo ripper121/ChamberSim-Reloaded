@@ -37,6 +37,7 @@ describe("SimInput::fromLoad parity", () => {
       bulletJumpMm: 0,
       bulletMassG: 3.369543319987,
       tailType: 2,
+      leadBullet: false,
       vivacityBa: 0.6588,
       kappa: 1.24,
       chargeG: 1.63941242299368,
@@ -86,6 +87,14 @@ describe("SimInput::fromLoad parity", () => {
     expect(input.handgun).toBe(true);
     expect(input.caliberBurnScale).toBe(1.1597);
     expect(physicalCaliberScale("unknown", 0)).toBe(1);
+  });
+
+  it("detects lead bullet material case-insensitively", () => {
+    const load = fixture("tests/fixtures/8x57is.grtload");
+    load.projectile = setEntry(load.projectile, "gmaterial", " Lead ");
+    expect(simInputFromLoad(load).leadBullet).toBe(true);
+    load.projectile = setEntry(load.projectile, "gmaterial", "jacketed");
+    expect(simInputFromLoad(load).leadBullet).toBe(false);
   });
 
   it("multiplies selected shotshell hull, wad, and primer group factors", () => {

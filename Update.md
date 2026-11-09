@@ -1,101 +1,42 @@
-# Upstream update and PWA follow-up
+# Upstream 0.16 update and PWA follow-up
 
-Last reviewed: 2026-10-28
+Last reviewed: 2026-11-09
 
 ## Synced upstream baseline
 
-The fork's `main` branch was merged with the latest original repository state:
+The fork's `main` branch now contains the latest original repository state:
 
 - Upstream: `https://github.com/Schildkroet/ChamberSim-Reloaded.git`
-- Upstream branch: `upstream/main`
-- Upstream head: `53eb164` (`Original profile refitted with the burnout batch (z weight 2); published-load checker`)
-- Previous fork head: `424d9dc`
-- Local merge commit: `208dc6d`
-- Safety branch: `backup-before-upstream-20261028`
-- ChamberSim core version: `0.14` (development version in `CMakeLists.txt`)
+- Upstream branch/head: `upstream/main` at `cf68ecdb` (`Line icons on the four result cards`)
+- Previous fork head: `f176ceb1`
+- Safety branch: `backup-before-upstream-016-20261109`
+- ChamberSim core version: `0.16`
 
-The upstream-only range contains 10 commits, from `5309ba8` through `53eb164`. The merge was clean and preserved `pwa/` and the fork-specific native/PWA work.
+The merge was clean and retained `pwa/`, its deployment workflow, port documentation, and both PWA wizards. Upstream added 28 commits since the shared baseline, including the 0.14 and 0.15 releases and the current 0.16 work.
 
-## Completion status
+## Completed in this update
 
-Completed and verified on 2026-10-28. The refitted Original calibration, powder-fit references, New Load gun weight, whitespace/case-insensitive powder matching, independent database/physical value notices, current project data counts/corrections and bulk-density-dependent behavior are ported. Final gates: 178/178 unit tests, 44/44 Edge tests plus expanded German/French/Italian New Load coverage, production build, installability/standalone launch, native CTest 6/6, and zero production audit findings.
+- Merged all upstream source, data, documentation, translations, build, and test changes through `cf68ecdb`.
+- Rebuilt the current native application and tools; native CTest passes 6/6.
+- Rebased the PWA project database to 494 calibers, 3,145 projectiles, and 277 propellants.
+- Ported the 0.16 projectile-material field (`gmaterial`): jacketed or lead (cast/swaged), record editing, new-load/component application, CSR preservation, old-load defaulting, report data, and omission from original GRT exports.
+- Ported physical-model lead friction: rifle lead bullets use the upstream 0.45 sliding-friction factor; handgun lead bullets retain factor 1; Original/Published behavior is unchanged.
+- Ported the physical handgun start-pressure fix so the 0.3 × permitted-pressure minimum applies at every barrel length.
+- Rebased the data-dependent D073.4 parametric-search regression from approximately 905.0 m/s to 902.3 m/s.
+- Updated version/count/final-ID expectations throughout unit and browser tests.
 
-## PWA work required
-
-### P0 - restore numerical parity
-
-1. Port the refitted Original-profile burn-law constants from `src/core/solver.h` and `calibrationFor()` in `src/core/solver.cpp` to `pwa/src/lib/solver.ts`.
-   - New Original defaults: `burnIntercept = 1.14476`, `burnSlopeA0 = 0.380336`, `burnSlopeOffset = -0.237782`, `burnExponent = -0.00120751`, `phase2 = [-0.478611, 0.25453, -0.536076]`, and `phase3 = [0.115942, -0.394165, 0.683927]`.
-   - Published and Physical must retain the previous shared constants: `1.09171`, `0.434982`, `0.00638254`, `-0.00810765`, `[-0.0867208, -0.0659705, -0.461006]`, and `[-0.103524, -0.0695024, 0.00958064]`, before their profile-specific overrides are applied.
-   - Do not merely replace the current TypeScript defaults: that would silently change Published and Physical results, contrary to upstream.
-   - Rebuild the current native CLI and regenerate Original-profile summary/curve goldens for the CSR and GRT fixtures. Recheck Published and Physical as non-regression cases.
-
-2. Re-run powder-fitting parity after the calibration change.
-   - `pwa/src/lib/powderfit.ts` evaluates the Original model, so before/after values and fit-quality assertions may change even if the fitter code itself does not.
-   - Compare both Original and Physical fit results with a freshly built `csr_fitpowder`; update deterministic expectations only from that reference.
-
-### P0 - port changed workflows
-
-3. Add **Gun weight** to the second step of the PWA New Load dialog.
-   - Native reference: `src/app/newloaddialog.cpp` and `src/app/newloaddialog.h`.
-   - Add `gunWeightKg` to the dialog state with a default of `0`, native range `0..100 kg`, `gunMass` unit conversion, localized label, validation, reset/back-forward retention, and browser tests.
-   - `LoadParams.gunWeightKg` and `buildLoad()` already support writing `mgun`, so the missing work is primarily the dialog wiring and verification that recoil velocity/energy appear without editing the generated file afterward.
-   - The updated catalogs already provide `Waffengewicht`, `Poids de l’arme`, and `Peso dell’arma`; English uses the source text.
-
-4. Make propellant-name matching ignore spaces and case wherever native matching does.
-   - Native reference: `keyOf()` in `src/core/physicalpowders.cpp` and the query in `LoadView::updateOutdatedNotice()`.
-   - At minimum, update `attachPhysical()` in `pwa/src/lib/loadbuilder.ts`; it currently compares lower-cased display titles but does not remove spaces.
-   - Use a shared canonical key so `RS 40` matches `RS40` (also relevant to ADI AR 22xx, Vectan Ba 9/Ba 10, Reloder 10X, and StaBALL 6.5).
-   - Apply the same rule to the PWA's database-value mismatch lookup/update banner. If the two native banners are not yet represented, implement them separately: “Use the database values…” replaces all powder values, while “Use the physical values…” only attaches physical burn values.
-   - Add tests for mixed case, leading/trailing whitespace, internal spaces, mismatched burn values, and keeping the load's own values when only physical values are requested.
-
-### P1 - consume and verify the updated project data
-
-5. Rebaseline the project database to the merged JSON data.
-   - The PWA imports `data/projectiles/*.json` and `data/propellants/*.json` directly, so production builds already contain the new records and values.
-   - Current counts are `485` calibers, `3,145` projectiles, and `249` propellants. The old unit/E2E expectation of `3,120` projectiles is stale and currently fails.
-   - Review the Sax replacement (89 maker records replacing 64 estimates), Hornady ELD Match 26177 length, measured LOS/GECO/H&N lengths, and reordered Balistix/Styria Arms records. Update count/final-ID/selection assumptions without weakening the tests.
-   - Verify that changed record ordering does not break persisted project-record selections or tests that rely on generated ID positions.
-
-6. Verify the 152 updated propellant bulk densities.
-   - No separate copy step is needed because the PWA reads the merged source JSON.
-   - Confirm representative records show the new `pcd` and description/source text.
-   - Exercise New Load default-charge calculation, load ratio, and charge-too-high behavior because these use bulk density. Pressure and velocity must not change solely from `pcd`.
-
-### P1 - version, localization, and regression evidence
-
-7. Update version-sensitive tests and user-visible evidence from ChamberSim `0.13` to `0.14` only where the version is read from `CMakeLists.txt`.
-   - `pwa/vite.config.ts` already injects `0.14`; the implementation needs no hard-coded version change.
-   - Update E2E assertions for the menu/version label and About dialog after confirming the built app.
-   - Keep the PWA package version `0.1.0` unless a separate PWA release decision changes it.
-
-8. Re-run localization checks using the merged Qt catalogs, especially New Load in German, French, and Italian.
-
-9. Complete the quality gates before restoring checklist rows to `PASS`:
-
-   ```text
-   cd pwa
-   npm run typecheck
-   npm test
-   npm run build
-   npm run test:e2e
-   npm run test:install
-   ```
-
-   Also rebuild and run native CTest, then perform direct CLI/PWA comparisons for all three solver profiles and the affected New Load cases.
-
-## Current verification after the merge
+## Verification
 
 - `npm run typecheck`: PASS.
-- `npm run build`: PASS; the generated PWA identifies the core as `0.14` and includes the updated database chunk. Vite reports the existing large lazy database-chunk warning.
-- `npm test -- --run`: **174 PASS, 1 FAIL**. The only observed failure is the stale projectile count in `pwa/src/lib/projectdb.test.ts` (`expected 3,120`, `actual 3,145`).
+- `npm test -- --run`: PASS, 32 files / 208 tests.
+- `npm run build`: PASS; generated app identifies ChamberSim 0.16. The existing large project-database chunk advisory remains non-failing.
+- Focused Edge production workflows: PASS, 8/8 after rebuilding; database/menu rerun PASS 2/2; enhanced New Load/material workflow PASS 1/1. Coverage includes counts, version/About, New Load, projectile-material edit/undo, CSR open, Physical/Original results, CSR/GRT export, update UI, and French/Italian surfaces.
+- Focused 0.16 unit set: PASS, 66/66, including lead material/friction, long-barrel handgun pressure, serialization, database, and synthesis behavior.
 - Native rebuild: PASS.
 - Native CTest: PASS, 6/6.
-- Fresh Original CLI references now available for implementation comparisons:
-  - `223Rem_D0735_RWS.csrload`: `3634.479989981062 bar`, `861.8915450232494 m/s`, `1251.5444806393325 J`, `0.7947894431577519 ms`, BLT `0.7144123480017133 ms`, OBT `0.7098716013275002 ms`, node `4.5`.
-  - `8x57is.grtload`: `2281.3711603096517 bar`, `668.700594563762 m/s`, `2839.600179329313 J`, `1.5789737217897648 ms`, BLT `1.5789737217897648 ms`, OBT `1.6145724871604725 ms`, node `9`.
-- Browser/E2E and installability have not yet been rerun for this upstream baseline.
 
-## Upstream changes with no direct PWA implementation
+The first parallel browser attempt served the old 0.14 `dist/` while the production build was replacing it, so two count checks saw 485 records. After the build completed, the same tests passed unchanged against the 0.16 output; this was a test-order issue, not an application defect.
 
-The macOS `nproc` fallback in `tools/build.sh`, the Qt 6.12 `QCoreApplication` test setup, the `QFile::open` warning fix, and the new Python analysis/refitting tools are native/build/reference changes. They require native CI/reference verification, but no browser runtime port unless their results expose another behavioral difference.
+## Remaining parity work
+
+The merge is complete, but full 0.16 PWA parity is not yet claimed. The next functional audit should compare every upstream change since 0.14, especially the new native Charge tab/card workflow and result-card icons, against the current browser workflows. Then run the complete Edge suite, installability/standalone gate, production dependency audit, and fresh native/PWA numerical goldens before restoring all version-sensitive checklist evidence to `PASS`.

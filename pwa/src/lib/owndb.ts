@@ -65,6 +65,10 @@ export function projectValidationProblems(table: ProjectTable, record: ProjectRe
   if (!String(record[name] ?? "").trim()) problems.push(`"${name}" (the name) is missing`);
   const positive = table === "caliber" ? ["L3", "V"] : table === "projectile" ? ["gdia", "glen", "gmass"] : ["Ba", "Qex", "k", "pc", "pcd"];
   for (const column of positive) if (!(Number(record[column] ?? 0) > 0)) problems.push(`"${column}" must be greater than 0`);
+  if (table === "projectile") {
+    const material = String(record.gmaterial ?? "").trim();
+    if (material && material.toLocaleLowerCase("en-US") !== "lead") problems.push('"gmaterial" must be empty (jacketed) or "lead"');
+  }
   if (table === "propellant") {
     const z1 = Number(record.z1), z2 = Number(record.z2), quality = Number(record.Qlty);
     if (!(z1 > 0 && z1 < z2 && z2 < 1)) problems.push("the transition limits need 0 < z1 < z2 < 1");

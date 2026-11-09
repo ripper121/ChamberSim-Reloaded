@@ -52,7 +52,7 @@ describe("native load builder", () => {
       chargeG: 2.7, barrelLengthMm: 600, seatingDepthMm: 10.4, twistLengthMm: 240, gunWeightKg: 3.7
     }, "Untitled.csrload", physicalPowderData);
     expect(load.caliber.map((item) => item.name)).toEqual(["CaliberName", "oal", "caselen", "casevol", "Dz", "Aeff", "pMaxZul", "method", "sebert", "ps", "primer", "psadd", "shotshell"]);
-    expect(load.projectile.map((item) => item.name).slice(0, 19)).toEqual(["ProjectileName", "mname", "pname", "lotid", "Dbul", "mp", "gdepth", "glen", "gpressure", "gtailh", "gTailDiaA", "gTailDiaB", "gTailType", "g1bc", "g7bc", "gUBCS", "gfriction", "gfrictionUnlock", "mode"]);
+    expect(load.projectile.map((item) => item.name).slice(0, 20)).toEqual(["ProjectileName", "mname", "pname", "lotid", "Dbul", "mp", "gdepth", "glen", "gpressure", "gtailh", "gTailDiaA", "gTailDiaB", "gTailType", "g1bc", "g7bc", "gUBCS", "gfriction", "gfrictionUnlock", "gmaterial", "mode"]);
     expect(load.propellant.find((item) => item.name === "physBa")).toBeDefined();
     expect(load.caliberFile.some((item) => item.name === "PmaxSAAMI")).toBe(false);
     const parsed = parseLoadXml(serializeLoadXml(load), "built.csrload");
@@ -62,6 +62,15 @@ describe("native load builder", () => {
     expect(result.muzzleVelocityMs).toBeGreaterThan(500);
     expect(result.recoilVelocityMs).toBeGreaterThan(0);
     expect(result.recoilEnergyJ).toBeGreaterThan(0);
+  });
+
+  it("normalizes and applies projectile material", () => {
+    const lead = projectRecords.projectile.find((record) => record.gmaterial === "lead")!;
+    const load = buildLoad(caliber, { ...lead, gmaterial: " Lead " }, propellant, { chargeG: 2.7 });
+    expect(load.projectile.find((entry) => entry.name === "gmaterial")?.value).toBe("lead");
+    expect(simInputFromLoad(load).leadBullet).toBe(true);
+    applyProjectile(load, { ...projectile, gmaterial: "" });
+    expect(load.projectile.find((entry) => entry.name === "gmaterial")?.value).toBe("");
   });
 
   it("estimates missing boat-tail dimensions", () => {

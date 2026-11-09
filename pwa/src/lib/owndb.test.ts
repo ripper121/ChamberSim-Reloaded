@@ -28,4 +28,11 @@ describe("personal database compatibility", () => {
     expect(json).not.toContain("geloescht");
     expect(json.indexOf('"mname"')).toBeLessThan(json.indexOf('"Ba"'));
   });
+
+  it("accepts only native projectile material values", () => {
+    const projectile = normalizeOwnRecord("projectile", { pname: "Cast", gdia: 7.82, glen: 20, gmass: 150, gmaterial: " Lead " }, 10_000_000);
+    expect(projectValidationProblems("projectile", projectile)).toEqual([]);
+    projectile.gmaterial = "copper";
+    expect(projectValidationProblems("projectile", projectile)).toContain('"gmaterial" must be empty (jacketed) or "lead"');
+  });
 });

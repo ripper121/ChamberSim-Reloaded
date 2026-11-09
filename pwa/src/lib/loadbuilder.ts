@@ -39,6 +39,7 @@ const projectileSpec = fields([
   ["gTailType", "", "decimal", "projectile base type"], ["g1bc", "", "decimal", "G1 ballistic coefficient"],
   ["g7bc", "", "decimal", "G7 ballistic coefficient"], ["gUBCS", "", "string", "UBCS-Code (Universal Bullet Classification Scheme)"],
   ["gfriction", "bar", "decimal", "special bullet resistance inside the barrel"], ["gfrictionUnlock", "", "boolean", "unlocked friction"],
+  ["gmaterial", "", "string", "bullet material (jacketed or lead: cast, swaged)"],
   ["mode", "", "string", ""]
 ]);
 const propellantSpec = fields([
@@ -101,7 +102,9 @@ function projectileValues(projectile: Partial<ProjectRecord>): Record<string, st
     gpressure: format(pressure), gtailh: format(number(projectile, "gtailh")), gTailDiaA: format(number(projectile, "gtaildiaA")),
     gTailDiaB: format(number(projectile, "gtaildiaB")), gTailType: String(Math.min(Math.max(Math.trunc(number(projectile, "gtailtype")), 0), 2)),
     g1bc: format(number(projectile, "g1bc")), g7bc: format(number(projectile, "g7bc")), gUBCS: text(projectile, "gUBCS"),
-    gfriction: format(number(projectile, "gfriction")), mode: text(projectile, "mode")
+    gfriction: format(number(projectile, "gfriction")),
+    gmaterial: text(projectile, "gmaterial").trim().toLocaleLowerCase("en-US") === "lead" ? "lead" : "",
+    mode: text(projectile, "mode")
   };
 }
 

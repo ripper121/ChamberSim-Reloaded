@@ -1,16 +1,23 @@
 # PWA Port Progress
 
-Last updated: 2026-10-30
+Last updated: 2026-11-09
 
 ## Current objective (Phase 1 or Phase 2)
 
-Phase 1 functional parity. The requested Parametric Powder Search / Generic tolerance synthesis Wizard is implemented; complete its native-result replay before claiming exact numerical parity, then continue the remaining functional audit before Phase 2 visual work.
+Phase 1 functional parity. Upstream 0.16 is merged and its core data/model deltas are ported; complete the remaining 0.16 native-to-PWA functional audit before returning to the Parametric Powder Search native-result replay or starting Phase 2.
 
 ## Current state (working / failing / blocked)
 
-Working and not blocked. Parametric powder matching, source-derived primary-target/acceptance-limit semantics, selection/conditions/results workflow, Apply and Undo pass focused unit/build/browser checks. The former uniform coarse/refinement search has been replaced by GRT's recovered coarse-to-fine grain increment ladder and source-derived charge bounds. A released-GRT single-target replay is captured; an exported combined pressure/velocity replay is still required before claiming complete simultaneous-criterion parity.
+Working and not blocked. Local `main` contains upstream `cf68ecdb` (ChamberSim 0.16) plus the PWA. Native build/CTest, PWA typecheck, all 208 unit tests, production build, and 0.16-focused Edge workflows pass. Full 0.16 browser/installability regression and the upstream Charge-tab functional audit remain outstanding, so version-sensitive rows must not be treated as fully reverified yet.
 
 ## Completed since previous checkpoint
+
+- Created safety branch `backup-before-upstream-016-20261109` and cleanly merged 28 upstream commits through `cf68ecdb`; retained the PWA, deployment workflow, wizards, and tracking files.
+- Rebased project data and browser expectations to 494 calibers, 3,145 projectiles, and 277 propellants.
+- Ported upstream 0.16 projectile material across the browser model, project/personal record editor, load builder/application, old-load normalization, CSR round trips, report data, and GRT export. `gmaterial=lead` is case-insensitive; original exports omit the CSR-only field.
+- Ported physical rifle lead-bullet sliding friction (`0.45` factor), the handgun factor (`1`), and the all-barrel-length handgun start-pressure rule. Added focused directionality/non-regression coverage.
+- Updated core/version/count/final-ID browser assertions and the D073.4 data-dependent search baseline (approximately 902.3 m/s with current 0.16 powder data).
+- Rebuilt native 0.16 and passed CTest 6/6; passed PWA typecheck, 32 files / 208 unit tests, production build, 66 focused 0.16 unit cases, 8 focused Edge workflows, a 2-case clean-build rerun, and the enhanced New Load/material workflow.
 
 - Added Wizard > Parametric Powder Search for active loads, backed by a pure domain module and the current project/personal propellant database.
 - Reproduced GRT's mutually exclusive similarity/manual powder-selection stage. Similarity supports Brp/Br/Bp plus independent Qex, k, Ba, a0, z1, z2, material-density and bulk-density tolerance windows, direction and maximum range; selected matches become synthesis candidates rather than mutating the load.
@@ -24,7 +31,7 @@ Working and not blocked. Parametric powder matching, source-derived primary-targ
 - Removed the duplicate propellant-selection controls from Conditions. Powder candidates are now managed only on the first tab and carried forward by Next; Conditions contains only targets, filters, configuration and synthesis execution.
 - Matched the GRT Conditions interaction model: disabled condition rows also disable their target/limit/tolerance controls and corresponding result filters; enabling a primary row preserves its native zero limits and keeps Start disabled until both positive limits are supplied. Clear-limits and reset-target actions are distinct, reset uses the active-load result, filter terminology/order matches GRT, Back returns to powder selection, and result exports appear only on Results. Configuration actions remain available through the GRT-style File menu instead of occupying the Conditions panel.
 - Fixed primary-condition activation so velocity, BT or BLT can no longer submit stale `0 / 0` limits or silently derive a synthetic exact window. The reference D073.4 case was reproduced directly at 905.0165 m/s before synthesis and 905.0708 m/s at the synthesized pressure target.
-- Corrected the synthesis objective after targeted recovery of GRT's `InnerBallistikToleranceSynthesis` routines (`Compute_InitMode`, `Compute_InitSteps` and `Compute_Charge`): primary Target is the charge-search objective, while Target min./max. are acceptance limits and secondary rows are constraint-only. The earlier PWA incorrectly invented `(min + max) / 2` as the target. A regression using the reference D073.4 load, its active pressure target and the user-reported 3225-3655 bar limits now retains the active charge and approximately 905 m/s instead of seeking 3440 bar.
+- Corrected the synthesis objective after targeted recovery of GRT's `InnerBallistikToleranceSynthesis` routines (`Compute_InitMode`, `Compute_InitSteps` and `Compute_Charge`): primary Target is the charge-search objective, while Target min./max. are acceptance limits and secondary rows are constraint-only. The earlier PWA incorrectly invented `(min + max) / 2` as the target. With current 0.16 powder data, the reference D073.4 regression retains the active charge and approximately 902.3 m/s instead of seeking 3440 bar.
 - Replaced the PWA's invented uniform grid with GRT's recovered fixed charge ladder: 0.05, 0.03, 0.02, 0.01, 0.005, 0.003, 0.001, 0.0005, 0.0001, 0.00005 and 0.00001 grain. Search begins at the enabled minimum load ratio or GRT's 0.001-grain floor, caps at powder capacity or the enabled maximum ratio, and rounds capacity bounds to 0.0001 grain.
 - Added GRT's warning before synthesizing more than 20 powders. Synthesis now yields within each powder, so the Live Diagram displays real intermediate charge calculations and Cancel interrupts the current powder instead of waiting for it to finish.
 - Made both Wizard dialogs consume the active theme's Window, Base, AlternateBase, Text, Highlight, HighlightedText, Placeholder and Disabled palette roles. This removes the fixed dark Propellant Mass and Parametric Powder Search surfaces/fields that previously overrode Gruvbox Dark, Nord, Dracula and Catppuccin Frappé.
@@ -61,13 +68,14 @@ Working and not blocked. Parametric powder matching, source-derived primary-targ
 
 ## In-progress work (files/functions and exact remaining steps)
 
-The source-aligned Parametric Powder Search changes are buildable but uncommitted. The released GRT all-powder 3646 bar target / 3001-4291 bar limits replay is stored as `tests/fixtures/grt-parametric-223Rem-RWS52gr-D0734.txt` beside its load. It confirms active D073.4 stays at 25.30 grain and target-seeking/capacity behavior; historical GRT N140 reaches 3642 bar at 26.81 grain while the current ChamberSim model reaches 3646 bar at 25.0485 grain. A reproducible exported combined 3646-bar plus 880 m/s replay remains to verify simultaneous-criterion ranking; the temporary reference GUI process has been closed and is not a PWA dependency.
+The upstream merge and initial 0.16 PWA adaptation are implemented but not committed or pushed. Audit the 28 upstream commits against the browser, prioritizing the new native Charge tab/card workflow and any calculation/input semantics it introduces. The released GRT all-powder replay remains stored at `tests/fixtures/grt-parametric-223Rem-RWS52gr-D0734.txt`; a reproducible combined pressure/velocity replay is still required for complete simultaneous-criterion parity.
 
 ## Next actions (ordered, directly actionable)
 
-1. Capture a reproducible combined pressure/velocity GRT synthesis result, replay representative powders in the PWA and reconcile simultaneous-criterion differences before marking the wizard `PASS`.
-2. Continue the full parity checklist/current native source audit; keep cosmetic work deferred if another functional gap is found.
-3. If no Phase 1 gaps remain, explicitly record the Phase 2 transition and perform source/native visual comparison from the current 0.14 baseline.
+1. Inventory and port any remaining upstream 0.16 functional deltas, starting with the native Charge tab/card workflow; add deterministic and Edge coverage before marking it complete.
+2. Run the complete Edge suite, installability/standalone verifier and `npm audit --omit=dev`; refresh direct native/PWA solver goldens affected by 0.16 data/calibration.
+3. Capture the pending combined pressure/velocity GRT synthesis replay and reconcile simultaneous-criterion differences.
+4. Only after the Phase 1 checklist has no unapproved gaps, record the Phase 2 transition and begin visual comparison from the 0.16 baseline.
 
 ## How to run (working commands, directories, server URL/port if known)
 
@@ -98,7 +106,15 @@ $env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
 
 ## Tests and parity verification (commands, results, known failures)
 
-Current 0.14 evidence:
+Current 0.16 update evidence (older 0.14 evidence below remains historical for unchanged paths):
+
+- Native build and `ctest --test-dir build/current-reference --output-on-failure`: PASS, 6/6.
+- `npm run typecheck`: PASS.
+- `npm test -- --run`: PASS, 32 files / 208 tests.
+- `npm run build`: PASS; ChamberSim 0.16 output generated, with only the existing non-failing large database-chunk advisory.
+- Focused 0.16 unit gate: PASS, 66/66 across database/load builder/load file/simulation/solver/parametric synthesis.
+- Focused production Edge gate: PASS, 8/8 for database, menu/About version, New Load, CSR open, Physical/Original results, CSR/GRT export, update state and French/Italian surfaces. The database/menu cases also passed 2/2 in a clean rerun after production build completion; the enhanced New Load case passed 1/1 with projectile-material edit/undo.
+- A first parallel build/browser attempt served the prior `dist/` for two early cases (showing 485/249 and version 0.14); the other six cases passed, then the two early cases passed unchanged once the 0.16 build completed. Do not run preview E2E concurrently with a command replacing `dist/`.
 
 - Out-of-spec result reveal regression: `npm run build` PASS with 27 precache entries; focused Generic Tolerance Synthesis Edge workflow PASS using an above-maximum result filter that previously removed the solution before rendering. The checkbox now reveals the retained row, unchecking hides it and clears selection/Apply state.
 - Wizard translations: full `npm test -- --run` PASS (32 files / 204 tests); `npm run build` PASS with 27 precache entries. Catalog tests verify complete German/French/Italian entries and placeholder substitution; focused Edge workflows PASS for English Propellant Mass, theme integration and a live German pass through both Wizard dialogs.
@@ -125,7 +141,7 @@ Fresh native/PWA Original references:
 
 ## Known issues and blockers
 
-- No blocker for the 0.14 PWA update.
+- No blocker for the upstream merge or initial 0.16 core port. Full 0.16 functional/browser parity remains in progress.
 - The proprietary `tools/GordonsReloadingTool.plain.db` fixture is absent. Native database-dependent tests skip; the PWA browser suite uses a deterministic synthetic plain SQLite fixture.
 - Browsers use explicit uploads/downloads rather than unrestricted local paths. Save updates are downloads; Export PDF uses browser print/Save as PDF; Quit/window-close UI is browser-owned.
 - Full `npm audit` still has development-build-chain advisories documented by D-056; shipped production dependencies have zero findings.

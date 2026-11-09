@@ -29,7 +29,7 @@ const labels: Record<string, string> = {
   c_Z: "Groove diameter (Z)", c_F: "Bore diameter (F)", c_Q: "Bore cross-section (Q)", c_N: "Number of grooves (N)",
   c_b_: "Groove width (b)", c_u_: "Twist length (u)", c_L3: "Chamber length (L3)", sebert: "Sebert factor",
   mname: "Manufacturer", pname: "Name", lotid: "Lot", caliber: "Caliber designation", gdia: "Diameter", glen: "Length",
-  gValid: "Validated", gmass: "Mass", gtailtype: "Base type", gtaildiaA: "Base diameter A", gtaildiaB: "Base diameter B",
+  gValid: "Validated", gmass: "Mass", gtailtype: "Base type", gmaterial: "Material", gtaildiaA: "Base diameter A", gtaildiaB: "Base diameter B",
   gtailh: "Boat-tail / cavity length", gdepthmax: "Max. seating depth", gpressure: "Start pressure", gfriction: "Extra friction",
   g1bc: "G1 ballistic coefficient", g7bc: "G7 ballistic coefficient", gUBCS: "UBCS",
   Ba: "Burn rate coefficient (Ba)", Qex: "Explosion heat (Qex)", k: "Ratio of specific heats (k)", eta: "Covolume factor (eta)",
@@ -76,6 +76,7 @@ function groupOf(table: ProjectTable, column: string): string {
 function choicesOf(table: ProjectTable, column: string): Array<{ value: string; label: string }> | undefined {
   if (column === "gValid") return [{ value: "false", label: "✘ no" }, { value: "true", label: "✔ yes" }];
   if (column === "gtailtype") return [{ value: "0", label: "flat base" }, { value: "1", label: "hollow base" }, { value: "2", label: "boat tail" }];
+  if (table === "projectile" && column === "gmaterial") return [{ value: "", label: "jacketed" }, { value: "lead", label: "lead (cast, swaged)" }];
   if (table !== "caliber") return undefined;
   if (column === "ciporigin") {
     const names = new Intl.DisplayNames(["en"], { type: "region" });

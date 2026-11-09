@@ -1,6 +1,6 @@
 # PWA Port Decisions
 
-Last updated: 2026-10-30
+Last updated: 2026-11-09
 
 This file retains only decisions needed to maintain the completed port. Detailed feature-to-source evidence is in [parity-checklist.md](parity-checklist.md).
 
@@ -56,7 +56,7 @@ Use `vite-plugin-pwa`/Workbox for manifest and app-shell precaching. Treat insta
 
 ## D-051 / D-052 — Treat upstream and historical binaries correctly
 
-`build/release` is a historical v0.10 package after the v0.13 merge. Keep backward-compatible fixtures, but build current source for new acceptance references. Future upstream merges must preserve `pwa/`, deployment assets and the `csr_fitpowder` resource fix, then explicitly review every native change for PWA impact.
+`build/release` is a historical v0.10 package after the v0.16 merge. Keep backward-compatible fixtures, but build current source for new acceptance references. Future upstream merges must preserve `pwa/`, deployment assets and the `csr_fitpowder` resource fix, then explicitly review every native change for PWA impact.
 
 ## D-053 — Map themes through native palette roles
 

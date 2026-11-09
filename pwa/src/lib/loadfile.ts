@@ -154,6 +154,11 @@ export function parseLoadXml(xml: string, fileName: string): LoadFile {
     sourceXml: xml
   };
   normalizeLoadCompatibility(parsed);
+  const material = parsed.projectile.find((entry) => entry.name === "gmaterial");
+  if (!material) parsed.projectile.push({
+    name: "gmaterial", value: "", unit: "", type: "string", description: "bullet material (jacketed or lead: cast, swaged)"
+  });
+  else if (!material.description) material.description = "bullet material (jacketed or lead: cast, swaged)";
   return parsed;
 }
 
@@ -341,6 +346,8 @@ export function serializeLoadXml(load: LoadFile, format: FileFormat = "reload"):
   const loadTag = original ? "InnerBallistikInput" : "load";
   const projectile = load.projectile.map((entry) => ({ ...entry }));
   if (original) {
+    const material = projectile.findIndex((entry) => entry.name === "gmaterial");
+    if (material >= 0) projectile.splice(material, 1);
     const unlock = projectile.find((entry) => entry.name === "gfrictionUnlock");
     if (unlock) unlock.value = "true";
     else projectile.push({ name: "gfrictionUnlock", value: "true", unit: "", type: "", description: "" });

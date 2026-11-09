@@ -205,6 +205,11 @@ function choices(entry: Entry): Choice[] | undefined {
     if (!options.some((option) => option.value === entry.value)) options.push({ value: entry.value, label: i18n.text("PropertyPanel", "type %1", entry.value) });
     return options;
   }
+  if (entry.name === "gmaterial") {
+    const options = [{ value: "", label: propertyText("jacketed") }, { value: "lead", label: propertyText("lead (cast, swaged)") }];
+    if (entry.value && !options.some((option) => option.value === entry.value)) options.push({ value: entry.value, label: entry.value });
+    return options;
+  }
   if (entry.name === "shotshell") {
     const options = [{ value: "false", label: propertyText("no") }, { value: "true", label: propertyText("yes") }];
     if (!options.some((option) => option.value === entry.value)) options.push({ value: entry.value, label: i18n.text("PropertyPanel", "type %1", entry.value) });

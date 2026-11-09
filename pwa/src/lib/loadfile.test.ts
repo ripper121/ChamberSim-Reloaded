@@ -14,6 +14,7 @@ describe("load-file compatibility", () => {
     expect(load.title).toContain("223 Rem.");
     expect(load.caliber.find((entry) => entry.name === "casevol")?.value).toBe("1.96599892939242");
     expect(load.projectile.find((entry) => entry.name === "mname")?.value).toBe("RWS");
+    expect(load.projectile.find((entry) => entry.name === "gmaterial")?.value).toBe("");
     expect(load.physical.find((entry) => entry.name === "physGrain")?.value).toBe("cylinder");
     expect(load.measurements).toHaveLength(1);
     expect(load.measurements[0]?.charges[0]?.shots[0]?.velocityMs).toBe(900.5);
@@ -62,6 +63,7 @@ describe("load-file compatibility", () => {
     expect(xml).toContain("<InnerBallistikInput>");
     expect(xml).not.toContain("<physical>");
     expect(xml).not.toContain("<shotshell>");
+    expect(xml).not.toContain('name="gmaterial"');
     expect(xml).toMatch(/name="gfrictionUnlock" value="true"/);
     expect(parseLoadXml(xml, "export.grtload").source).toBe("original");
   });

@@ -128,7 +128,7 @@ describe("parametric powder search wizard", () => {
     expect(solution?.inTolerance).toBe(false);
   });
 
-  it("keeps the active D073.4 result near 905 m/s when its pressure target is inside 3225-3655 bar", async () => {
+  it("keeps the active D073.4 result near 902 m/s when its pressure target is inside 3225-3655 bar", async () => {
     const path = resolve(import.meta.dirname, "../../../../tests/fixtures/223Rem_D0735_RWS.csrload");
     const load = parseLoadXml(readFileSync(path, "utf8"), path);
     const record = projectRecords.propellant.find((candidate) => candidate.mname === "Lovex" && candidate.pname === "D073.4")!;
@@ -138,7 +138,7 @@ describe("parametric powder search wizard", () => {
     const capacity = input.bulkDensityKgM3 * 1e-3 * freeVolumeCm3(input, calibration);
     const solution = await synthesizePowderCharge((chargeG) => simulate({ ...input, chargeG }, calibration), input.chargeG,
       input.chargeG * 0.15, capacity * 1.2, { maxPressureBar: { target: current.maxPressureBar, min: 3225, max: 3655 } });
-    expect(current.muzzleVelocityMs).toBeCloseTo(905, 0);
+    expect(current.muzzleVelocityMs).toBeCloseTo(902.3, 1);
     expect(solution?.chargeG).toBeCloseTo(input.chargeG, 8);
     expect(solution?.result.muzzleVelocityMs).toBeCloseTo(current.muzzleVelocityMs, 6);
     expect(solution?.inTolerance).toBe(true);

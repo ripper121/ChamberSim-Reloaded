@@ -3,9 +3,9 @@ import { databaseColumns, filteredRecords, normalizedSearch, projectCounts, proj
 
 describe("project database", () => {
   it("loads every repository record in native filename/order ID ranges", () => {
-    expect(projectCounts).toEqual({ caliber: 485, projectile: 3145, propellant: 249 });
+    expect(projectCounts).toEqual({ caliber: 494, projectile: 3145, propellant: 277 });
     expect(projectRecords.caliber[0]).toMatchObject({ id: 1_000_000, source: "project", cipname: "10.3 Capra" });
-    expect(projectRecords.caliber.at(-1)?.id).toBe(1_000_484);
+    expect(projectRecords.caliber.at(-1)?.id).toBe(1_000_493);
     expect(Number(projectRecords.propellant.find((record) => record.pname === "D073.4")?.Br)).toBeGreaterThan(0);
   });
 
@@ -20,6 +20,7 @@ describe("project database", () => {
     expect(projectRecords.projectile.filter((record) => record.mname === "Balistix").map((record) => record.pname).slice(0, 1)).toEqual(["BT HunTac (HBN) .223 50 gr"]);
     const styria = projectRecords.projectile.filter((record) => record.mname === "Styria Arms");
     expect([styria[0]?.pname, styria.at(-1)?.pname]).toEqual(["AERO ECO, .264 90 gr", "AERO SUB-RO, .308 105 gr"]);
+    expect(projectRecords.projectile.filter((record) => record.gmaterial === "lead")).toHaveLength(61);
 
     const d0735 = projectRecords.propellant.find((record) => record.mname === "Lovex" && record.pname === "D073.5")!;
     const accurate1680 = projectRecords.propellant.find((record) => record.mname === "Accurate" && record.pname === "1680")!;

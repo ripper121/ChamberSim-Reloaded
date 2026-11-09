@@ -91,6 +91,8 @@ export interface Calibration {
   neckStressMPa: number;
   engravingInterference: number;
   slideInterference: number;
+  leadSlideFactor: number;
+  leadSlideFactorHandgun: number;
   caliberBurnScaling: number;
   heatTransferFactor: number;
   heatVelocityMs: number;
@@ -104,7 +106,6 @@ export interface Calibration {
   burnExponent: number;
   initialGasFactor: number;
   handgunStartFraction: number;
-  handgunMaxBarrelMm: number;
   burnZ0Factor: number;
   ignitionRate: number;
   ignitionLead: number;
@@ -202,6 +203,8 @@ function originalCalibration(): Calibration {
     neckStressMPa: 0,
     engravingInterference: 0,
     slideInterference: 0,
+    leadSlideFactor: 1,
+    leadSlideFactorHandgun: -1,
     caliberBurnScaling: 1,
     heatTransferFactor: 0.5,
     heatVelocityMs: 0,
@@ -215,7 +218,6 @@ function originalCalibration(): Calibration {
     burnExponent: -0.00120751,
     initialGasFactor: 0.536312,
     handgunStartFraction: 0,
-    handgunMaxBarrelMm: 400,
     burnZ0Factor: 0,
     ignitionRate: 0.132,
     ignitionLead: 7.17663,
@@ -273,6 +275,8 @@ export function calibrationFor(profile: CalibrationProfile): Calibration {
       engravingLengthHandgunMm: 0,
       slideStressMPa: 0.700469,
       slideInterference: 1.5,
+      leadSlideFactor: 0.45,
+      leadSlideFactorHandgun: 1,
       heatTransferFactor: 0.0618079,
       heatVelocityMs: 169.199,
       burnExponent: -0.05,
@@ -349,7 +353,7 @@ export function freeVolumeCm3(input: SimInput, calibration: Calibration): number
 }
 
 function adjustedForHandgun(input: SimInput, calibration: Calibration): SimInput {
-  if (input.handgun && !input.shotshell && input.barrelLengthMm < calibration.handgunMaxBarrelMm
+  if (input.handgun && !input.shotshell
       && calibration.handgunStartFraction * input.maxPressureBar > input.startPressureBar) {
     return { ...input, startPressureBar: calibration.handgunStartFraction * input.maxPressureBar };
   }
@@ -804,7 +808,8 @@ export function simulatePhysical(input: SimInput, calibration: Calibration, step
   const engravingPressure = active.engravingPressureBar > 0 ? active.engravingPressureBar * pascalsPerBar
     : perClass(active.engravingShare, active.engravingShareHandgun) * startPressure;
   const engravingForce = fit(active.engravingInterference) * engravingPressure * area;
-  const slideForce = active.slideStressMPa * fit(active.slideInterference) * 1e6 * Math.PI * bulletDiameter * bearing;
+  let slideForce = active.slideStressMPa * fit(active.slideInterference) * 1e6 * Math.PI * bulletDiameter * bearing;
+  if (adjusted.leadBullet) slideForce *= Math.max(perClass(active.leadSlideFactor, active.leadSlideFactorHandgun), 0);
   const extraForce = adjusted.extraFrictionBar * pascalsPerBar * area;
   const heatCoefficient = active.heatTransferFactor * 0.023 * 0.2 * 0.7 ** 0.4 * (8e-5) ** -0.8 * boreDiameter ** -0.2;
   const chamberRadius = Math.sqrt(chamberVolume / (Math.PI * startPosition));

@@ -142,11 +142,26 @@ describe("simulation preflight", () => {
     expect(simulate({ ...value, chargeG: 3.5 }, calibrationFor("original")).maxPressureBar).toBeCloseTo(4868.83, 1);
   });
 
-  it("raises short-barrel handgun start pressure exactly like the physical profile", () => {
+  it("raises handgun start pressure at every barrel length exactly like the physical profile", () => {
     const value = { ...input(), handgun: true, barrelLengthMm: 100, maxPressureBar: 3000, startPressureBar: 250 };
     const preflight = preflightSimulation(value, calibrationFor("physical"));
     expect(preflight.input.startPressureBar).toBe(900);
     expect(value.startPressureBar).toBe(250);
+    expect(preflightSimulation({ ...value, barrelLengthMm: 610 }, calibrationFor("physical")).input.startPressureBar).toBe(900);
+  });
+
+  it("reduces physical rifle sliding friction for lead bullets only", () => {
+    const jacketed = input("tests/fixtures/8x57is.grtload");
+    const physical = calibrationFor("physical");
+    const jacketedResult = simulate(jacketed, physical);
+    const leadResult = simulate({ ...jacketed, leadBullet: true }, physical);
+    expect(leadResult.status).toBe("ok");
+    expect(leadResult.frictionForceN).toBeLessThan(jacketedResult.frictionForceN);
+    expect(leadResult.muzzleVelocityMs).toBeGreaterThan(jacketedResult.muzzleVelocityMs);
+    const original = calibrationFor("original");
+    expect(simulate({ ...jacketed, leadBullet: true }, original).muzzleVelocityMs).toBe(simulate(jacketed, original).muzzleVelocityMs);
+    expect(simulate({ ...jacketed, handgun: true, leadBullet: true }, physical).muzzleVelocityMs)
+      .toBe(simulate({ ...jacketed, handgun: true }, physical).muzzleVelocityMs);
   });
 
   it("reproduces ladder clamping and positive-charge termination", () => {

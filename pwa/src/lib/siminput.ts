@@ -43,6 +43,7 @@ export interface SimInput {
   tailDiameterBMm: number;
   tailType: number;
   extraFrictionBar: number;
+  leadBullet: boolean;
   vivacityBa: number;
   heatQexKjKg: number;
   kappa: number;
@@ -206,6 +207,7 @@ export function simInputFromLoad(load: LoadFile): SimInput {
     tailDiameterBMm: number(load.projectile, "gTailDiaB"),
     tailType: toIntClamped(number(load.projectile, "gTailType"), 0, 2),
     extraFrictionBar: number(load.projectile, "gfriction"),
+    leadBullet: text(load.projectile, "gmaterial").trim().toLocaleLowerCase("en-US") === "lead",
     vivacityBa: number(propellant, "Ba"),
     heatQexKjKg: number(propellant, "Qex"),
     kappa: number(propellant, "k", 1.22),
