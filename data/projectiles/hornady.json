@@ -41,11 +41,11 @@
     "gdia": 6.17,
     "glen": 33.9,
     "gmass": 110.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.17,
     "gtaildiaB": 4.44,
     "gtailh": 4.57,
-    "gpressure": 250.0,
     "g1bc": 0.604,
     "g7bc": 0.304,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
@@ -94,14 +94,14 @@
     "glen": 35.0,
     "gValid": true,
     "gmass": 135.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.71,
     "gtaildiaB": 5.59,
     "gtailh": 2.54,
-    "gpressure": 180.0,
     "g1bc": 0.637,
     "g7bc": 0.321,
-    "gfriction": -40.0
+    "gfriction": -45.0
   },
   {
     "mname": "Hornady",
@@ -111,11 +111,11 @@
     "glen": 35.0,
     "gValid": true,
     "gmass": 135.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.71,
     "gtaildiaB": 5.59,
     "gtailh": 2.54,
-    "gpressure": 250.0,
     "g1bc": 0.637,
     "g7bc": 0.321
   },
@@ -127,12 +127,12 @@
     "glen": 38.1,
     "gValid": true,
     "gmass": 153.0,
+    "gpressure": 235.0,
     "gtailtype": 2,
     "gtaildiaA": 6.71,
     "gtaildiaB": 5.59,
     "gtailh": 2.54,
-    "gpressure": 110.0,
-    "gfriction": -65.0
+    "gfriction": -75.0
   },
   {
     "mname": "Hornady",
@@ -141,11 +141,10 @@
     "gdia": 7.21,
     "glen": 38.2,
     "gmass": 166.0,
-    "gpressure": 215.0,
+    "gpressure": 250.0,
     "g1bc": 0.664,
     "g7bc": 0.332,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": -100.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -167,11 +166,11 @@
     "glen": 44.9,
     "gValid": true,
     "gmass": 176.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.8,
     "gtailh": 4.1,
-    "gpressure": 250.0,
     "g1bc": 0.564,
     "g7bc": 0.284
   },
@@ -195,11 +194,11 @@
     "glen": 44.7,
     "gValid": true,
     "gmass": 230.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
     "gtaildiaB": 6.78,
     "gtailh": 4.06,
-    "gpressure": 250.0,
     "g1bc": 0.823,
     "g7bc": 0.414
   },
@@ -211,14 +210,13 @@
     "glen": 47.2,
     "gValid": true,
     "gmass": 250.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
     "gtaildiaB": 6.78,
     "gtailh": 4.06,
-    "gpressure": 500.0,
     "g1bc": 0.878,
-    "g7bc": 0.442,
-    "gfriction": -95.0
+    "g7bc": 0.442
   },
   {
     "mname": "Hornady",
@@ -264,11 +262,11 @@
     "glen": 64.9,
     "gValid": true,
     "gmass": 750.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 12.9,
     "gtaildiaB": 11.0,
     "gtailh": 8.1,
-    "gpressure": 250.0,
     "g1bc": 1.05
   },
   {
@@ -311,10 +309,9 @@
     "gdia": 6.17,
     "glen": 32.4,
     "gmass": 105.0,
-    "gpressure": 375.0,
+    "gpressure": 250.0,
     "g1bc": 0.536,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": -20.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -358,8 +355,7 @@
     "gmass": 168.0,
     "gpressure": 250.0,
     "g1bc": 0.44,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": -50.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -423,7 +419,7 @@
     "gdia": 5.69,
     "glen": 29.4,
     "gmass": 70.0,
-    "gpressure": 280.0,
+    "gpressure": 350.0,
     "g1bc": 0.392,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -434,10 +430,9 @@
     "gdia": 6.17,
     "glen": 28.0,
     "gmass": 80.0,
-    "gpressure": 500.0,
+    "gpressure": 350.0,
     "g1bc": 0.273,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": 100.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -457,10 +452,9 @@
     "gdia": 6.53,
     "glen": 29.0,
     "gmass": 90.0,
-    "gpressure": 500.0,
+    "gpressure": 350.0,
     "g1bc": 0.273,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": 75.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -481,10 +475,9 @@
     "gdia": 6.71,
     "glen": 35.9,
     "gmass": 120.0,
-    "gpressure": 420.0,
+    "gpressure": 350.0,
     "g1bc": 0.428,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": 110.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -493,10 +486,9 @@
     "gdia": 6.71,
     "glen": 24.8,
     "gmass": 90.0,
-    "gpressure": 500.0,
+    "gpressure": 350.0,
     "g1bc": 0.356,
-    "descr": "Length estimated from mass, diameter and bullet type (copper), about 10 % uncertain",
-    "gfriction": -65.0
+    "descr": "Length estimated from mass, diameter and bullet type (copper), about 10 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -505,10 +497,9 @@
     "gdia": 6.71,
     "glen": 38.2,
     "gmass": 130.0,
-    "gpressure": 340.0,
+    "gpressure": 350.0,
     "g1bc": 0.489,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": 130.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -528,11 +519,11 @@
     "gdia": 7.04,
     "glen": 35.4,
     "gmass": 130.0,
+    "gpressure": 350.0,
     "gtailtype": 2,
     "gtaildiaA": 7.0,
     "gtaildiaB": 6.2,
     "gtailh": 3.2,
-    "gpressure": 350.0,
     "g1bc": 0.403,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -578,8 +569,7 @@
     "gmass": 180.0,
     "gpressure": 350.0,
     "g1bc": 0.469,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": -10.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -590,8 +580,7 @@
     "gmass": 150.0,
     "gpressure": 350.0,
     "g1bc": 0.418,
-    "descr": "Length estimated from mass, diameter and bullet type (copper), about 10 % uncertain",
-    "gfriction": -30.0
+    "descr": "Length estimated from mass, diameter and bullet type (copper), about 10 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -600,7 +589,7 @@
     "gdia": 7.82,
     "glen": 36.6,
     "gmass": 165.0,
-    "gpressure": 455.0,
+    "gpressure": 350.0,
     "g1bc": 0.44,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -613,8 +602,7 @@
     "gmass": 190.0,
     "gpressure": 350.0,
     "g1bc": 0.575,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": -30.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -625,8 +613,7 @@
     "gmass": 225.0,
     "gpressure": 350.0,
     "g1bc": 0.49,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": -20.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -940,11 +927,11 @@
     "gdia": 6.71,
     "glen": 37.2,
     "gmass": 140.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.7,
     "gtaildiaB": 6.1,
     "gtailh": 2.5,
-    "gpressure": 250.0,
     "g1bc": 0.301,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -999,7 +986,7 @@
     "gdia": 8.2,
     "glen": 32.1,
     "gmass": 180.0,
-    "gpressure": 275.0,
+    "gpressure": 250.0,
     "g1bc": 0.257,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -1021,10 +1008,9 @@
     "gdia": 9.3,
     "glen": 36.2,
     "gmass": 250.0,
-    "gpressure": 285.0,
+    "gpressure": 250.0,
     "g1bc": 0.315,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": 120.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -1034,11 +1020,11 @@
     "glen": 19.6,
     "gValid": true,
     "gmass": 52.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.7,
     "gtaildiaB": 5.1,
     "gtailh": 1.5,
-    "gpressure": 250.0,
     "g1bc": 0.247
   },
   {
@@ -1049,11 +1035,11 @@
     "glen": 26.0,
     "gValid": true,
     "gmass": 73.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.7,
     "gtaildiaB": 4.5,
     "gtailh": 4.6,
-    "gpressure": 250.0,
     "g1bc": 0.398,
     "g7bc": 0.2
   },
@@ -1065,13 +1051,14 @@
     "glen": 26.7,
     "gValid": true,
     "gmass": 75.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.7,
     "gtaildiaB": 4.5,
     "gtailh": 4.6,
-    "gpressure": 250.0,
     "g1bc": 0.467,
-    "g7bc": 0.235
+    "g7bc": 0.235,
+    "gfriction": -20.0
   },
   {
     "mname": "Hornady",
@@ -1093,11 +1080,11 @@
     "glen": 27.0,
     "gValid": true,
     "gmass": 80.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.7,
     "gtaildiaB": 4.5,
     "gtailh": 4.6,
-    "gpressure": 250.0,
     "g1bc": 0.485,
     "g7bc": 0.244
   },
@@ -1147,8 +1134,7 @@
     "gpressure": 250.0,
     "g1bc": 0.536,
     "g7bc": 0.27,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": -10.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -1170,11 +1156,11 @@
     "glen": 26.0,
     "gValid": true,
     "gmass": 100.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.7,
     "gtaildiaB": 5.6,
     "gtailh": 3.3,
-    "gpressure": 250.0,
     "g1bc": 0.385,
     "g7bc": 0.194
   },
@@ -1186,11 +1172,11 @@
     "glen": 30.5,
     "gValid": true,
     "gmass": 120.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.7,
     "gtaildiaB": 5.6,
     "gtailh": 2.5,
-    "gpressure": 250.0,
     "g1bc": 0.486,
     "g7bc": 0.245
   },
@@ -1202,11 +1188,11 @@
     "glen": 32.6,
     "gValid": true,
     "gmass": 123.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.7,
     "gtaildiaB": 5.6,
     "gtailh": 2.5,
-    "gpressure": 250.0,
     "g1bc": 0.506,
     "g7bc": 0.255
   },
@@ -1218,11 +1204,11 @@
     "glen": 33.274,
     "gValid": true,
     "gmass": 130.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.7,
     "gtaildiaB": 5.6,
     "gtailh": 2.5,
-    "gpressure": 250.0,
     "g1bc": 0.554,
     "g7bc": 0.279,
     "descr": "Length 1.310 in as listed by Hornady (issue 8)"
@@ -1257,14 +1243,13 @@
     "glen": 36.1,
     "gValid": true,
     "gmass": 147.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.7,
     "gtaildiaB": 5.6,
     "gtailh": 2.5,
-    "gpressure": 160.0,
     "g1bc": 0.697,
-    "g7bc": 0.351,
-    "gfriction": -50.0
+    "g7bc": 0.351
   },
   {
     "mname": "Hornady",
@@ -1296,13 +1281,14 @@
     "glen": 36.6,
     "gValid": true,
     "gmass": 162.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.2,
     "gtaildiaB": 6.1,
     "gtailh": 5.1,
-    "gpressure": 250.0,
     "g1bc": 0.67,
-    "g7bc": 0.338
+    "g7bc": 0.338,
+    "gfriction": -80.0
   },
   {
     "mname": "Hornady",
@@ -1312,11 +1298,11 @@
     "glen": 38.4,
     "gValid": true,
     "gmass": 180.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.2,
     "gtaildiaB": 6.3,
     "gtailh": 3.0,
-    "gpressure": 250.0,
     "g1bc": 0.796,
     "g7bc": 0.401
   },
@@ -1328,11 +1314,11 @@
     "glen": 30.1,
     "gValid": true,
     "gmass": 155.0,
+    "gpressure": 370.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.8,
     "gtailh": 4.1,
-    "gpressure": 250.0,
     "g1bc": 0.461,
     "g7bc": 0.232
   },
@@ -1344,11 +1330,11 @@
     "glen": 32.3,
     "gValid": true,
     "gmass": 168.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.9,
     "gtailh": 4.1,
-    "gpressure": 250.0,
     "g1bc": 0.523,
     "g7bc": 0.263
   },
@@ -1374,8 +1360,7 @@
     "gpressure": 250.0,
     "g1bc": 0.547,
     "g7bc": 0.275,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": -75.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -1385,14 +1370,14 @@
     "glen": 39.2,
     "gValid": true,
     "gmass": 208.0,
+    "gpressure": 190.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.8,
     "gtailh": 4.1,
-    "gpressure": 115.0,
     "g1bc": 0.69,
     "g7bc": 0.348,
-    "gfriction": -100.0
+    "gfriction": -85.0
   },
   {
     "mname": "Hornady",
@@ -1402,14 +1387,14 @@
     "glen": 42.8,
     "gValid": true,
     "gmass": 225.0,
+    "gpressure": 230.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.8,
     "gtailh": 4.1,
-    "gpressure": 220.0,
     "g1bc": 0.777,
     "g7bc": 0.391,
-    "gfriction": -20.0
+    "gfriction": -70.0
   },
   {
     "mname": "Hornady",
@@ -1431,11 +1416,11 @@
     "glen": 43.8,
     "gValid": true,
     "gmass": 285.0,
+    "gpressure": 500.0,
     "gtailtype": 2,
     "gtaildiaA": 8.59,
     "gtaildiaB": 7.0,
     "gtailh": 4.6,
-    "gpressure": 370.0,
     "g1bc": 0.829,
     "g7bc": 0.417,
     "gfriction": -100.0
@@ -1447,7 +1432,7 @@
     "gdia": 5.69,
     "glen": 21.8,
     "gmass": 62.0,
-    "gpressure": 330.0,
+    "gpressure": 250.0,
     "g1bc": 0.395,
     "g7bc": 0.199,
     "descr": "Length estimated from mass, diameter and bullet type (other), about 10 % uncertain"
@@ -1564,11 +1549,11 @@
     "glen": 36.3,
     "gValid": true,
     "gmass": 143.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.7,
     "gtaildiaB": 5.1,
     "gtailh": 3.8,
-    "gpressure": 250.0,
     "g1bc": 0.625,
     "g7bc": 0.315
   },
@@ -1579,11 +1564,10 @@
     "gdia": 7.04,
     "glen": 35.1,
     "gmass": 145.0,
-    "gpressure": 470.0,
+    "gpressure": 250.0,
     "g1bc": 0.536,
     "g7bc": 0.27,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": -30.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -1593,11 +1577,11 @@
     "glen": 40.1,
     "gValid": true,
     "gmass": 175.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.2,
     "gtaildiaB": 6.3,
     "gtailh": 3.0,
-    "gpressure": 250.0,
     "g1bc": 0.689,
     "g7bc": 0.347
   },
@@ -1609,11 +1593,11 @@
     "glen": 39.0,
     "gValid": true,
     "gmass": 200.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.8,
     "gtailh": 4.1,
-    "gpressure": 250.0,
     "g1bc": 0.597,
     "g7bc": 0.301
   },
@@ -1625,11 +1609,11 @@
     "glen": 40.0,
     "gValid": true,
     "gmass": 212.0,
+    "gpressure": 230.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.8,
     "gtailh": 4.1,
-    "gpressure": 310.0,
     "g1bc": 0.663,
     "g7bc": 0.334,
     "gfriction": -100.0
@@ -1642,14 +1626,13 @@
     "glen": 39.7,
     "gValid": true,
     "gmass": 220.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.8,
     "gtailh": 4.1,
-    "gpressure": 250.0,
     "g1bc": 0.654,
-    "g7bc": 0.325,
-    "gfriction": -10.0
+    "g7bc": 0.325
   },
   {
     "mname": "Hornady",
@@ -1659,11 +1642,11 @@
     "glen": 38.5,
     "gValid": true,
     "gmass": 230.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 8.59,
     "gtaildiaB": 7.11,
     "gtailh": 5.94,
-    "gpressure": 250.0,
     "g1bc": 0.616,
     "g7bc": 0.31
   },
@@ -1880,10 +1863,9 @@
     "gdia": 9.02,
     "glen": 24.2,
     "gmass": 165.0,
-    "gpressure": 480.0,
+    "gpressure": 250.0,
     "g1bc": 0.25,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": 5.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -1893,7 +1875,7 @@
     "glen": 26.5,
     "gValid": true,
     "gmass": 200.0,
-    "gpressure": 425.0,
+    "gpressure": 260.0,
     "g1bc": 0.3,
     "gfriction": -10.0
   },
@@ -1928,7 +1910,8 @@
     "gValid": true,
     "gmass": 325.0,
     "gpressure": 195.0,
-    "g1bc": 0.23
+    "g1bc": 0.23,
+    "gfriction": -40.0
   },
   {
     "mname": "Hornady",
@@ -2036,10 +2019,9 @@
     "gdia": 11.46,
     "glen": 14.8,
     "gmass": 200.0,
-    "gpressure": 500.0,
+    "gpressure": 250.0,
     "g1bc": 0.151,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": -20.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -2060,13 +2042,13 @@
     "glen": 26.9,
     "gValid": true,
     "gmass": 100.0,
+    "gpressure": 190.0,
     "gtailtype": 2,
     "gtaildiaA": 6.2,
     "gtaildiaB": 5.1,
     "gtailh": 2.5,
-    "gpressure": 120.0,
     "g1bc": 0.405,
-    "gfriction": 140.0
+    "gfriction": 130.0
   },
   {
     "mname": "Hornady",
@@ -2087,11 +2069,11 @@
     "glen": 29.4,
     "gValid": true,
     "gmass": 117.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.5,
     "gtaildiaB": 5.1,
     "gtailh": 3.3,
-    "gpressure": 250.0,
     "g1bc": 0.391
   },
   {
@@ -2101,7 +2083,7 @@
     "gdia": 6.71,
     "glen": 30.0,
     "gmass": 129.0,
-    "gpressure": 230.0,
+    "gpressure": 250.0,
     "g1bc": 0.445,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -2123,10 +2105,9 @@
     "gdia": 6.71,
     "glen": 31.4,
     "gmass": 160.0,
-    "gpressure": 50.0,
+    "gpressure": 250.0,
     "g1bc": 0.283,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": -100.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -2147,11 +2128,11 @@
     "glen": 31.0,
     "gValid": true,
     "gmass": 140.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.0,
     "gtaildiaB": 5.3,
     "gtailh": 2.9,
-    "gpressure": 305.0,
     "g1bc": 0.486
   },
   {
@@ -2161,7 +2142,7 @@
     "gdia": 7.04,
     "glen": 31.2,
     "gmass": 150.0,
-    "gpressure": 285.0,
+    "gpressure": 250.0,
     "g1bc": 0.462,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -2184,12 +2165,13 @@
     "glen": 29.2,
     "gValid": true,
     "gmass": 139.0,
+    "gpressure": 255.0,
     "gtailtype": 2,
     "gtaildiaA": 7.2,
     "gtaildiaB": 6.3,
     "gtailh": 3.2,
-    "gpressure": 250.0,
-    "g1bc": 0.453
+    "g1bc": 0.453,
+    "gfriction": -10.0
   },
   {
     "mname": "Hornady",
@@ -2210,11 +2192,11 @@
     "glen": 31.2,
     "gValid": true,
     "gmass": 162.0,
+    "gpressure": 360.0,
     "gtailtype": 2,
     "gtaildiaA": 7.2,
     "gtaildiaB": 5.5,
     "gtailh": 5.2,
-    "gpressure": 250.0,
     "g1bc": 0.514
   },
   {
@@ -2236,11 +2218,11 @@
     "glen": 27.2,
     "gValid": true,
     "gmass": 150.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
     "gtaildiaB": 6.6,
-    "gtailh": 5.0,
-    "gpressure": 250.0
+    "gtailh": 5.0
   },
   {
     "mname": "Hornady",
@@ -2250,11 +2232,11 @@
     "glen": 27.2,
     "gValid": true,
     "gmass": 150.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
     "gtaildiaB": 6.6,
     "gtailh": 5.0,
-    "gpressure": 250.0,
     "g1bc": 0.338
   },
   {
@@ -2266,7 +2248,8 @@
     "gValid": true,
     "gmass": 150.0,
     "gpressure": 250.0,
-    "g1bc": 0.349
+    "g1bc": 0.349,
+    "gfriction": -50.0
   },
   {
     "mname": "Hornady",
@@ -2276,8 +2259,9 @@
     "glen": 23.0,
     "gValid": true,
     "gmass": 150.0,
-    "gpressure": 250.0,
-    "g1bc": 0.186
+    "gpressure": 430.0,
+    "g1bc": 0.186,
+    "gfriction": -10.0
   },
   {
     "mname": "Hornady",
@@ -2287,8 +2271,9 @@
     "glen": 29.3,
     "gValid": true,
     "gmass": 165.0,
-    "gpressure": 250.0,
-    "g1bc": 0.387
+    "gpressure": 220.0,
+    "g1bc": 0.387,
+    "gfriction": -55.0
   },
   {
     "mname": "Hornady",
@@ -2298,11 +2283,11 @@
     "glen": 30.3,
     "gValid": true,
     "gmass": 165.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.1,
     "gtailh": 5.1,
-    "gpressure": 250.0,
     "g1bc": 0.435
   },
   {
@@ -2335,11 +2320,11 @@
     "glen": 31.8,
     "gValid": true,
     "gmass": 180.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.1,
     "gtailh": 5.1,
-    "gpressure": 250.0,
     "g1bc": 0.452
   },
   {
@@ -2371,10 +2356,9 @@
     "gdia": 7.92,
     "glen": 27.3,
     "gmass": 150.0,
-    "gpressure": 130.0,
+    "gpressure": 250.0,
     "g1bc": 0.361,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": -35.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -2429,7 +2413,8 @@
     "gValid": true,
     "gmass": 150.0,
     "gpressure": 250.0,
-    "g1bc": 0.29
+    "g1bc": 0.29,
+    "gfriction": -80.0
   },
   {
     "mname": "Hornady",
@@ -2450,8 +2435,9 @@
     "glen": 28.0,
     "gValid": true,
     "gmass": 195.0,
-    "gpressure": 385.0,
-    "g1bc": 0.41
+    "gpressure": 350.0,
+    "g1bc": 0.41,
+    "gfriction": -5.0
   },
   {
     "mname": "Hornady",
@@ -2461,8 +2447,9 @@
     "glen": 33.5,
     "gValid": true,
     "gmass": 225.0,
-    "gpressure": 250.0,
-    "g1bc": 0.397
+    "gpressure": 270.0,
+    "g1bc": 0.397,
+    "gfriction": -10.0
   },
   {
     "mname": "Hornady",
@@ -2472,9 +2459,8 @@
     "glen": 30.2,
     "gValid": true,
     "gmass": 250.0,
-    "gpressure": 500.0,
-    "g1bc": 0.291,
-    "gfriction": -80.0
+    "gpressure": 250.0,
+    "g1bc": 0.291
   },
   {
     "mname": "Hornady",
@@ -2485,7 +2471,8 @@
     "gValid": true,
     "gmass": 250.0,
     "gpressure": 250.0,
-    "g1bc": 0.431
+    "g1bc": 0.431,
+    "gfriction": -50.0
   },
   {
     "mname": "Hornady",
@@ -2494,7 +2481,7 @@
     "gdia": 9.02,
     "glen": 22.6,
     "gmass": 170.0,
-    "gpressure": 305.0,
+    "gpressure": 250.0,
     "g1bc": 0.215,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -2539,9 +2526,9 @@
     "glen": 32.3,
     "gValid": true,
     "gmass": 286.0,
-    "gpressure": 50.0,
+    "gpressure": 250.0,
     "g1bc": 0.4,
-    "gfriction": -75.0
+    "gfriction": -90.0
   },
   {
     "mname": "Hornady",
@@ -2562,9 +2549,9 @@
     "glen": 27.4,
     "gValid": true,
     "gmass": 300.0,
-    "gpressure": 240.0,
+    "gpressure": 245.0,
     "g1bc": 0.25,
-    "gfriction": -10.0
+    "gfriction": -45.0
   },
   {
     "mname": "Hornady",
@@ -2585,7 +2572,7 @@
     "glen": 23.8,
     "gValid": true,
     "gmass": 350.0,
-    "gpressure": 130.0,
+    "gpressure": 160.0,
     "g1bc": 0.189,
     "gfriction": -25.0
   },
@@ -2619,12 +2606,12 @@
     "glen": 16.2,
     "gValid": true,
     "gmass": 148.0,
+    "gpressure": 150.0,
     "gtailtype": 1,
     "gmaterial": "lead",
     "gtaildiaA": 6.1,
     "gtaildiaB": 1.8,
     "gtailh": 8.3,
-    "gpressure": 150.0,
     "g1bc": 0.047
   },
   {
@@ -2635,8 +2622,8 @@
     "glen": 17.6,
     "gValid": true,
     "gmass": 158.0,
-    "gmaterial": "lead",
     "gpressure": 150.0,
+    "gmaterial": "lead",
     "g1bc": 0.135
   },
   {
@@ -2646,8 +2633,8 @@
     "gdia": 9.09,
     "glen": 18.3,
     "gmass": 158.0,
-    "gmaterial": "lead",
     "gpressure": 150.0,
+    "gmaterial": "lead",
     "g1bc": 0.139,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -2659,8 +2646,8 @@
     "glen": 17.8,
     "gValid": true,
     "gmass": 158.0,
-    "gmaterial": "lead",
     "gpressure": 150.0,
+    "gmaterial": "lead",
     "g1bc": 0.159
   },
   {
@@ -2670,8 +2657,8 @@
     "gdia": 11.53,
     "glen": 16.6,
     "gmass": 255.0,
-    "gmaterial": "lead",
     "gpressure": 150.0,
+    "gmaterial": "lead",
     "g1bc": 0.117,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -2683,11 +2670,11 @@
     "glen": 18.1,
     "gValid": true,
     "gmass": 52.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.7,
     "gtaildiaB": 5.1,
     "gtailh": 1.5,
-    "gpressure": 250.0,
     "g1bc": 0.229
   },
   {
@@ -2721,8 +2708,7 @@
     "gValid": true,
     "gmass": 53.0,
     "gpressure": 250.0,
-    "g1bc": 0.218,
-    "gfriction": 45.0
+    "g1bc": 0.218
   },
   {
     "mname": "Hornady",
@@ -2743,11 +2729,11 @@
     "glen": 25.0,
     "gValid": true,
     "gmass": 68.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.7,
     "gtaildiaB": 4.2,
     "gtailh": 4.6,
-    "gpressure": 250.0,
     "g1bc": 0.355
   },
   {
@@ -2791,11 +2777,11 @@
     "glen": 24.9,
     "gValid": true,
     "gmass": 75.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.7,
     "gtaildiaB": 4.5,
     "gtailh": 4.6,
-    "gpressure": 250.0,
     "g1bc": 0.395
   },
   {
@@ -2861,11 +2847,11 @@
     "glen": 33.8,
     "gValid": true,
     "gmass": 140.0,
+    "gpressure": 190.0,
     "gtailtype": 2,
     "gtaildiaA": 6.7,
     "gtaildiaB": 5.1,
     "gtailh": 3.8,
-    "gpressure": 250.0,
     "g1bc": 0.58
   },
   {
@@ -2876,11 +2862,11 @@
     "glen": 25.2,
     "gValid": true,
     "gmass": 110.0,
+    "gpressure": 420.0,
     "gtailtype": 2,
     "gtaildiaA": 7.04,
     "gtaildiaB": 6.29,
     "gtailh": 4.0,
-    "gpressure": 440.0,
     "g1bc": 0.36
   },
   {
@@ -2891,11 +2877,11 @@
     "glen": 30.1,
     "gValid": true,
     "gmass": 155.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.8,
     "gtailh": 4.1,
-    "gpressure": 250.0,
     "g1bc": 0.405
   },
   {
@@ -2928,12 +2914,13 @@
     "glen": 31.0,
     "gValid": true,
     "gmass": 168.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.9,
     "gtailh": 4.1,
-    "gpressure": 250.0,
-    "g1bc": 0.45
+    "g1bc": 0.45,
+    "gfriction": -25.0
   },
   {
     "mname": "Hornady",
@@ -2987,23 +2974,24 @@
     "glen": 37.7,
     "gValid": true,
     "gmass": 208.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.8,
     "gtailh": 4.1,
-    "gpressure": 250.0,
     "g1bc": 0.62,
-    "g7bc": 0.311
+    "g7bc": 0.311,
+    "gfriction": -20.0
   },
   {
     "mname": "Hornady",
     "pname": "MonoFlex 2446",
     "caliber": ".243",
     "gdia": 6.17,
-    "glen": 26.4,
+    "glen": 29.3,
     "gmass": 90.0,
     "gpressure": 350.0,
-    "descr": "Length estimated from mass, diameter and bullet type (other), about 10 % uncertain"
+    "descr": "Length estimated from mass, diameter and bullet type (copper), about 10 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -3021,10 +3009,10 @@
     "pname": "Monoflex für .30-30 0.308 140 gr",
     "caliber": ".308",
     "gdia": 7.82,
-    "glen": 24.1,
+    "glen": 28.4,
     "gmass": 140.0,
     "gpressure": 350.0,
-    "descr": "Length estimated from mass, diameter and bullet type (other), about 10 % uncertain"
+    "descr": "Length estimated from mass, diameter and bullet type (copper), about 10 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -3044,11 +3032,11 @@
     "gdia": 5.18,
     "glen": 10.4,
     "gmass": 24.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.2,
     "gtaildiaB": 4.1,
     "gtailh": 1.0,
-    "gpressure": 250.0,
     "g1bc": 0.17,
     "descr": "Length estimated from mass, diameter and bullet type (other), about 10 % uncertain"
   },
@@ -3060,11 +3048,11 @@
     "glen": 19.5,
     "gValid": true,
     "gmass": 35.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.7,
     "gtaildiaB": 5.1,
     "gtailh": 1.5,
-    "gpressure": 250.0,
     "g1bc": 0.177
   },
   {
@@ -3095,9 +3083,9 @@
     "glen": 28.1,
     "gValid": true,
     "gmass": 95.0,
-    "gpressure": 500.0,
+    "gpressure": 490.0,
     "g1bc": 0.355,
-    "gfriction": 145.0
+    "gfriction": 140.0
   },
   {
     "mname": "Hornady",
@@ -3107,7 +3095,7 @@
     "glen": 30.3,
     "gValid": true,
     "gmass": 117.0,
-    "gpressure": 250.0,
+    "gpressure": 280.0,
     "g1bc": 0.39
   },
   {
@@ -3128,7 +3116,7 @@
     "gdia": 6.71,
     "glen": 33.8,
     "gmass": 129.0,
-    "gpressure": 230.0,
+    "gpressure": 250.0,
     "g1bc": 0.485,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -3140,11 +3128,11 @@
     "glen": 35.9,
     "gValid": true,
     "gmass": 140.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.7,
     "gtaildiaB": 5.6,
     "gtailh": 2.5,
-    "gpressure": 250.0,
     "g1bc": 0.52
   },
   {
@@ -3156,8 +3144,7 @@
     "gmass": 120.0,
     "gpressure": 250.0,
     "g1bc": 0.4,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": 70.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -3166,7 +3153,7 @@
     "gdia": 7.04,
     "glen": 31.7,
     "gmass": 130.0,
-    "gpressure": 430.0,
+    "gpressure": 250.0,
     "g1bc": 0.46,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -3189,11 +3176,11 @@
     "glen": 35.0,
     "gValid": true,
     "gmass": 150.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.0,
     "gtaildiaB": 5.3,
     "gtailh": 2.9,
-    "gpressure": 250.0,
     "g1bc": 0.525
   },
   {
@@ -3203,7 +3190,7 @@
     "gdia": 7.21,
     "glen": 32.5,
     "gmass": 139.0,
-    "gpressure": 375.0,
+    "gpressure": 250.0,
     "g1bc": 0.486,
     "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
@@ -3226,11 +3213,11 @@
     "glen": 35.6,
     "gValid": true,
     "gmass": 162.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.2,
     "gtaildiaB": 6.3,
     "gtailh": 3.0,
-    "gpressure": 250.0,
     "g1bc": 0.55
   },
   {
@@ -3241,9 +3228,8 @@
     "glen": 26.3,
     "gValid": true,
     "gmass": 125.0,
-    "gpressure": 490.0,
-    "g1bc": 0.305,
-    "gfriction": 20.0
+    "gpressure": 280.0,
+    "g1bc": 0.305
   },
   {
     "mname": "Hornady",
@@ -3253,12 +3239,13 @@
     "glen": 29.8,
     "gValid": true,
     "gmass": 150.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.8,
     "gtailh": 4.1,
-    "gpressure": 250.0,
-    "g1bc": 0.415
+    "g1bc": 0.415,
+    "gfriction": -60.0
   },
   {
     "mname": "Hornady",
@@ -3268,13 +3255,12 @@
     "glen": 32.3,
     "gValid": true,
     "gmass": 165.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 6.1,
     "gtailh": 5.1,
-    "gpressure": 490.0,
-    "g1bc": 0.447,
-    "gfriction": -30.0
+    "g1bc": 0.447
   },
   {
     "mname": "Hornady",
@@ -3294,10 +3280,9 @@
     "gdia": 7.87,
     "glen": 25.2,
     "gmass": 123.0,
-    "gpressure": 335.0,
+    "gpressure": 250.0,
     "g1bc": 0.295,
-    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain",
-    "gfriction": 10.0
+    "descr": "Length measured on the illustration of hornady.com (side view of the bullet, length / width x diameter), about 5 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -3307,11 +3292,11 @@
     "glen": 32.0,
     "gValid": true,
     "gmass": 170.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 8.2,
     "gtaildiaB": 7.3,
     "gtailh": 4.0,
-    "gpressure": 250.0,
     "g1bc": 0.445
   },
   {
@@ -3322,13 +3307,13 @@
     "glen": 33.7,
     "gValid": true,
     "gmass": 200.0,
+    "gpressure": 180.0,
     "gtailtype": 2,
     "gtaildiaA": 8.6,
     "gtaildiaB": 7.0,
     "gtailh": 3.3,
-    "gpressure": 250.0,
     "g1bc": 0.455,
-    "gfriction": -10.0
+    "gfriction": -60.0
   },
   {
     "mname": "Hornady",
@@ -3338,13 +3323,12 @@
     "glen": 37.0,
     "gValid": true,
     "gmass": 225.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 8.6,
     "gtaildiaB": 7.0,
     "gtailh": 3.6,
-    "gpressure": 500.0,
-    "g1bc": 0.515,
-    "gfriction": -10.0
+    "g1bc": 0.515
   },
   {
     "mname": "Hornady",
@@ -3365,10 +3349,10 @@
     "glen": 32.9,
     "gValid": true,
     "gmass": 190.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
     "gtailh": 5.5,
-    "gpressure": 250.0,
     "g1bc": 0.437
   },
   {
@@ -3578,10 +3562,11 @@
     "glen": 30.9,
     "gValid": true,
     "gmass": 174.0,
-    "gpressure": 250.0,
+    "gpressure": 240.0,
     "gtailtype": 2,
     "gtaildiaA": 7.89,
-    "g1bc": 0.47
+    "g1bc": 0.47,
+    "gfriction": -30.0
   },
   {
     "mname": "Hornady",
@@ -3602,7 +3587,7 @@
     "glen": 16.0,
     "gValid": true,
     "gmass": 25.0,
-    "gpressure": 230.0,
+    "gpressure": 250.0,
     "g1bc": 0.23
   },
   {
@@ -3614,8 +3599,7 @@
     "gmass": 20.0,
     "gpressure": 250.0,
     "g1bc": 0.185,
-    "descr": "Length estimated from mass, diameter and bullet type (other), about 10 % uncertain",
-    "gfriction": 15.0
+    "descr": "Length estimated from mass, diameter and bullet type (other), about 10 % uncertain"
   },
   {
     "mname": "Hornady",
@@ -3625,7 +3609,7 @@
     "glen": 16.3,
     "gValid": true,
     "gmass": 32.0,
-    "gpressure": 250.0,
+    "gpressure": 205.0,
     "g1bc": 0.21
   },
   {
@@ -3636,11 +3620,11 @@
     "glen": 19.1,
     "gValid": true,
     "gmass": 40.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.2,
     "gtaildiaB": 3.9,
     "gtailh": 2.8,
-    "gpressure": 215.0,
     "g1bc": 0.275
   },
   {
@@ -3662,13 +3646,12 @@
     "glen": 17.5,
     "gValid": true,
     "gmass": 40.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.7,
     "gtaildiaB": 5.1,
     "gtailh": 1.5,
-    "gpressure": 290.0,
-    "g1bc": 0.2,
-    "gfriction": 20.0
+    "g1bc": 0.2
   },
   {
     "mname": "Hornady",
@@ -3678,9 +3661,9 @@
     "glen": 13.2,
     "gValid": true,
     "gmass": 35.0,
-    "gpressure": 500.0,
+    "gpressure": 290.0,
     "g1bc": 0.109,
-    "gfriction": 40.0
+    "gfriction": -20.0
   },
   {
     "mname": "Hornady",
@@ -3690,11 +3673,11 @@
     "glen": 19.8,
     "gValid": true,
     "gmass": 50.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.69,
     "gtaildiaB": 5.1,
     "gtailh": 1.5,
-    "gpressure": 300.0,
     "g1bc": 0.242
   },
   {
@@ -3705,9 +3688,8 @@
     "glen": 20.6,
     "gValid": true,
     "gmass": 55.0,
-    "gpressure": 420.0,
-    "g1bc": 0.255,
-    "gfriction": 30.0
+    "gpressure": 250.0,
+    "g1bc": 0.255
   },
   {
     "mname": "Hornady",
@@ -3739,12 +3721,13 @@
     "glen": 20.2,
     "gValid": true,
     "gmass": 58.0,
+    "gpressure": 210.0,
     "gtailtype": 2,
     "gtaildiaA": 6.2,
     "gtaildiaB": 5.3,
     "gtailh": 1.8,
-    "gpressure": 250.0,
-    "g1bc": 0.25
+    "g1bc": 0.25,
+    "gfriction": -45.0
   },
   {
     "mname": "Hornady",
@@ -3754,12 +3737,13 @@
     "glen": 21.3,
     "gValid": true,
     "gmass": 65.0,
+    "gpressure": 240.0,
     "gtailtype": 2,
     "gtaildiaA": 6.2,
     "gtaildiaB": 5.3,
     "gtailh": 1.8,
-    "gpressure": 250.0,
-    "g1bc": 0.28
+    "g1bc": 0.28,
+    "gfriction": -50.0
   },
   {
     "mname": "Hornady",
@@ -3780,13 +3764,12 @@
     "glen": 23.8,
     "gValid": true,
     "gmass": 75.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.2,
     "gtaildiaB": 4.8,
     "gtailh": 3.3,
-    "gpressure": 315.0,
-    "g1bc": 0.33,
-    "gfriction": 10.0
+    "g1bc": 0.33
   },
   {
     "mname": "Hornady",
@@ -3796,11 +3779,11 @@
     "glen": 26.4,
     "gValid": true,
     "gmass": 87.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.2,
     "gtaildiaB": 5.4,
     "gtailh": 3.3,
-    "gpressure": 255.0,
     "g1bc": 0.4
   },
   {
@@ -3811,11 +3794,11 @@
     "glen": 22.0,
     "gValid": true,
     "gmass": 75.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.5,
     "gtaildiaB": 6.1,
     "gtailh": 1.5,
-    "gpressure": 250.0,
     "g1bc": 0.29
   },
   {
@@ -3825,13 +3808,12 @@
     "gdia": 6.71,
     "glen": 25.6,
     "gmass": 95.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.7,
     "gtaildiaB": 5.6,
     "gtailh": 3.3,
-    "gpressure": 250.0,
-    "g1bc": 0.365,
-    "gfriction": -10.0
+    "g1bc": 0.365
   },
   {
     "mname": "Hornady",
@@ -3896,9 +3878,8 @@
     "glen": 23.4,
     "gValid": true,
     "gmass": 110.0,
-    "gpressure": 500.0,
-    "g1bc": 0.29,
-    "gfriction": -15.0
+    "gpressure": 250.0,
+    "g1bc": 0.29
   },
   {
     "mname": "Hornady",
@@ -4009,11 +3990,11 @@
     "glen": 24.4,
     "gValid": true,
     "gmass": 87.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.2,
     "gtaildiaB": 5.1,
     "gtailh": 2.5,
-    "gpressure": 250.0,
     "g1bc": 0.376
   },
   {
@@ -4059,7 +4040,7 @@
     "gmass": 85.0,
     "gpressure": 500.0,
     "g1bc": 0.145,
-    "gfriction": -25.0
+    "gfriction": -15.0
   },
   {
     "mname": "Hornady",
@@ -4070,8 +4051,7 @@
     "gValid": true,
     "gmass": 100.0,
     "gpressure": 500.0,
-    "g1bc": 0.17,
-    "gfriction": -35.0
+    "g1bc": 0.17
   },
   {
     "mname": "Hornady",
@@ -4114,11 +4094,11 @@
     "glen": 16.7,
     "gValid": true,
     "gmass": 147.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 9.0,
     "gtaildiaB": 8.1,
     "gtailh": 2.5,
-    "gpressure": 250.0,
     "g1bc": 0.212
   },
   {
@@ -4305,8 +4285,9 @@
     "glen": 14.6,
     "gValid": true,
     "gmass": 200.0,
-    "gpressure": 250.0,
-    "g1bc": 0.151
+    "gpressure": 450.0,
+    "g1bc": 0.151,
+    "gfriction": 35.0
   },
   {
     "mname": "Hornady",

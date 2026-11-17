@@ -95,7 +95,7 @@
 <context>
     <name>CartridgeView</name>
     <message>
-        <location filename="../src/app/cartridgeview.cpp" line="+466"/>
+        <location filename="../src/app/cartridgeview.cpp" line="+471"/>
         <source>No cartridge data</source>
         <translation>Nessun dato della cartuccia</translation>
     </message>
@@ -404,30 +404,30 @@
 <context>
     <name>LoadView</name>
     <message>
-        <location filename="../src/app/loadview.cpp" line="+221"/>
-        <location line="+1077"/>
+        <location filename="../src/app/loadview.cpp" line="+290"/>
+        <location line="+1083"/>
         <source>Maximum pressure</source>
         <translation>Pressione massima</translation>
     </message>
     <message>
-        <location line="-1069"/>
-        <location line="+1070"/>
+        <location line="-1075"/>
+        <location line="+1076"/>
         <source>Muzzle pressure</source>
         <translation>Pressione alla volata</translation>
     </message>
     <message>
-        <location line="-1077"/>
+        <location line="-1083"/>
         <source>Projectile energy</source>
         <translation>Energia del proiettile</translation>
     </message>
     <message>
         <location line="-1"/>
-        <location line="+1079"/>
+        <location line="+1085"/>
         <source>Muzzle velocity</source>
         <translation>Velocità alla volata</translation>
     </message>
     <message>
-        <location line="-1078"/>
+        <location line="-1084"/>
         <source>Barrel time (BT)</source>
         <translation>Tempo di canna (BT)</translation>
     </message>
@@ -458,12 +458,12 @@
     </message>
     <message>
         <location line="+2"/>
-        <location line="+89"/>
+        <location line="+95"/>
         <source>Load ratio</source>
         <translation>Grado di riempimento</translation>
     </message>
     <message>
-        <location line="-89"/>
+        <location line="-95"/>
         <source>Burnt propellant</source>
         <translation>Polvere bruciata</translation>
     </message>
@@ -478,7 +478,7 @@
         <translation>Perdite calore / attrito</translation>
     </message>
     <message>
-        <location line="+89"/>
+        <location line="+95"/>
         <location line="+78"/>
         <location line="+765"/>
         <source>Charge</source>
@@ -520,36 +520,36 @@
         <translation>Cartuccia &amp;&amp; arma</translation>
     </message>
     <message>
-        <location line="-140"/>
-        <location line="+140"/>
+        <location line="-146"/>
+        <location line="+146"/>
         <location line="+196"/>
         <location line="+597"/>
         <source>Projectile</source>
         <translation>Proiettile</translation>
     </message>
     <message>
-        <location line="-932"/>
-        <location line="+139"/>
+        <location line="-938"/>
+        <location line="+145"/>
         <location line="+197"/>
         <location line="+597"/>
         <source>Propellant</source>
         <translation>Polvere</translation>
     </message>
     <message>
-        <location line="-997"/>
-        <location line="+204"/>
+        <location line="-1003"/>
+        <location line="+210"/>
         <source>Select Caliber</source>
         <translation>Scegli il calibro</translation>
     </message>
     <message>
-        <location line="-204"/>
-        <location line="+204"/>
+        <location line="-210"/>
+        <location line="+210"/>
         <source>Select Projectile</source>
         <translation>Scegli il proiettile</translation>
     </message>
     <message>
-        <location line="-204"/>
-        <location line="+204"/>
+        <location line="-210"/>
+        <location line="+210"/>
         <source>Select Propellant</source>
         <translation>Scegli la polvere</translation>
     </message>
@@ -641,7 +641,7 @@
         <translation>Imposta anche lunghezza della canna, profondità di inserimento e carica ai valori predefiniti del nuovo calibro</translation>
     </message>
     <message>
-        <location line="-446"/>
+        <location line="-452"/>
         <source>Bullet lead time (BLT)</source>
         <translation>Tempo di anticipo del proiettile (BLT)</translation>
     </message>
@@ -656,7 +656,7 @@
         <translation>Canna</translation>
     </message>
     <message>
-        <location line="+451"/>
+        <location line="+457"/>
         <source>Show only bullets that fit the caliber</source>
         <translation>Mostra solo le palle adatte al calibro</translation>
     </message>
@@ -1496,7 +1496,7 @@ Esportarlo comunque?</translation>
 <context>
     <name>MeasurementChart</name>
     <message>
-        <location filename="../src/app/measurementchart.cpp" line="+74"/>
+        <location filename="../src/app/measurementchart.cpp" line="+76"/>
         <source>Velocity (sim.)</source>
         <translation>Velocità (sim.)</translation>
     </message>
@@ -1521,7 +1521,13 @@ Esportarlo comunque?</translation>
         <translation>Pressione</translation>
     </message>
     <message>
-        <location line="+133"/>
+        <location line="+1"/>
+        <location line="+1"/>
+        <source>Ignored</source>
+        <translation>Ignorati</translation>
+    </message>
+    <message>
+        <location line="+139"/>
         <source>Charge [%1]</source>
         <translation>Carica [%1]</translation>
     </message>
@@ -1536,7 +1542,7 @@ Esportarlo comunque?</translation>
         <translation>Pressione massima [%1]</translation>
     </message>
     <message>
-        <location line="+99"/>
+        <location line="+103"/>
         <source>Charge: %1 %2</source>
         <translation>Carica: %1 %2</translation>
     </message>
@@ -1565,12 +1571,12 @@ Esportarlo comunque?</translation>
     </message>
     <message>
         <location line="+2"/>
-        <location line="+11"/>
+        <location line="+8"/>
         <source>Deviation from sim.: %1 %</source>
         <translation>Scarto dalla sim.: %1 %</translation>
     </message>
     <message numerus="yes">
-        <location line="-2"/>
+        <location line="-3"/>
         <source>Pressure: %1 %2 (%n shot(s))</source>
         <translation>
             <numerusform>Pressione: %1 %2 (%n colpo)</numerusform>
@@ -1581,7 +1587,7 @@ Esportarlo comunque?</translation>
 <context>
     <name>MeasurementView</name>
     <message>
-        <location filename="../src/app/measurementview.cpp" line="+123"/>
+        <location filename="../src/app/measurementview.cpp" line="+132"/>
         <source>New series</source>
         <translation>Nuova serie</translation>
     </message>
@@ -1622,13 +1628,13 @@ Esportarlo comunque?</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+475"/>
+        <location line="+497"/>
         <location line="+12"/>
         <source>Import chronograph file</source>
         <translation>Importa file del cronografo</translation>
     </message>
     <message>
-        <location line="-486"/>
+        <location line="-508"/>
         <source>Fit to measurements</source>
         <translation>Adatta alle misure</translation>
     </message>
@@ -1693,7 +1699,7 @@ Esportarlo comunque?</translation>
         <translation>Legge i colpi di un file Garmin Xero (FIT o CSV), MagnetoSpeed o Labradar (Labradar: il «Report.csv» di una serie)</translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+15"/>
         <source>Note (rifle, chronograph, conditions, …)</source>
         <translation>Nota (arma, cronografo, condizioni, …)</translation>
     </message>
@@ -1739,12 +1745,12 @@ Esportarlo comunque?</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+11"/>
+        <location line="+10"/>
         <source>Velocity [%1]</source>
         <translation>Velocità [%1]</translation>
     </message>
     <message>
-        <location line="-11"/>
+        <location line="-10"/>
         <source>SD</source>
         <translation>DS</translation>
     </message>
@@ -1812,12 +1818,40 @@ Esportarlo comunque?</translation>
         <translation>Pressione simulata rispetto alla media misurata</translation>
     </message>
     <message>
-        <location line="+35"/>
+        <location line="+2"/>
+        <source>Ignore</source>
+        <translation>Ignora</translation>
+    </message>
+    <message>
+        <location line="+0"/>
+        <source>Remark</source>
+        <translation>Nota</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Ignored shots stay in the series but do not count in the statistics, the chart&apos;s mean and the fit</source>
+        <translation>I colpi ignorati restano nella serie ma non contano nelle statistiche, nella media del grafico e nell&apos;adattamento</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>A remark on the shot (flyer, cold bore, …)</source>
+        <translation>Una nota sul colpo (anomalo, canna fredda, …)</translation>
+    </message>
+    <message numerus="yes">
+        <location line="+26"/>
+        <source>%n shot(s) ignored</source>
+        <translation>
+            <numerusform>%n colpo ignorato</numerusform>
+            <numerusform>%n colpi ignorati</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location line="+11"/>
         <source>This charge cannot be simulated (does not fit into the case?)</source>
         <translation>Questa carica non può essere simulata (non entra nel bossolo?)</translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+36"/>
         <source>&lt;b&gt;Shots of %1&lt;/b&gt; (%2 %3)</source>
         <translation>&lt;b&gt;Colpi di %1&lt;/b&gt; (%2 %3)</translation>
     </message>
@@ -2218,7 +2252,7 @@ pressione Δ</translation>
         <translation>non specificato</translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+40"/>
         <source>type %1</source>
         <translation>tipo %1</translation>
     </message>
@@ -3086,14 +3120,19 @@ pressione Δ</translation>
     </message>
     <message>
         <location line="+15"/>
-        <location line="+35"/>
+        <location line="+79"/>
         <location line="+120"/>
         <location line="+73"/>
         <source>The file contains no shots.</source>
         <translation>Il file non contiene colpi.</translation>
     </message>
     <message>
-        <location line="-198"/>
+        <location line="-218"/>
+        <source>The file has no V0 column.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+20"/>
         <location line="+193"/>
         <source>The velocity unit of the file is unknown.</source>
         <translation>L&apos;unità di velocità del file è sconosciuta.</translation>
@@ -3126,7 +3165,7 @@ pressione Δ</translation>
         <translation>Questo file FIT non è una sessione di tiro di un cronografo.</translation>
     </message>
     <message>
-        <location line="+108"/>
+        <location line="+107"/>
         <source>Not a Garmin Xero, MagnetoSpeed or Labradar file.</source>
         <translation>Non è un file Garmin Xero, MagnetoSpeed o Labradar.</translation>
     </message>
@@ -3134,12 +3173,12 @@ pressione Δ</translation>
 <context>
     <name>csr::LoadFile</name>
     <message>
-        <location filename="../src/core/loadfile.cpp" line="+224"/>
+        <location filename="../src/core/loadfile.cpp" line="+225"/>
         <source>Not a ChamberSim Reloaded or GRT load file</source>
         <translation>Non è un file di caricamento ChamberSim Reloaded o GRT</translation>
     </message>
     <message>
-        <location line="+78"/>
+        <location line="+79"/>
         <source>The file contains no load data (&lt;%1&gt; is missing)</source>
         <translation>Il file non contiene dati di caricamento (manca &lt;%1&gt;)</translation>
     </message>

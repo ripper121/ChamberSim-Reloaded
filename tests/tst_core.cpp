@@ -101,6 +101,7 @@ private slots:
     void bulletFile();
     void physicalCaliberScale();
     void measurementStatistics();
+    void measurementIgnoredShotsAndRemarks();
     void simInputFromLoad();
     void chargeTooHighIsRejected();
     void temperatureCoefficients();
@@ -278,7 +279,7 @@ void CoreTest::loadFileFormats()
 
     // this program's format: its own root element (the original does not open it), the same content
     const QByteArray own = original->toXml();
-    QVERIFY(own.contains("<ChamberSimReloaded format=\"1\""));
+    QVERIFY(own.contains("<ChamberSimReloaded format=\"2\""));
     QVERIFY(own.contains("<load>"));
     QVERIFY(!own.contains("GordonsReloadingTool"));
     QVERIFY(!own.contains("InnerBallistikInput"));
@@ -477,6 +478,59 @@ void CoreTest::chronographFiles()
     QCOMPARE(l->series[0].name, u"SR0003"_s);
     QCOMPARE(l->series[0].velocities_ms.size(), std::size_t{2});
     QCOMPARE_LT(std::abs(l->series[0].velocities_ms[1] - 2754 * 0.3048), 1e-9);
+
+    // the Labradar LX, two variants of the same series: "Series13.csv" with ';' (named series, unit in the row below the table header)
+    // and with ',' ("Shot Number", "V0.00m", degree sign in UTF-8); neither has a "Units velocity" line
+    static const QByteArray kLabradarLxSemicolon =
+        "sep=;\r\nDevice ID;Labradar;;\r\n\r\n"
+        "Series No;013 G11 7,5x55 42gr N150 L6=75,8 Hornady HPBT168;;\r\nTotal number of shots;0011;;\r\n\r\n"
+        "Projectile Weight;168.00;grain;\r\nTemperature;15.00;degC;\r\n\r\n"
+        "Stats - Average;760.57;m/s;\r\nStats - Max;762.25;m/s;\r\nStats - Min;758.11;m/s;\r\n\r\n"
+        "Shot ID;V0;V9.00m;Ke0;Ke9.00m;PF9.00m;BC G1;BC G7;Date;Time\r\n;m/s;m/s;j;j;\r\n"
+        "0001;761.86;756.58;3159.33;3115.73;417.01;0.507;0.255;2026-10-20;18:07;\r\n"
+        "0002;760.85;755.24;3151.00;3104.64;416.27;0.476;0.240;2026-10-20;18:07;\r\n"
+        "0003;762.25;757.65;3162.55;3124.49;417.60;0.581;0.293;2026-10-20;18:11;\r\n"
+        "0004;760.33;756.18;3146.64;3112.41;416.79;0.644;0.324;2026-10-20;18:12;\r\n"
+        "0005;761.06;756.51;3152.72;3115.12;416.97;0.587;0.296;2026-10-20;18:12;\r\n"
+        "0006;758.59;753.64;3132.30;3091.50;415.39;0.538;0.271;2026-10-20;18:13;\r\n"
+        "0007;759.12;754.98;3136.67;3102.53;416.13;0.644;0.324;2026-10-20;18:13;\r\n"
+        "0008;760.82;755.66;3150.74;3108.11;416.50;0.517;0.261;2026-10-20;18:15;\r\n"
+        "0009;758.11;754.67;3128.28;3099.99;415.96;0.776;0.391;2026-10-20;18:15;\r\n"
+        "0010;761.65;756.83;3157.63;3117.78;417.15;0.554;0.279;2026-10-20;18:16;\r\n"
+        "0011;761.59;756.61;3157.08;3115.97;417.03;0.538;0.271;2026-10-20;18:17;\r\n";
+    static const QByteArray kLabradarLxComma = "Device ID,LLXA001Y6HF\r\n\r\nSeries Number,13\r\nShot Count,11\r\n\r\nMode,Standard\r\n\r\n"
+                                               "Caliber,0.308,in\r\nProjectile Weight,168.000,gr\r\n"
+                                               "Temperature,15.0,\xC2\xB0"
+                                               "C\r\nStation Pressure,1020.3,mbar\r\n\r\n"
+                                               "Stats - Average,760.57,m/s\r\nStats - Max,762.25,m/s\r\nStats - Min,758.11,m/s\r\n\r\n"
+                                               "Shot Number,V0.00m,V9.00m,KE9.00m,PF9.00m,BC G1,BC G7,Date,Time\r\n,m/s,m/s,J,,,,\r\n"
+                                               "1,761.86,756.58,3115.73,417.01,0.507,0.255,2026-10-20,18:07:20\r\n"
+                                               "2,760.85,755.24,3104.64,416.27,0.476,0.240,2026-10-20,18:07:40\r\n"
+                                               "3,762.25,757.65,3124.49,417.60,0.581,0.293,2026-10-20,18:11:37\r\n"
+                                               "4,760.33,756.18,3112.41,416.79,0.644,0.324,2026-10-20,18:12:11\r\n"
+                                               "5,761.06,756.51,3115.12,416.97,0.587,0.296,2026-10-20,18:12:33\r\n"
+                                               "6,758.59,753.64,3091.50,415.39,0.538,0.271,2026-10-20,18:13:11\r\n"
+                                               "7,759.12,754.98,3102.53,416.13,0.644,0.324,2026-10-20,18:13:29\r\n"
+                                               "8,760.82,755.66,3108.11,416.50,0.517,0.261,2026-10-20,18:15:13\r\n"
+                                               "9,758.11,754.67,3099.99,415.96,0.776,0.391,2026-10-20,18:15:44\r\n"
+                                               "10,761.65,756.83,3117.78,417.15,0.554,0.279,2026-10-20,18:16:25\r\n"
+                                               "11,761.59,756.61,3115.97,417.03,0.538,0.271,2026-10-20,18:17:12\r\n";
+    const std::vector<double> lxVelocities{761.86, 760.85, 762.25, 760.33, 761.06, 758.59, 759.12, 760.82, 758.11, 761.65, 761.59};  // m/s
+    const auto checkLx = [&](const QByteArray &data, const QString &name)
+    {
+        const auto lx = csr::readChronograph(data, &error);
+        QVERIFY2(lx, qPrintable(error));
+        QCOMPARE(lx->format, csr::ChronographFormat::Labradar);
+        QCOMPARE(lx->series.size(), std::size_t{1});
+        QCOMPARE(lx->series[0].name, name);
+        QCOMPARE(lx->series[0].velocities_ms.size(), lxVelocities.size());
+        for (std::size_t i = 0; i < lxVelocities.size(); ++i) QCOMPARE_LT(std::abs(lx->series[0].velocities_ms[i] - lxVelocities[i]), 1e-9);
+    };
+    checkLx(kLabradarLxSemicolon, u"013 G11 7,5x55 42gr N150 L6=75,8 Hornady HPBT168"_s);  // a name given by the shooter has no "SR" prefix
+    checkLx(kLabradarLxComma, u"SR13"_s);
+    // without the V0 column there is nothing to read: an error, not a hang in the header
+    QVERIFY(!csr::readChronograph("Series Number,13\r\nShot Number,V9.00m\r\n,m/s\r\n1,756.58\r\n", &error));
+    QVERIFY(!error.isEmpty());
 
     // the Garmin Xero: the app's CSV (unit from the header, notes may contain commas) and the device's FIT file
     QFile xeroCsv(QStringLiteral(CSR_FIXTURE_DIR "/xero/garmin-xero.csv"));
@@ -1165,6 +1219,45 @@ void CoreTest::measurementStatistics()
     QCOMPARE_LT(std::abs(s.sd - 2.67255), 1e-4);
     QCOMPARE(csr::statistics(std::array{0.0}).count, 0);
     QCOMPARE(csr::statistics(std::array{900.0}).sd, 0.0);
+}
+
+// An ignored shot stays in the series (own format) but not in the statistics; the *.grtload export leaves it out.
+// The remark is the shot's name attribute, which the original writes empty.
+void CoreTest::measurementIgnoredShotsAndRemarks()
+{
+    csr::Measurement m{.title = u"M"_s, .charges = {csr::MeasuredCharge::create(u"A"_s, 2.5)}, .attributes = {}};
+    m.charges[0].shots = {{.name = u"cold bore"_s, .velocity_ms = 800.0},
+                          {.name = u"flyer & co"_s, .velocity_ms = 700.0, .pressure_bar = 2000.0, .ignored = true},
+                          {.velocity_ms = 810.0, .pressure_bar = 3000.0}};
+    const csr::ShotStatistics v = csr::velocityStatistics(m.charges[0]);
+    QCOMPARE(v.count, 2);
+    QCOMPARE(v.mean, 805.0);
+    QCOMPARE(csr::pressureStatistics(m.charges[0]).count, 1);
+
+    const QString appendix = csr::writeMeasurement(u"<note index=\"1\" title=\"N\" />"_s, m);
+    QCOMPARE(appendix.count(u"ignored=\"true\""_s), 1);
+    const auto back = csr::readMeasurement(appendix);
+    QVERIFY(back);
+    QCOMPARE(back->charges[0].shots.size(), std::size_t{3});
+    QVERIFY(back->charges[0].shots[1].ignored);
+    QVERIFY(!back->charges[0].shots[0].ignored);
+    QCOMPARE(back->charges[0].shots[0].name, u"cold bore"_s);
+    QCOMPARE(back->charges[0].shots[1].name, u"flyer & co"_s);
+
+    auto lf = csr::LoadFile::read(QStringLiteral(CSR_FIXTURE_DIR "/8x57is.grtload"));
+    QVERIFY(lf);
+    lf->appendixXml = appendix;
+    const auto own = csr::LoadFile::parse(lf->toXml(csr::FileFormat::Reload));
+    QVERIFY(own);
+    QCOMPARE(csr::readMeasurement(own->appendixXml)->charges[0].shots.size(), std::size_t{3});
+    const auto exported = csr::LoadFile::parse(lf->toXml(csr::FileFormat::Original));
+    QVERIFY(exported);
+    QVERIFY(!exported->appendixXml.contains(u"ignored"_s));
+    QVERIFY(exported->appendixXml.contains(u"<note"_s));
+    const auto shots = csr::readMeasurement(exported->appendixXml)->charges[0].shots;
+    QCOMPARE(shots.size(), std::size_t{2});
+    QCOMPARE(shots[1].velocity_ms, 810.0);
+    QCOMPARE(csr::withoutIgnoredShots(u"<note index=\"1\" />"_s), u"<note index=\"1\" />"_s);  // nothing to drop: unchanged
 }
 
 void CoreTest::simInputFromLoad()
@@ -1930,7 +2023,8 @@ void CoreTest::loadBuilderMatchesOriginal()
     for (const auto sel : {&csr::LoadFile::caliber, &csr::LoadFile::gun, &csr::LoadFile::projectile, &csr::LoadFile::propellant})
     {
         std::vector<csr::Entry> a = (built.*sel).entries();
-        std::erase_if(a, [](const csr::Entry &e) { return e.name == u"primer" || e.name == u"psadd" || e.name == u"gmaterial"; });
+        std::erase_if(a, [](const csr::Entry &e)
+                      { return e.name == u"primer" || e.name == u"psadd" || e.name == u"psref" || e.name == u"gmaterial"; });
         const auto &b = ((*orig).*sel).entries();
         QCOMPARE(a.size(), b.size());
         for (std::size_t i = 0; i < a.size(); ++i)
@@ -2747,6 +2841,31 @@ void CoreTest::primerGivesTheStartPressure()
         QVERIFY(!csr::ensurePrimer(old));  // only once
     }
 
+    // the reference of the additional start pressure (psref): set with the load, kept in the own format only, added to a load of format 1 and to the export
+    {
+        csr::LoadFile fresh = csr::buildLoad(caliber, bullet, powder);
+        QCOMPARE(fresh.caliber.number(u"psref"), 80.0);
+        QCOMPARE(fresh.formatVersion, csr::kLoadFormatVersion);
+        fresh.caliber.set(u"psadd", 120.0);  // a change of the user: the reference stays
+        QCOMPARE(fresh.caliber.number(u"psref"), 80.0);
+        const auto back = csr::LoadFile::parse(fresh.toXml(csr::FileFormat::Reload));
+        QVERIFY(back);
+        QCOMPARE(back->formatVersion, 2);
+        QCOMPARE(back->caliber.number(u"psref"), 80.0);
+        QVERIFY(!csr::LoadFile::parse(fresh.toXml(csr::FileFormat::Original))->caliber.find(u"psref"));
+        QByteArray xml = fresh.toXml(csr::FileFormat::Reload);
+        xml.replace("format=\"2\"", "format=\"1\"");
+        auto v1 = csr::LoadFile::parse(xml);
+        QVERIFY(v1);
+        QCOMPARE(v1->formatVersion, 1);
+        v1->caliber.entries().erase(std::ranges::find_if(v1->caliber.entries(), [](const csr::Entry &e) { return e.name == u"psref"; }));
+        QVERIFY(!csr::ensurePrimer(*v1));               // it had primer and psadd already
+        QCOMPARE(v1->caliber.number(u"psref"), 120.0);  // its additional start pressure is the reference: the results stay the same
+        csr::LoadFile fromExport = *exported;
+        QVERIFY(csr::ensurePrimer(fromExport));
+        QCOMPARE(fromExport.caliber.number(u"psref"), fromExport.caliber.number(u"psadd"));
+    }
+
     // the Original model gets the load's start pressure, the physical one adds the primer's offset
     {
         csr::LoadFile old = *exported;
@@ -2762,6 +2881,31 @@ void CoreTest::primerGivesTheStartPressure()
         shifted.startPressure_bar += in.primerOffset_bar;
         QCOMPARE(csr::simulate(in, physical).maxPressure_bar, csr::simulate(shifted, physical).maxPressure_bar);
         QVERIFY(csr::simulate(in, physical).maxPressure_bar != csr::simulate(plain, physical).maxPressure_bar);
+    }
+
+    // pistol and revolver cartridges: the floor of the start pressure (handgunStartFraction) does not swallow the changes of the load
+    {
+        auto pl = csr::LoadFile::read(QStringLiteral(CSR_FIXTURE_DIR "/357sig_no_caliberfile.grtload"));  // .357 SIG, ps 150 bar
+        QVERIFY(pl);
+        pl->caliberFile.entries().push_back({.name = u"ciptype"_s, .value = u"4 pistol/revolver"_s, .unit = {}, .type = {}, .descr = {}});
+        QVERIFY(csr::ensurePrimer(*pl));
+        QCOMPARE(pl->caliber.number(u"psref"), pl->caliber.number(u"psadd"));
+        const csr::Calibration physical = csr::calibrationFor(csr::CalibrationProfile::Physical);
+        csr::Calibration swallowed = physical;
+        swallowed.handgunStartGain = 0.0;  // the floor alone
+        QVERIFY(physical.handgunStartGain > 0.0);
+        const csr::SimResult base = csr::simulate(csr::SimInput::fromLoad(*pl), physical);
+        QVERIFY(base.ok());
+        // a load as it was opened gives the result of the floor alone
+        QCOMPARE(base.maxPressure_bar, csr::simulate(csr::SimInput::fromLoad(*pl), swallowed).maxPressure_bar);
+        pl->caliber.set(u"psadd", pl->caliber.number(u"psref") + 60.0);  // +60 bar start pressure
+        csr::updateStartPressure(*pl);
+        const csr::SimInput changed = csr::SimInput::fromLoad(*pl);
+        QVERIFY(csr::simulate(changed, physical).maxPressure_bar > base.maxPressure_bar);
+        QCOMPARE(csr::simulate(changed, swallowed).maxPressure_bar, base.maxPressure_bar);  // what the floor alone did: nothing
+        pl->caliber.set(u"psadd", pl->caliber.number(u"psref") - 60.0);
+        csr::updateStartPressure(*pl);
+        QVERIFY(csr::simulate(csr::SimInput::fromLoad(*pl), physical).maxPressure_bar < base.maxPressure_bar);
     }
 
     // the case volume dependence: start pressure * (V / 3 cm3)^-k

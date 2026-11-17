@@ -3,6 +3,30 @@
 Changes in ChamberSim Reloaded. Pre-built binaries are on the
 [releases page](https://github.com/Schildkroet/ChamberSim-Reloaded/releases).
 
+## 0.17
+
+### Added and changed
+
+- **Start pressure of pistol and revolver loads: your changes count.** For these cartridges the Physical Model starts
+  the bullet at no less than 0.3 times the permitted pressure, and that floor swallowed every change of the
+  *Additional Start Pressure* or the *Primer* below it. The changes are now added on top of the floor, bar for bar
+  (+50 bar additional start pressure: the bullet starts 50 bar higher). A load that you have not changed gives exactly
+  the old result, so the published-load accuracy is unchanged (pistol and revolver 7.81 % velocity and 16.21 % peak
+  pressure rms). Selecting another projectile makes its start pressure the new reference.
+- **Pressure of Vihtavuori powders.** Vihtavuori publishes no pressures, so the burn form of its powders was fitted
+  with the C.I.P. limit as the pressure of the maximum loads. Against measured pressures that came out 16 to 50 % too
+  high at the right velocity (DEVA N140 +16 / +22 %, N320 +18 %, a .357 Magnum load with N110 +50 %). 18 Vihtavuori
+  powders now take the burn form of a similar powder with measured pressures and only their burn rate is fitted to the
+  published velocities: N110 +50 % to +15 %, N140 +16 / +22 % to +7 / +12 %, N320 +18 % to +3 %. The published loads
+  stay as they were (rifle 4.03 % / 11.84 %, pistol and revolver 7.81 % / 16.21 % velocity / pressure rms). The list
+  and the references are in `analysis/form_references.json` and are used by every refit.
+- **File format 2.** `.csrload` files carry the hidden reference of the additional start pressure (`psref`).
+  Loads of format 1 and of the original open as before: the start pressure they have when opened is the reference.
+  The reference is left out of the *.grtload export.
+- **Labradar LX.** Report files of the Labradar LX, from the device and from the iOS app, are imported.
+- **Measured load.** The Measurements data now include a .357 Magnum N110 load from a proof house (150 mm
+  manometer barrel, 2174 bar) and the refit scripts check it.
+
 ## 0.16
 
 ### Added and changed
@@ -18,6 +42,19 @@ Changes in ChamberSim Reloaded. Pre-built binaries are on the
   Rifle 4.30 % to 4.27 % velocity rms against the published loads, on Speer's web data (not used by the fit)
   5.08 % to 4.87 %; pistol and revolver unchanged at 7.89 %. The Original profile and the accuracy table are not
   affected.
+- **Line icons** on the four result cards.
+
+### Fixed
+
+- **.416 Barrett case dimensions.** The record had only the Wikipedia values and some were wrong (overall length,
+  case head dimension). It now carries the full C.I.P. Tab I sheet (revision 2025-05-13): body and shoulder lengths,
+  angles, pressures and all chamber dimensions, so the cartridge and chamber drawings are complete.
+- **Cartridge drawings of 16 Wikipedia-sourced rifle calibers** (6 mm Creedmoor and Rem., 6.5 Grendel, 6.8 Western,
+  22 / 26 / 27 / 30 / 33 Nosler, .222 Rem. Mag., .224 Valkyrie, .264 Win. Mag., 277 SIG Fury, .280 Ackley Improved,
+  .30 Rem. AR, .35 Whelen) had no shoulder: the body and shoulder lengths, shoulder angle, extractor groove and rim
+  thickness are now taken from the SAAMI Z299.4 drawings.
+- **Tapered C.I.P. cases without a shoulder** (6.5 x 70 R, 6.5 x 58 R, 8 x 72 R, .32-40 and others) are drawn as the
+  cone up to L2 instead of a straight wall.
 
 ## 0.15
 

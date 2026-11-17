@@ -36,9 +36,8 @@
     "gdia": 11.46,
     "glen": 17.0,
     "gmass": 230.0,
-    "gpressure": 500.0,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -25.0
+    "gpressure": 250.0,
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -47,11 +46,10 @@
     "gdia": 5.69,
     "glen": 19.1,
     "gmass": 55.0,
-    "gpressure": 430.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.69,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": 25.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -60,11 +58,10 @@
     "gdia": 7.82,
     "glen": 28.5,
     "gmass": 150.0,
-    "gpressure": 475.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -40.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -73,9 +70,8 @@
     "gdia": 7.82,
     "glen": 23.7,
     "gmass": 150.0,
-    "gpressure": 195.0,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -70.0
+    "gpressure": 250.0,
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -84,9 +80,8 @@
     "gdia": 7.82,
     "glen": 26.1,
     "gmass": 170.0,
-    "gpressure": 90.0,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -70.0
+    "gpressure": 250.0,
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -136,11 +131,11 @@
     "glen": 19.2,
     "gValid": true,
     "gmass": 250.0,
+    "gpressure": 250.0,
     "gtailtype": 1,
     "gtaildiaA": 10.0,
     "gtaildiaB": 2.0,
-    "gtailh": 0.5,
-    "gpressure": 250.0
+    "gtailh": 0.5
   },
   {
     "mname": "Sierra",
@@ -159,7 +154,7 @@
     "gdia": 5.69,
     "glen": 12.5,
     "gmass": 40.0,
-    "gpressure": 500.0
+    "gpressure": 250.0
   },
   {
     "mname": "Sierra",
@@ -199,8 +194,7 @@
     "glen": 17.8,
     "gValid": true,
     "gmass": 53.0,
-    "gpressure": 250.0,
-    "gfriction": 30.0
+    "gpressure": 250.0
   },
   {
     "mname": "Sierra",
@@ -219,7 +213,7 @@
     "gdia": 7.82,
     "glen": 19.4,
     "gmass": 125.0,
-    "gpressure": 240.0,
+    "gpressure": 250.0,
     "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
@@ -250,7 +244,7 @@
     "glen": 20.2,
     "gValid": true,
     "gmass": 60.0,
-    "gpressure": 195.0
+    "gpressure": 250.0
   },
   {
     "mname": "Sierra",
@@ -270,8 +264,8 @@
     "glen": 18.8,
     "gValid": true,
     "gmass": 60.0,
-    "gpressure": 250.0,
-    "gfriction": 15.0
+    "gpressure": 220.0,
+    "gfriction": -25.0
   },
   {
     "mname": "Sierra",
@@ -291,8 +285,7 @@
     "glen": 23.4,
     "gValid": true,
     "gmass": 100.0,
-    "gpressure": 250.0,
-    "gfriction": 60.0
+    "gpressure": 250.0
   },
   {
     "mname": "Sierra",
@@ -302,8 +295,7 @@
     "glen": 22.5,
     "gValid": true,
     "gmass": 100.0,
-    "gpressure": 315.0,
-    "gfriction": 5.0
+    "gpressure": 90.0
   },
   {
     "mname": "Sierra",
@@ -313,8 +305,7 @@
     "glen": 20.2,
     "gValid": true,
     "gmass": 110.0,
-    "gpressure": 500.0,
-    "gfriction": -45.0
+    "gpressure": 250.0
   },
   {
     "mname": "Sierra",
@@ -334,7 +325,8 @@
     "glen": 24.3,
     "gValid": true,
     "gmass": 135.0,
-    "gpressure": 265.0
+    "gpressure": 250.0,
+    "gfriction": -15.0
   },
   {
     "mname": "Sierra",
@@ -366,7 +358,7 @@
     "glen": 18.3,
     "gValid": true,
     "gmass": 55.0,
-    "gpressure": 125.0,
+    "gpressure": 95.0,
     "gtailtype": 2,
     "gtaildiaA": 5.69
   },
@@ -401,11 +393,10 @@
     "gdia": 6.71,
     "glen": 30.3,
     "gmass": 130.0,
-    "gpressure": 275.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.71,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": 10.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -415,10 +406,9 @@
     "glen": 31.4,
     "gValid": true,
     "gmass": 140.0,
-    "gpressure": 260.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 7.04,
-    "gfriction": -15.0
+    "gtaildiaA": 7.04
   },
   {
     "mname": "Sierra",
@@ -440,10 +430,9 @@
     "glen": 33.3,
     "gValid": true,
     "gmass": 160.0,
-    "gpressure": 130.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 7.21,
-    "gfriction": -50.0
+    "gtaildiaA": 7.21
   },
   {
     "mname": "Sierra",
@@ -489,7 +478,7 @@
     "glen": 17.9,
     "gValid": true,
     "gmass": 52.0,
-    "gpressure": 250.0,
+    "gpressure": 195.0,
     "gtailtype": 2,
     "gtaildiaA": 5.69
   },
@@ -501,9 +490,10 @@
     "glen": 21.1,
     "gValid": true,
     "gmass": 70.0,
-    "gpressure": 275.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 6.17
+    "gtaildiaA": 6.17,
+    "gfriction": -25.0
   },
   {
     "mname": "Sierra",
@@ -539,7 +529,8 @@
     "gmass": 107.0,
     "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 6.71
+    "gtaildiaA": 6.71,
+    "gfriction": -60.0
   },
   {
     "mname": "Sierra",
@@ -561,9 +552,10 @@
     "glen": 33.2,
     "gValid": true,
     "gmass": 140.0,
-    "gpressure": 50.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 6.71
+    "gtaildiaA": 6.71,
+    "gfriction": 5.0
   },
   {
     "mname": "Sierra",
@@ -585,7 +577,7 @@
     "glen": 25.2,
     "gValid": true,
     "gmass": 115.0,
-    "gpressure": 240.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.04
   },
@@ -609,7 +601,7 @@
     "glen": 31.8,
     "gValid": true,
     "gmass": 150.0,
-    "gpressure": 250.0,
+    "gpressure": 330.0,
     "gtailtype": 2,
     "gtaildiaA": 7.21
   },
@@ -621,10 +613,9 @@
     "glen": 34.6,
     "gValid": true,
     "gmass": 168.0,
-    "gpressure": 110.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 7.21,
-    "gfriction": -25.0
+    "gtaildiaA": 7.21
   },
   {
     "mname": "Sierra",
@@ -634,10 +625,9 @@
     "glen": 36.7,
     "gValid": true,
     "gmass": 175.0,
-    "gpressure": 50.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 7.21,
-    "gfriction": -10.0
+    "gtaildiaA": 7.21
   },
   {
     "mname": "Sierra",
@@ -661,7 +651,8 @@
     "gmass": 155.0,
     "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 7.82
+    "gtaildiaA": 7.82,
+    "gfriction": -10.0
   },
   {
     "mname": "Sierra",
@@ -671,10 +662,10 @@
     "glen": 28.3,
     "gValid": true,
     "gmass": 150.0,
-    "gpressure": 80.0,
+    "gpressure": 55.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
-    "gfriction": -15.0
+    "gfriction": -20.0
   },
   {
     "mname": "Sierra",
@@ -687,7 +678,7 @@
     "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
-    "gfriction": -15.0
+    "gfriction": -10.0
   },
   {
     "mname": "Sierra",
@@ -696,11 +687,10 @@
     "gdia": 7.82,
     "glen": 35.0,
     "gmass": 190.0,
-    "gpressure": 225.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -40.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -712,8 +702,7 @@
     "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -15.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -722,11 +711,10 @@
     "gdia": 7.82,
     "glen": 38.4,
     "gmass": 220.0,
-    "gpressure": 90.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -100.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -739,7 +727,7 @@
     "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
-    "gfriction": -30.0
+    "gfriction": -10.0
   },
   {
     "mname": "Sierra",
@@ -749,10 +737,9 @@
     "glen": 31.2,
     "gValid": true,
     "gmass": 174.0,
-    "gpressure": 200.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 7.9,
-    "gfriction": 35.0
+    "gtaildiaA": 7.9
   },
   {
     "mname": "Sierra",
@@ -774,7 +761,7 @@
     "glen": 40.3,
     "gValid": true,
     "gmass": 250.0,
-    "gpressure": 500.0,
+    "gpressure": 340.0,
     "gtailtype": 2,
     "gtaildiaA": 8.59,
     "gfriction": -100.0
@@ -789,8 +776,7 @@
     "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 8.59,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -40.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -802,8 +788,7 @@
     "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.69,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": 15.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -836,11 +821,10 @@
     "gdia": 6.71,
     "glen": 34.5,
     "gmass": 142.0,
-    "gpressure": 145.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.71,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -5.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -958,10 +942,10 @@
     "glen": 32.6,
     "gValid": true,
     "gmass": 123.0,
-    "gpressure": 200.0,
+    "gpressure": 185.0,
     "gtailtype": 2,
     "gtaildiaA": 6.71,
-    "gfriction": -30.0
+    "gfriction": -50.0
   },
   {
     "mname": "Sierra",
@@ -994,11 +978,10 @@
     "gdia": 6.71,
     "glen": 38.8,
     "gmass": 150.0,
-    "gpressure": 120.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.71,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -45.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -1127,7 +1110,7 @@
     "gdia": 5.69,
     "glen": 29.2,
     "gmass": 90.0,
-    "gpressure": 95.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.69,
     "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
@@ -1177,7 +1160,7 @@
     "gValid": true,
     "gmass": 90.0,
     "gpressure": 500.0,
-    "gfriction": -30.0
+    "gfriction": -10.0
   },
   {
     "mname": "Sierra",
@@ -1557,8 +1540,7 @@
     "glen": 28.3,
     "gmass": 180.0,
     "gpressure": 250.0,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -35.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -1567,9 +1549,8 @@
     "gdia": 7.82,
     "glen": 33.1,
     "gmass": 220.0,
-    "gpressure": 50.0,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": 10.0
+    "gpressure": 250.0,
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -1578,9 +1559,8 @@
     "gdia": 9.09,
     "glen": 22.7,
     "gmass": 200.0,
-    "gpressure": 60.0,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -40.0
+    "gpressure": 250.0,
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -1600,7 +1580,7 @@
     "glen": 18.4,
     "gValid": true,
     "gmass": 55.0,
-    "gpressure": 250.0,
+    "gpressure": 335.0,
     "gtailtype": 2,
     "gtaildiaA": 5.69
   },
@@ -1636,10 +1616,9 @@
     "glen": 28.7,
     "gValid": true,
     "gmass": 117.0,
-    "gpressure": 125.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 6.53,
-    "gfriction": -85.0
+    "gtaildiaA": 6.53
   },
   {
     "mname": "Sierra",
@@ -1663,7 +1642,8 @@
     "gmass": 130.0,
     "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 7.04
+    "gtaildiaA": 7.04,
+    "gfriction": -10.0
   },
   {
     "mname": "Sierra",
@@ -1685,7 +1665,7 @@
     "glen": 32.6,
     "gValid": true,
     "gmass": 140.0,
-    "gpressure": 500.0,
+    "gpressure": 430.0,
     "gtailtype": 2,
     "gtaildiaA": 7.04
   },
@@ -1697,10 +1677,9 @@
     "glen": 29.5,
     "gValid": true,
     "gmass": 140.0,
-    "gpressure": 250.0,
+    "gpressure": 155.0,
     "gtailtype": 2,
-    "gtaildiaA": 7.21,
-    "gfriction": -20.0
+    "gtaildiaA": 7.21
   },
   {
     "mname": "Sierra",
@@ -1709,11 +1688,10 @@
     "gdia": 7.21,
     "glen": 30.4,
     "gmass": 150.0,
-    "gpressure": 50.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.21,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -25.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -1735,10 +1713,9 @@
     "glen": 35.5,
     "gValid": true,
     "gmass": 175.0,
-    "gpressure": 50.0,
+    "gpressure": 110.0,
     "gtailtype": 2,
-    "gtaildiaA": 7.21,
-    "gfriction": -100.0
+    "gtaildiaA": 7.21
   },
   {
     "mname": "Sierra",
@@ -1750,7 +1727,8 @@
     "gmass": 150.0,
     "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 7.82
+    "gtaildiaA": 7.82,
+    "gfriction": -10.0
   },
   {
     "mname": "Sierra",
@@ -1760,10 +1738,10 @@
     "glen": 30.2,
     "gValid": true,
     "gmass": 165.0,
-    "gpressure": 500.0,
+    "gpressure": 470.0,
     "gtailtype": 2,
     "gtaildiaA": 7.82,
-    "gfriction": -30.0
+    "gfriction": -50.0
   },
   {
     "mname": "Sierra",
@@ -1775,8 +1753,7 @@
     "gmass": 180.0,
     "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 7.82,
-    "gfriction": -20.0
+    "gtaildiaA": 7.82
   },
   {
     "mname": "Sierra",
@@ -1788,8 +1765,7 @@
     "gmass": 200.0,
     "gpressure": 50.0,
     "gtailtype": 2,
-    "gtaildiaA": 7.82,
-    "gfriction": -100.0
+    "gtaildiaA": 7.82
   },
   {
     "mname": "Sierra",
@@ -1799,10 +1775,10 @@
     "glen": 35.4,
     "gValid": true,
     "gmass": 220.0,
-    "gpressure": 50.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 8.2,
-    "gfriction": -45.0
+    "gfriction": -10.0
   },
   {
     "mname": "Sierra",
@@ -1812,7 +1788,7 @@
     "glen": 36.5,
     "gValid": true,
     "gmass": 250.0,
-    "gpressure": 345.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 8.59
   },
@@ -1839,8 +1815,7 @@
     "gmass": 225.0,
     "gpressure": 250.0,
     "gtailtype": 2,
-    "gtaildiaA": 9.09,
-    "gfriction": -55.0
+    "gtaildiaA": 9.09
   },
   {
     "mname": "Sierra",
@@ -1850,10 +1825,10 @@
     "glen": 30.1,
     "gValid": true,
     "gmass": 250.0,
-    "gpressure": 180.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 9.52,
-    "gfriction": -50.0
+    "gfriction": -40.0
   },
   {
     "mname": "Sierra",
@@ -1910,11 +1885,11 @@
     "gdia": 5.69,
     "glen": 19.2,
     "gmass": 63.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.7,
     "gtaildiaB": 5.0,
     "gtailh": 2.0,
-    "gpressure": 250.0,
     "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
@@ -2015,8 +1990,7 @@
     "glen": 23.0,
     "gmass": 125.0,
     "gpressure": 250.0,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -20.0
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -2025,9 +1999,8 @@
     "gdia": 7.9,
     "glen": 30.1,
     "gmass": 180.0,
-    "gpressure": 50.0,
-    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain",
-    "gfriction": -80.0
+    "gpressure": 250.0,
+    "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
     "mname": "Sierra",
@@ -2077,7 +2050,7 @@
     "glen": 17.2,
     "gValid": true,
     "gmass": 50.0,
-    "gpressure": 280.0
+    "gpressure": 250.0
   },
   {
     "mname": "Sierra",
@@ -2176,11 +2149,11 @@
     "gdia": 6.71,
     "glen": 35.8,
     "gmass": 140.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.7,
     "gtaildiaB": 6.1,
     "gtailh": 2.5,
-    "gpressure": 250.0,
     "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
@@ -2361,11 +2334,11 @@
     "glen": 23.0,
     "gValid": true,
     "gmass": 60.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.69,
     "gtaildiaB": 4.32,
-    "gtailh": 3.58,
-    "gpressure": 250.0
+    "gtailh": 3.58
   },
   {
     "mname": "Sierra",
@@ -2375,11 +2348,11 @@
     "glen": 25.1,
     "gValid": true,
     "gmass": 69.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.7,
     "gtaildiaB": 4.3,
-    "gtailh": 3.2,
-    "gpressure": 250.0
+    "gtailh": 3.2
   },
   {
     "mname": "Sierra",
@@ -2389,11 +2362,11 @@
     "glen": 27.1,
     "gValid": true,
     "gmass": 77.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 5.7,
     "gtaildiaB": 4.6,
-    "gtailh": 3.4,
-    "gpressure": 250.0
+    "gtailh": 3.4
   },
   {
     "mname": "Sierra",
@@ -2462,11 +2435,11 @@
     "gdia": 6.71,
     "glen": 34.7,
     "gmass": 130.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.71,
     "gtaildiaB": 5.08,
     "gtailh": 3.99,
-    "gpressure": 250.0,
     "descr": "Length measured on the product photo of sierrabullets.com (side view of the bullet, length / width x diameter), about 3 % uncertain"
   },
   {
@@ -2487,11 +2460,11 @@
     "glen": 36.1,
     "gValid": true,
     "gmass": 160.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.2,
     "gtaildiaB": 5.1,
-    "gtailh": 3.6,
-    "gpressure": 250.0
+    "gtailh": 3.6
   },
   {
     "mname": "Sierra",
@@ -2531,11 +2504,11 @@
     "glen": 32.4,
     "gValid": true,
     "gmass": 155.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 7.8,
     "gtaildiaB": 5.9,
-    "gtailh": 4.5,
-    "gpressure": 250.0
+    "gtailh": 4.5
   },
   {
     "mname": "Sierra",
@@ -2625,7 +2598,8 @@
     "glen": 19.0,
     "gValid": true,
     "gmass": 55.0,
-    "gpressure": 250.0
+    "gpressure": 160.0,
+    "gfriction": -90.0
   },
   {
     "mname": "Sierra",
@@ -2635,11 +2609,11 @@
     "glen": 22.9,
     "gValid": true,
     "gmass": 70.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.2,
     "gtaildiaB": 4.6,
-    "gtailh": 3.3,
-    "gpressure": 250.0
+    "gtailh": 3.3
   },
   {
     "mname": "Sierra",
@@ -2650,7 +2624,7 @@
     "gValid": true,
     "gmass": 70.0,
     "gpressure": 50.0,
-    "gfriction": 80.0
+    "gfriction": 115.0
   },
   {
     "mname": "Sierra",
@@ -2660,11 +2634,11 @@
     "glen": 28.2,
     "gValid": true,
     "gmass": 90.0,
+    "gpressure": 250.0,
     "gtailtype": 2,
     "gtaildiaA": 6.5,
     "gtaildiaB": 4.6,
-    "gtailh": 3.6,
-    "gpressure": 250.0
+    "gtailh": 3.6
   },
   {
     "mname": "Sierra",

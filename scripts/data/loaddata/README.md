@@ -126,7 +126,41 @@ Both publish measured pressures with every load, so `csr_fitdata --use-pressure`
   A source that lists powders of many makers (the H&N catalogue, a bullet maker's PDF such as Barnes) is split among the makers' files; run the script again after
   extracting a new source to `sources/samples/<name>_samples.csv`. 51,788 loads of 37 files.
 - `samples_common.py`: matches cartridges (with the table's spelling variants) to `data/calibers` and bullets to `data/projectiles`,
-  else an estimated length (`estimate_length.py`).
+  else an estimated length (`estimate_length.py`). A bullet is the record of the same maker, weight and diameter whose name shares the most words with the
+  table's type; the tables' abbreviations (SMK, AB, BT, CC, BTSP, HOTCOR, GS, ...) are expanded per maker (`BULLET_WORDS`), and among records that share
+  nothing (or equally much) the one closest to the estimated length wins. Until 2026-11-15 the first record of the weight was taken: Hornady 190 gr BTSP .308
+  got the 42 mm CX (real about 33 mm; 7 loads "charge too high", +40 % pressure), Sierra 180 gr SMK the 28 mm RN Pro-Hunter. Since 2026-11-16 a record
+  without a common word may only stand in when it has the same construction (copper, brass, lead, jacketed; `start_pressure.py`), else the length is
+  estimated: a GMX took a lead-core record before. `Records.match` returns the record itself; `analysis/compare_physical_published.py --projectiles`
+  uses it for the start values, so the comparison takes the same record as the length.
+- `rematch_lengths.py sources/samples/*.csv [--write] [--estimates] [--stale]` looks up the lengths of existing sample files again with the current
+  matcher (only rows whose length is one of the matcher's candidates; product-number matches, photo lengths and estimates stay; originals to
+  `sources/samples_prematch`). Run 2026-11-15: 4,278 rows of 35 files changed. On these rows the shipped powder values gave pressure 11.9 -> 11.3 % rms
+  rifle (3,090 loads), 18.0 -> 14.1 % pistol (bias +9.2 -> -0.4 %, 452 loads); velocity 3.79 -> 3.77 % rifle, 6.90 -> 7.22 % pistol (the powders were
+  fitted with the old lengths). `--estimates` (2026-11-16, 814 rows): estimates that move into or out of a copper class after `estimate_length.py` learned
+  XPB, Lehigh, Cutting Edge, MonoFlex, Naturalis (were lead-core estimates, about 20 % too short; estimated pistol copper loads -13.4 -> +3.6 % pressure).
+  `--stale` (2026-11-16, 21,391 rows): the sample files keep the record length of their extraction day, and many records were measured or corrected
+  later (Hornady 165 gr GMX 27.8 mm in the samples, a lead-core length; V-MAX 25 gr 15.7 -> 16.0 mm). On the changed rows (shipped values, before a
+  refit): rifle velocity 3.43 -> 3.34 %, pressure 12.73 -> 12.53 % (18,379 loads); pistol velocity 7.75 -> 7.86 %, pressure 16.54 -> 16.08 % (2,200).
+  Solid copper with validated lengths only (gValid, 7 Barnes TSX / TTSX, 53 rifle loads): +7.8 % pressure at 250 bar start pressure, +12.2 % with the
+  records' 280-500 bar; the -5 % of copper loads in general came from wrong lengths, not from engraving (the model needs no copper material).
+  The per-bullet start values of `analysis/fit_bullet_start_values.py` (gpressure / gfriction of 779 records, 2026-10-15) had been fitted against the
+  stale lengths; with the corrected ones they made rifle loads worse (shipped powders: velocity 4.17 -> 4.25 %, pressure 12.73 -> 12.88 % against the
+  construction classes). Reset 2026-11-16 to the classes of `scripts/data/bulletdata/start_pressure.py` (`--write --overwrite`), friction removed (185).
+  `build_loads.py` now gives every load the start pressure the program uses (matching record, else the class); until then the fits ran every load at
+  the solver's 250 bar. Ba refit on that (`refit.sh ... "build groups ba compare"`): shipped values rifle 4.17 % v / 12.67 % p, pistol 7.87 / 14.98 %;
+  adopted W760, Accurate No. 9, Longshot, WSF, IMR 7828 SSC, Alliant 2000-MR, Reloder 17 (rifle 4.15 / 12.68 %, pistol 7.86 / 14.99 %; measured loads
+  unchanged).
+  Then the validated bullets got own values again (`fit_bullet_start_values.py --validated-only` on the corrected lengths, records with gValid only, rifle
+  loads, at least 8 per bullet): on held-out powders velocity 3.30 -> 3.19 %, pressure 12.79 -> 11.53 % (4,368 loads) against the classes. 162 records written
+  (79 with friction); all loads: rifle 4.15 % v / 12.24 % p (was 12.68 %), pistol unchanged. `build_loads.py` carries gfriction as well. A Ba refit on
+  top adopted no powder.
+  Copied loads (2026-11-16): `build_loads.py` keeps loads that are copies of each other once (`near_duplicates`: same powder, cartridge, bullet
+  weight and kind, charge within 0.3 %, velocity within 0.1 %, pressure within 0.5 % when both have one; the velocity differences of same-charge pairs
+  peak sharply below 0.05 % and spread evenly above). Removed 2,431 rifle and 206 pistol loads: Speer web -> Speer #14 609, Lovex 2019 -> 2020 553,
+  Reload Swiss web / guide 418, Western -> Hodgdon 303, Speer #14 -> Alliant web 167, Winchester -> Lee 110, ... Shotshell loads are not checked:
+  their tables give nominal velocities, and the near-equal pairs differ in wad or primer. Ba refit on the de-duplicated loads: shipped values rifle
+  4.16 % v / 12.28 % p, pistol 7.90 / 14.98 %; adopted Lovex D073.4 (the most copied guide).
 - `published_fit.py samples.csv --maker Lovex --base-from-name --source "..." --write` fits Ba per powder (form function 0 / 0.3 / 0.6)
   and writes the records of the powders with at least 40 samples and at most 6 % (Reload Swiss: 6.5 %) velocity error.
   Results: `lovex_fits.csv`, `rs_fits.csv`.
@@ -166,6 +200,18 @@ powder numbers. R906 (1 load) is not written.
   The primer of the test cartridge is the column `primer` (the table's text, e.g. "WIN LR Magnum"; `scripts/data/primers.py` gives the
   type), used by `analysis/fit_primers.py`.
   14,000 samples of about 100 powders.
+- `hodgdon_rldc_extract.py export.pdf...` reads PDF exports of Hodgdon's Reloading Data Center (the search result of one cartridge, "Print" ->
+  PDF; saved in `sources/pdf/hodgdon_rldc/`): one comma-separated row per load with bullet (weight, maker code, type), case, primer, powder maker
+  and powder, cartridge length, start and maximum load (grains, ft/s, PSI or CUP); twist and barrel from the header. CUP rows keep only their velocities.
+  308 Winchester (2026-11-15): 586 loads, 1,130 samples, 702 of them also in the manual (velocities within 4.6 %), new are e.g. IMR 4166, IMR 4320, H414.
+  Shipped values on it (physical model): velocity 2.3 % rms (bias -0.7 %, 1,093 rifle loads), pressure 13.6 % (+4.2 %, 955 loads); the 37 subsonic
+  loads (Trail Boss, Titegroup, A5744, No. 2) 9.4 %. Pressure by lab: the Accurate / Ramshot rows (Winchester LR primer) have no bias, the Hodgdon / IMR /
+  Winchester rows (Federal 210M) +10 to +20 % (CFE 223, BL-C(2), IMR 4166 / 4320, StaBALL) with velocities within 1-2 %.
+  Not a powder problem: on all cartridges of the Hodgdon manual the same 16 powders are at -1.6 % pressure bias (Lee, Lyman +2.5 %), but 308 Win. runs high
+  in most sources (Hodgdon +2.8 %, Lee +5.1 %, ADI +11.3 %, Lyman +12.8 %; 30-06 and 6.5 Creedmoor about 0): a cartridge effect, which only a rifle caliber
+  factor could take (open). A Ba refit cannot: IMR 4166 fitted on its pressures goes 21.7 -> 10.4 % pressure but 2.9 -> 4.5 % velocity.
+  Ba refit with these loads and the rematched lengths (`analysis/refit.sh ... "build groups ba compare"`, 2026-11-15): totals unchanged (rifle 4.26 % v,
+  12.36 -> 12.14 % p; pistol 7.92 -> 7.93 %, 15.87 -> 15.89 %), adopted Accurate LT-32 (Ba 0.507 -> 0.514) and Vihtavuori 3N37 (3.65 -> 3.89).
 - `west_extract.py guide.pdf` reads the Western Powders Handloading Guide 8.0 (Accurate and Ramshot powders). Its text layer has a space
   between all characters of a data row, so a row is read with all spaces removed. 5,500 samples.
 - `published_fit.py a.csv b.csv --source "..." --fits fits.csv --write` merges the files (identical samples count once), fits Ba per

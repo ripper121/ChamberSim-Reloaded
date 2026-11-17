@@ -168,6 +168,7 @@ private slots:
     void cartridgeViewDrawsAndHandlesStraightCases();
     void measurementTabShowsTheFilesResults();
     void measurementsAreEditedAndSaved();
+    void measurementShotsAreIgnoredAndRemarked();
     void measurementSeriesAreEditedAndSaved();
     void chronographImportAddsCharges();
     void propellantPhotoIsShown();
@@ -2341,6 +2342,44 @@ void GuiTest::measurementSeriesAreEditedAndSaved()
     QCOMPARE(csr::readMeasurements(csr::LoadFile::read(path)->appendixXml).size(), std::size_t{1});
 }
 
+// The Ignore check box keeps the shot but takes it out of the statistics; the remark column edits the shot's name.
+void GuiTest::measurementShotsAreIgnoredAndRemarked()
+{
+    UnitPreferences::instance().setSystem(csr::units::System::Metric);
+    LoadView view;
+    QVERIFY(view.load(QStringLiteral(CSR_FIXTURE_DIR "/8x57is.grtload")));
+    MeasurementView *m = view.measurements();
+    m->addCharge();
+    QCOMPARE(m->pasteShots(u"800\n700\n810\n"_s), 3);
+    auto *shots = m->findChild<QTableWidget *>(u"shots"_s);
+    auto *charges = m->findChild<QTableWidget *>(u"charges"_s);
+    QVERIFY(shots && charges);
+    QCOMPARE(shots->columnCount(), 4);
+    shots->item(1, 2)->setCheckState(Qt::Checked);
+    shots->item(1, 3)->setText(u"flyer"_s);
+    const csr::MeasuredCharge &c = m->measurement().charges[0];
+    QCOMPARE(c.shots.size(), std::size_t{3});
+    QVERIFY(c.shots[1].ignored);
+    QCOMPARE(c.shots[1].name, u"flyer"_s);
+    QCOMPARE(csr::velocityStatistics(c).mean, 805.0);
+    QCOMPARE(charges->item(0, 2)->text(), u"2 / 3"_s);
+    QCOMPARE(charges->item(0, 3)->text(), u"805.0"_s);
+    QVERIFY(shots->item(1, 0)->font().strikeOut());
+
+    QTemporaryDir dir;
+    const QString path = dir.filePath(u"m.csrload"_s);
+    QVERIFY(view.save(path));
+    LoadView again;
+    QVERIFY(again.load(path));
+    const auto &shotsBack = again.measurements()->measurement().charges[0].shots;
+    QCOMPARE(shotsBack.size(), std::size_t{3});
+    QVERIFY(shotsBack[1].ignored);
+    QCOMPARE(shotsBack[1].name, u"flyer"_s);
+
+    shots->item(1, 2)->setCheckState(Qt::Unchecked);
+    QCOMPARE(charges->item(0, 2)->text(), u"3"_s);
+}
+
 void GuiTest::measurementsAreEditedAndSaved()
 {
     UnitPreferences::instance().setSystem(csr::units::System::Metric);
@@ -2699,6 +2738,7 @@ void GuiTest::ownTitleBarCanBeSwitched()
     // the title follows the window (and names the shown load)
     QVERIFY(w.openLoad(QStringLiteral(CSR_FIXTURE_DIR "/8x57is.grtload")));
     QVERIFY(w.windowTitle().startsWith(u"8x57is"_s));
+    QVERIFY(w.windowTitle().endsWith(u"ChamberSim Reloaded " CSR_VERSION ""_s));  // the program's version
     bool titled = false;
     for (QLabel *l : bar->findChildren<QLabel *>()) titled = titled || l->text() == w.windowTitle();
     QVERIFY(titled);

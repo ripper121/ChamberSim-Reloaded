@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bulletdata"))
 from estimate_length import length_in  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import recordfiles  # noqa: E402
+from start_pressure import estimate as start_class  # noqa: E402
 from vv_extract import norm  # noqa: E402
 
 IN = 25.4
@@ -30,6 +31,41 @@ ALIASES = {".32 Smith & Wesson Long": "32 S.&W. Long", ".40 Smith & Wesson": "40
            "8.5 x 63": "8.5 x 63 R", "6 x 47 Lapua": "6 x 47 SM"}  # 8.5 x 63: the rimless twin of the 8.5 x 63 R (same body)
 
 
+# Abbreviations of the load tables (Hodgdon's RLDC and manual, Lyman, ...) -> words of the record names, per bullet maker.
+BULLET_WORDS = {
+    "nosler": {"bt": "ballistic tip", "ab": "accubond", "ablr": "accubond long range", "cc": "custom competition", "part": "partition", "pt": "partition",
+               "e-tip": "e-tip", "rdf": "rdf"},
+    "sierra": {"smk": "matchking", "sgk": "gameking", "tgk": "tipped gameking", "tmk": "tipped matchking", "spt": "pro-hunter", "bk": "blitzking",
+               "sfire": "matchking"},
+    "speer": {"gs": "grand slam", "hotcor": "hot cor", "hot-cor": "hot cor", "gd": "gold dot", "gdhp": "gold dot", "tnt": "tnt", "dgx": "dgx"},
+    "hornady": {"i-lock": "interlock", "btsp": "interlock", "sp": "interlock", "bthp-m": "match", "eld-m": "eld match", "eld-vt": "eld-vt",
+                "a-max": "a-max", "v-max": "v-max", "fmj-bt": "fmj"},
+    "barnes": {"tsx-bt": "tsx bt", "tsx-fb": "tsx fb", "ttsx-bt": "ttsx bt", "ttsx-fb": "ttsx fb"},
+    "berger": {"vld-ht": "vld hunting", "vld-tgt": "vld target", "hyb-tgt": "hybrid target", "bt-tgt": "bt target", "tgt-fb": "fb target", "fbt": "flat base"},
+    "swift": {"aframe": "a-frame"},
+}
+# maker codes of the tables, never part of a record name
+MAKER_CODES = {"hdy", "hrn", "sie", "nos", "spr", "bar", "ber", "sft", "sfi", "lap", "swi", "win", "rem", "nor", "ceb"}
+
+
+def material(maker: str, name: str) -> str:
+    """Construction class of a bullet for matching: copper, brass, lead or jacketed (start_pressure.py, without the handgun class)."""
+    return start_class(maker, name, handgun=False)[1]
+
+
+def bullet_words(maker: str, name: str) -> set:
+    """The words of a table's bullet type that can be looked for in the record names (at least two letters, abbreviations expanded)."""
+    words = set()
+    expand = BULLET_WORDS.get(maker.lower(), {})
+    for token in re.findall(r"[a-z0-9][a-z0-9/-]*", name.lower()):
+        for t in {token, *token.split("-"), *token.split("/")}:
+            if t in expand:
+                words.update(re.findall(r"[a-z0-9-]+", expand[t]))
+            if len(t) > 1 and t not in MAKER_CODES and re.fullmatch(r"[a-z0-9]+", t):
+                words.add(t)
+    return words
+
+
 class Records:
     """The project's calibers and projectiles (data/) with the lookups the extractors need."""
 
@@ -48,13 +84,44 @@ class Records:
                 return rec
         return None
 
-    def bullet(self, maker: str, btype: str, grains: float, dia_mm: float):
-        """(length mm, source, tail type): a record with the same maker, weight and diameter, else an estimated length."""
-        match = [p for p in self.projectiles if p["mname"].lower() == maker.lower() and abs(p["gmass"] - grains) < 0.8
-                 and abs(p["gdia"] - dia_mm) < 0.06]
+    def candidates(self, maker: str, grains: float, dia_mm: float):
+        """The records of the maker with this weight and diameter."""
+        return [p for p in self.projectiles if p["mname"].lower() == maker.lower() and abs(p["gmass"] - grains) < 0.8
+                and abs(p["gdia"] - dia_mm) < 0.06]
+
+    def match(self, maker: str, btype: str, grains: float, dia_mm: float):
+        """The record of the same maker, weight and diameter whose name shares the most words with the type (the tables' abbreviations
+        expanded, BULLET_WORDS); among records that share nothing (or equally much) the one closest to the estimated length. None without
+        a candidate. Until 2026-11-15 the first record was taken: Hornady 190 gr BTSP .308 got the 42 mm CX instead of the 33 mm Sub-X."""
+        match = self.candidates(maker, grains, dia_mm)
+        if not match:
+            return None
         name = btype.lower()
-        if match:
-            best = max(match, key=lambda p: sum(w in p["pname"].lower() for w in re.findall(r"[a-z0-9]+", name)))
-            return best["glen"], "database", best.get("gtailtype", 0)
+        words = bullet_words(maker, name)
+        est, _ = length_in(grains, dia_mm / IN, f"{name} {maker}")
+
+        def score(p):
+            return sum(w in p["pname"].lower() for w in words)
+        top = max(map(score, match))
+        if top == 0:  # no record shares a word: only one of the same construction (copper, lead, jacketed) may stand in, else estimate
+            own = material(maker, btype)
+            match = [p for p in match if material(p["mname"], p["pname"]) == own]
+            if not match:
+                return None
+        return min((p for p in match if score(p) == top), key=lambda p: abs(p["glen"] - est * IN))
+
+    def bullet(self, maker: str, btype: str, grains: float, dia_mm: float):
+        """(length mm, source, tail type): the length of the matching record (match()), else an estimated length."""
+        if rec := self.match(maker, btype, grains, dia_mm):
+            return rec["glen"], "database", rec.get("gtailtype", 0)
+        name = btype.lower()
         est, kind = length_in(grains, dia_mm / IN, f"{name} {maker}")
         return est * IN, "estimate:" + kind, 2 if re.search(r"bt|boat|a-?max|match|scenar|hpbt|otm|vld|smk", name) else 0
+
+    def split(self, bullet: str):
+        """(maker, type) of a sample's bullet column "Maker Type" (the longest record maker that starts it), or (None, bullet)."""
+        if not hasattr(self, "_makers"):
+            self._makers = sorted({p["mname"] for p in self.projectiles}, key=len, reverse=True)
+        low = bullet.lower()
+        maker = next((m for m in self._makers if low.startswith(m.lower() + " ") or low == m.lower()), None)
+        return (maker, bullet[len(maker):].strip()) if maker else (None, bullet)
