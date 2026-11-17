@@ -23,12 +23,14 @@ The merge was clean and retained `pwa/`, its deployment workflow, port documenta
 - Ported Labradar LX device/iOS CSV variants: semicolon or comma tables, `Shot ID`/`Shot Number`, `V0`/`V0.xx`, named/numeric series, and unit rows below the header.
 - Ported tapered shoulderless cartridge geometry and the versioned browser/app-window title.
 - Rebased current projectile/start-pressure and physical-powder data, including the D073.4 regression (about 895.5 m/s in the current PWA reference scenario). Project counts remain 494 / 3,145 / 277.
+- Completion-audit stress testing found and fixed an intermittent interaction race: committing a property by immediately clicking a top-level menu now preserves the menu toggle intended at pointer-down across the deferred property rerender.
 
 ## Verification for 0.18
 
 - Native rebuild and CTest: PASS, 6/6.
 - `npm run typecheck`, production build, and `npm test`: PASS, 32 files / 213 tests.
 - `npm run test:e2e`: PASS, all 50 production Edge workflows.
+- Focused property-edit/menu-rerender stress gate: PASS, 10/10 sequential production Edge repetitions.
 - `npm run test:install`: PASS; install prompt observed, zero installability errors, stable app id, and standalone title `ChamberSim Reloaded 0.18`.
 - `npm audit --omit=dev`: PASS, zero production vulnerabilities.
 

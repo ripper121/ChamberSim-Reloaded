@@ -20,6 +20,7 @@ Complete and not blocked. Local `main` contains upstream head `fe78c579` (Chambe
 - Ported tapered shoulderless cartridge drawing geometry and added a deterministic cone-to-L2 regression.
 - Rebased all merged caliber/projectile/propellant data and translations. Counts remain 494 calibers, 3,145 projectiles and 277 propellants; the current D073.4 wizard regression is approximately 895.5 m/s.
 - Matched the native versioned window title in the normal browser tab and standalone app window; install verification derives the version from `CMakeLists.txt`.
+- Completed a definition-of-done audit against the current upstream tree and all 55 parity scenarios. The audit found and fixed an intermittent property-edit/menu race by preserving the top-level menu's pointer-down state across the deferred property rerender; the production workflow now passes 10/10 sequential stress repetitions.
 - Rebuilt native 0.18 and passed CTest 6/6; passed 213/213 PWA unit tests, typecheck/build, all 50 production Edge workflows, installability/standalone and the zero-vulnerability production audit.
 
 - Closed the final Phase 1 gap with an isolated released-GRT combined-target replay. For `.223 Rem.` / Lovex D073-04, simultaneous conflicting targets of 3646 bar and 880 m/s produce 24.78 grain, 3377 bar and 884.1 m/s. Added the small native export fixture and an 18th deterministic synthesis replay against the PWA solver curve.
@@ -129,6 +130,7 @@ Current 0.18 update evidence (older 0.16/0.14 evidence below remains historical 
 - `npm audit --omit=dev`: PASS, zero vulnerabilities.
 - Focused new-feature Edge gate: PASS, 4/4 across measurement Ignore/Remark, Labradar LX, update/version UI and handgun start-pressure directionality.
 - Final localization/checkpoint rerun after adding the catalog-backed ignored-shot chart label: typecheck PASS, all 213 tests PASS, production build PASS and focused measurement Edge workflow PASS (1/1).
+- Completion audit rerun: current upstream remains `fe78c579`; all 55 checklist rows remain PASS; native CTest PASS 6/6; property-edit/menu-rerender stress PASS 10/10; final production Edge suite PASS 50/50; installability/standalone PASS; audit PASS with zero production vulnerabilities.
 
 - Native build and `ctest --test-dir build/current-reference --output-on-failure`: PASS, 6/6.
 - `npm run typecheck`: PASS.

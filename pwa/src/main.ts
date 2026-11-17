@@ -64,6 +64,7 @@ let appServiceWorker: ServiceWorkerRegistration | undefined;
 let status = "Loading project database…";
 let propertyRenderTimer: number | undefined;
 let propertyPointerTarget: HTMLElement | undefined;
+let propertyPointerMenuWasOpen: boolean | undefined;
 let propertyColumnObserver: ResizeObserver | undefined;
 const simulationCache = new WeakMap<LoadFile, Map<CalibrationProfile, LadderResult[]>>();
 const ladderFocus = new WeakMap<LoadFile, number>();
@@ -112,8 +113,10 @@ function attachMissingCaliberRecord(load: LoadFile): boolean {
 
 app.addEventListener("pointerdown", (event) => {
   propertyPointerTarget = (event.target as HTMLElement).closest<HTMLElement>("[data-close], button, summary, input, select, [tabindex]") ?? undefined;
+  const summary = propertyPointerTarget?.matches("summary") ? propertyPointerTarget : undefined;
+  propertyPointerMenuWasOpen = summary?.closest<HTMLDetailsElement>(".menubar > details")?.open;
 }, true);
-document.addEventListener("keydown", () => { propertyPointerTarget = undefined; }, true);
+document.addEventListener("keydown", () => { propertyPointerTarget = undefined; propertyPointerMenuWasOpen = undefined; }, true);
 
 function sessionSnapshot(): SessionSnapshot {
   const eligible = loads.filter((load) => sessionEligibleLoads.has(load));
@@ -1042,6 +1045,7 @@ function render(): void {
     propertyRenderTimer = undefined;
   }
   propertyPointerTarget = undefined;
+  propertyPointerMenuWasOpen = undefined;
   const current = activeLoad();
   const applicationTitle = `ChamberSim Reloaded ${__CSR_VERSION__}`;
   document.title = current ? `${current.fileName.replace(/\.(csrload|grtload)$/i, "")} – ${applicationTitle}` : applicationTitle;
@@ -1069,7 +1073,9 @@ function schedulePropertyRender(pointerFinished = false): void {
     propertyRenderTimer = undefined;
     const active = document.activeElement as HTMLElement | null;
     const pointer = propertyPointerTarget;
+    const pointerMenuStartedOpen = propertyPointerMenuWasOpen;
     propertyPointerTarget = undefined;
+    propertyPointerMenuWasOpen = undefined;
     const focusKey = active?.dataset.focusKey;
     const focusId = active?.id;
     const menus = [...app.querySelectorAll<HTMLDetailsElement>(".menubar > details")];
@@ -1088,7 +1094,10 @@ function schedulePropertyRender(pointerFinished = false): void {
     for (const index of openMenus) renderedMenus[index]?.setAttribute("open", "");
     if (activeMenuIndex >= 0) {
       const summary = renderedMenus[activeMenuIndex]?.querySelector<HTMLElement>("summary");
-      if (!pointerMenuWasOpen) summary?.click(); else summary?.focus();
+      if (pointerMenuStartedOpen !== undefined) {
+        renderedMenus[activeMenuIndex]?.toggleAttribute("open", !pointerMenuStartedOpen);
+        summary?.focus();
+      } else if (!pointerMenuWasOpen) summary?.click(); else summary?.focus();
       return;
     }
     const pointerReplacement = pointerFocusKey
