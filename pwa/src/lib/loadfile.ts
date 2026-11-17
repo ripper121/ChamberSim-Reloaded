@@ -14,6 +14,7 @@ export interface Shot {
   name: string;
   velocityMs: number;
   pressureBar: number;
+  ignored?: boolean;
 }
 
 export type RawAttributes = Array<[name: string, value: string]>;
@@ -37,6 +38,7 @@ export interface LoadFile {
   fileName: string;
   appVersion: string;
   source: FileFormat;
+  formatVersion: number;
   title: string;
   config: Entry[];
   caliber: Entry[];
@@ -111,7 +113,8 @@ function readMeasurements(load: Element): MeasurementSeries[] {
             .map((shot) => ({
               name: decode(shot.getAttribute("name") ?? ""),
               velocityMs: finiteNumber(shot.getAttribute("velocity")),
-              pressureBar: finiteNumber(shot.getAttribute("pressure"))
+              pressureBar: finiteNumber(shot.getAttribute("pressure")),
+              ignored: shot.getAttribute("ignored") === "true"
             }))
         }))
     }));
@@ -141,6 +144,7 @@ export function parseLoadXml(xml: string, fileName: string): LoadFile {
     fileName,
     appVersion: root.getAttribute("version") ?? "",
     source,
+    formatVersion: source === "reload" ? Math.max(finiteNumber(root.getAttribute("format"), 1), 1) : 1,
     title: decode(titleElement?.textContent ?? ""),
     config: readEntries(load, "config", "config"),
     caliber: readEntries(load, "caliber"),
@@ -220,7 +224,8 @@ function measurementElement(document: XMLDocument, measurement: MeasurementSerie
     for (const shot of charge.shots) {
       const shotElement = document.createElement("shot");
       writeAttributes(shotElement, undefined, [
-        ["name", percentEncode(shot.name)], ["velocity", String(shot.velocityMs)], ["pressure", String(shot.pressureBar)]
+        ["name", percentEncode(shot.name)], ["velocity", String(shot.velocityMs)], ["pressure", String(shot.pressureBar)],
+        ...(shot.ignored ? [["ignored", "true"]] as RawAttributes : [])
       ]);
       chargeElement.append(shotElement);
     }
@@ -256,11 +261,18 @@ function patchMeasurements(document: XMLDocument, body: Element, measurements: r
   for (let index = measurements.length; index < existing.length; index += 1) existing[index]!.remove();
 }
 
-function appendixInner(load: LoadFile): string {
-  const document = new DOMParser().parseFromString(load.sourceXml, "application/xml");
-  const body = document.querySelector("load, InnerBallistikInput");
-  if (!body) return "";
-  patchMeasurements(document, body, load.measurements);
+function appendixInner(load: LoadFile, includeIgnored = true): string {
+  let document = new DOMParser().parseFromString(load.sourceXml, "application/xml");
+  let body = document.querySelector("load, InnerBallistikInput");
+  if (!body) {
+    document = new DOMParser().parseFromString("<load><appendix/></load>", "application/xml");
+    body = document.documentElement;
+  }
+  const measurements = includeIgnored ? load.measurements : load.measurements.map((series) => ({
+    ...series,
+    charges: series.charges.map((charge) => ({ ...charge, shots: charge.shots.filter((shot) => !shot.ignored) }))
+  }));
+  patchMeasurements(document, body, measurements);
   const appendix = directElement(body, "appendix");
   if (!appendix) return "";
   const serializer = new XMLSerializer();
@@ -307,6 +319,7 @@ function patchReloadSource(load: LoadFile): string | undefined {
   const document = new DOMParser().parseFromString(load.sourceXml, "application/xml");
   if (document.querySelector("parsererror") || document.documentElement.tagName !== "ChamberSimReloaded") return undefined;
   const root = document.documentElement;
+  root.setAttribute("format", "2");
   const body = directElement(root, "load");
   if (!body) return undefined;
   const title = directElement(body, "title") ?? body.insertBefore(document.createElement("title"), body.firstChild);
@@ -342,7 +355,7 @@ export function serializeLoadXml(load: LoadFile, format: FileFormat = "reload"):
   const root = original ? "GordonsReloadingTool" : "ChamberSimReloaded";
   const rootAttributes = original
     ? (load.appVersion ? ` version="${xmlEscape(load.appVersion)}"` : "")
-    : ` format="1"${load.appVersion ? ` version="${xmlEscape(load.appVersion)}"` : ""}`;
+    : ` format="2"${load.appVersion ? ` version="${xmlEscape(load.appVersion)}"` : ""}`;
   const loadTag = original ? "InnerBallistikInput" : "load";
   const projectile = load.projectile.map((entry) => ({ ...entry }));
   if (original) {
@@ -355,7 +368,7 @@ export function serializeLoadXml(load: LoadFile, format: FileFormat = "reload"):
   const sections = [
     `<title>${percentEncode(load.title)}</title>`,
     ...load.config.map((entry) => writeEntry("config", entry)),
-    writeSection("caliber", "input", original ? load.caliber.filter((entry) => entry.name !== "primer" && entry.name !== "psadd") : load.caliber),
+    writeSection("caliber", "input", original ? load.caliber.filter((entry) => !["primer", "psadd", "psref"].includes(entry.name)) : load.caliber),
     writeSection("caliberfile", "var", load.caliberFile),
     writeSection("gun", "input", load.gun),
     writeSection("projectile", "input", projectile),
@@ -363,6 +376,6 @@ export function serializeLoadXml(load: LoadFile, format: FileFormat = "reload"):
   ];
   if (!original && load.shotshell.length > 0) sections.push(writeSection("shotshell", "input", load.shotshell));
   if (!original && load.physical.length > 0) sections.push(writeSection("physical", "input", load.physical));
-  sections.push(`<appendix>${appendixInner(load)}</appendix>`);
+  sections.push(`<appendix>${appendixInner(load, !original)}</appendix>`);
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><${root}${rootAttributes}><${loadTag}>${sections.join("")}</${loadTag}></${root}>\n`;
 }

@@ -15,6 +15,7 @@ export interface MeasurementChartLabels {
   peakPressure: string;
   simulatedVelocity: string;
   simulatedPressure: string;
+  ignored: string;
 }
 
 interface Range { low: number; high: number }
@@ -60,7 +61,7 @@ export function predictionAt(predictions: readonly MeasurementPrediction[], char
 export function measurementChartSvg(series: MeasurementSeries, predictions: readonly MeasurementPrediction[], units: MeasurementChartUnits, labels: MeasurementChartLabels = {
   accessibleName: "Measured and simulated velocity and peak pressure by charge",
   charge: "Charge", velocity: "Velocity", peakPressure: "Peak pressure",
-  simulatedVelocity: "Velocity (sim.)", simulatedPressure: "Pressure (sim.)"
+  simulatedVelocity: "Velocity (sim.)", simulatedPressure: "Pressure (sim.)", ignored: "Ignored"
 }): string {
   const cx = (value: number): number => toDisplay(value, units.charge);
   const cv = (value: number): number => toDisplay(value, units.velocity);
@@ -92,8 +93,9 @@ export function measurementChartSvg(series: MeasurementSeries, predictions: read
   for (const charge of series.charges) {
     const chargeG = charge.chargeKg * 1e3, px = x(cx(chargeG));
     for (const shot of charge.shots) {
-      if (shot.velocityMs > 0) measured += `<circle class="measurement-shot-velocity" data-charge-g="${chargeG}" cx="${px}" cy="${yv(cv(shot.velocityMs))}" r="3.4"/>`;
-      if (shot.pressureBar > 0) measured += `<circle class="measurement-shot-pressure" data-charge-g="${chargeG}" cx="${px}" cy="${yp(cp(shot.pressureBar))}" r="3.4"/>`;
+      const ignored = shot.ignored ? " measurement-shot-ignored" : "";
+      if (shot.velocityMs > 0) measured += `<circle class="measurement-shot-velocity${ignored}" data-charge-g="${chargeG}" cx="${px}" cy="${yv(cv(shot.velocityMs))}" r="3.4"/>`;
+      if (shot.pressureBar > 0) measured += `<circle class="measurement-shot-pressure${ignored}" data-charge-g="${chargeG}" cx="${px}" cy="${yp(cp(shot.pressureBar))}" r="3.4"/>`;
     }
     const stats = velocityStatistics(charge.shots);
     if (stats.count > 0) {
@@ -102,5 +104,6 @@ export function measurementChartSvg(series: MeasurementSeries, predictions: read
     }
   }
   const hasPressure = series.charges.some((charge) => pressureStatistics(charge.shots).count > 0);
-  return `<div class="measurement-chart-wrap"><svg class="measurement-chart" viewBox="0 0 720 310" role="img" aria-label="${labels.accessibleName}" data-x-low="${xRange.low}" data-x-high="${xRange.high}" data-plot-left="${plot.left}" data-plot-right="${plot.right}">${grids}<line class="axis" x1="${plot.left}" y1="${plot.bottom}" x2="${plot.right}" y2="${plot.bottom}"/><line class="axis" x1="${plot.left}" y1="${plot.top}" x2="${plot.left}" y2="${plot.bottom}"/><line class="axis" x1="${plot.right}" y1="${plot.top}" x2="${plot.right}" y2="${plot.bottom}"/><path class="measurement-sim-velocity" d="${path(simVelocity, yv)}"/><path class="measurement-sim-pressure" d="${path(simPressure, yp)}"/>${measured}<line class="measurement-cursor" x1="0" y1="${plot.top}" x2="0" y2="${plot.bottom}"/><text class="axis-title" x="359" y="285" text-anchor="middle">${labels.charge} [${units.charge.symbol}]</text><text class="axis-title" transform="translate(14 135) rotate(-90)" text-anchor="middle">${labels.velocity} [${units.velocity.symbol}]</text><text class="axis-title" transform="translate(708 135) rotate(90)" text-anchor="middle">${labels.peakPressure} [${units.pressure.symbol}]</text><g class="measurement-legend"><line class="measurement-sim-velocity" x1="120" y1="299" x2="142" y2="299"/><text x="147" y="303">${labels.simulatedVelocity}</text><rect class="measurement-mean" x="254" y="295" width="8" height="8"/><text x="267" y="303">${labels.velocity}</text><line class="measurement-sim-pressure" x1="350" y1="299" x2="372" y2="299"/><text x="377" y="303">${labels.simulatedPressure}</text>${hasPressure ? `<circle class="measurement-shot-pressure" cx="506" cy="299" r="3.4"/><text x="515" y="303">${labels.peakPressure}</text>` : ""}</g></svg><div class="measurement-chart-tooltip"></div></div>`;
+  const hasIgnored = series.charges.some((charge) => charge.shots.some((shot) => shot.ignored && (shot.velocityMs > 0 || shot.pressureBar > 0)));
+  return `<div class="measurement-chart-wrap"><svg class="measurement-chart" viewBox="0 0 720 310" role="img" aria-label="${labels.accessibleName}" data-x-low="${xRange.low}" data-x-high="${xRange.high}" data-plot-left="${plot.left}" data-plot-right="${plot.right}">${grids}<line class="axis" x1="${plot.left}" y1="${plot.bottom}" x2="${plot.right}" y2="${plot.bottom}"/><line class="axis" x1="${plot.left}" y1="${plot.top}" x2="${plot.left}" y2="${plot.bottom}"/><line class="axis" x1="${plot.right}" y1="${plot.top}" x2="${plot.right}" y2="${plot.bottom}"/><path class="measurement-sim-velocity" d="${path(simVelocity, yv)}"/><path class="measurement-sim-pressure" d="${path(simPressure, yp)}"/>${measured}<line class="measurement-cursor" x1="0" y1="${plot.top}" x2="0" y2="${plot.bottom}"/><text class="axis-title" x="359" y="285" text-anchor="middle">${labels.charge} [${units.charge.symbol}]</text><text class="axis-title" transform="translate(14 135) rotate(-90)" text-anchor="middle">${labels.velocity} [${units.velocity.symbol}]</text><text class="axis-title" transform="translate(708 135) rotate(90)" text-anchor="middle">${labels.peakPressure} [${units.pressure.symbol}]</text><g class="measurement-legend"><line class="measurement-sim-velocity" x1="88" y1="299" x2="110" y2="299"/><text x="115" y="303">${labels.simulatedVelocity}</text><rect class="measurement-mean" x="222" y="295" width="8" height="8"/><text x="235" y="303">${labels.velocity}</text><line class="measurement-sim-pressure" x1="318" y1="299" x2="340" y2="299"/><text x="345" y="303">${labels.simulatedPressure}</text>${hasPressure ? `<circle class="measurement-shot-pressure" cx="474" cy="299" r="3.4"/><text x="483" y="303">${labels.peakPressure}</text>` : ""}${hasIgnored ? `<circle class="measurement-shot-velocity measurement-shot-ignored" cx="590" cy="299" r="3.4"/><text x="599" y="303">${labels.ignored}</text>` : ""}</g></svg><div class="measurement-chart-tooltip"></div></div>`;
 }

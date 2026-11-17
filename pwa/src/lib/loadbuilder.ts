@@ -22,6 +22,7 @@ const caliberSpec = fields([
   ["pMaxZul", "bar", "decimal", "maximum allowed pressure"], ["method", "", "string", "cartridge test method"],
   ["sebert", "", "decimal", "Sebert factor"], ["ps", "bar", "decimal", "initial gas pressure"],
   ["primer", "", "string", "primer"], ["psadd", "bar", "decimal", "additional start pressure (bullet, crimp, case)"],
+  ["psref", "bar", "decimal", "reference additional start pressure"],
   ["shotshell", "", "boolean", "true if shotshell"]
 ]);
 const gunSpec = fields([
@@ -235,6 +236,7 @@ export function applyProjectile(load: LoadFile, projectile: ProjectRecord, reset
   ensurePrimer(load);
   set(load.caliber, "psadd", format(number(projectile, "gpressure") > 0
     ? number(projectile, "gpressure") - referenceStartPressureBar : 0));
+  set(load.caliber, "psref", getText(load.caliber, "psadd"));
   const caliber = asRecord(load.caliberFile);
   if ((resetDependent || get(load.projectile, "gdepth") <= 0) && load.caliberFile.length) {
     set(load.projectile, "gdepth", format(defaultSeatingDepthMm(caliber, projectile)));
@@ -259,6 +261,7 @@ export function buildLoad(caliber: ProjectRecord, projectile: ProjectRecord, pro
   cal.oal = format(number(caliber, "L3") + number(projectile, "glen") - depth);
   cal.ps = prj.gpressure!;
   cal.psadd = format(Number(prj.gpressure) - referenceStartPressureBar);
+  cal.psref = cal.psadd;
   const caliberEntries = fill(caliberSpec, cal);
   const projectileEntries = fill(projectileSpec, { ...prj, gdepth: format(depth), gfrictionUnlock: "true" });
   completeTail(projectileEntries);
@@ -269,7 +272,7 @@ export function buildLoad(caliber: ProjectRecord, projectile: ProjectRecord, pro
   const caliberFile = caliberFileEntries(caliber);
   const title = `${cal.CaliberName} ${prj.ProjectileName} ${text(propellant, "mname")} ${text(propellant, "pname")}`;
   return {
-    fileName, appVersion: "2021.2030-NIGHTLY", source: "reload", title,
+    fileName, appVersion: "2021.2030-NIGHTLY", source: "reload", formatVersion: 2, title,
     config: [{ name: "CurveFocusIdx", value: "0", unit: "", type: "integer", description: "selected ladder curve for display" }],
     caliber: caliberEntries, caliberFile,
     gun: fill(gunSpec, { GunName: "", xe: format(barrel), twistlen: format(twist), mgun: format(params.gunWeightKg ?? 0), gjump: "0", gjumpUnlock: "false" }),

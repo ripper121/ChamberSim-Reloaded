@@ -334,6 +334,11 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .measurement-shots .button-row { padding-block: 7px; }
 .measurement-shot-table th:first-child { width: 2rem; text-align: right; }
 .measurement-shot-table input { width: 100%; min-width: 5rem; border: 0; background: transparent; text-align: right; }
+.measurement-shot-table td:nth-child(4) input { min-width: 0; width: auto; }
+.measurement-shot-table td:last-child input { min-width: 8rem; text-align: left; }
+.measurement-shot-table tr.ignored td:not(:nth-child(4)) input { color: var(--palette-disabled); }
+.measurement-shot-table tr.ignored td:nth-child(2) input,
+.measurement-shot-table tr.ignored td:nth-child(3) input { text-decoration: line-through; }
 .measurement-chart-wrap { position: relative; min-width: 0; min-height: 0; padding: 4px; background: #202020; }
 .measurement-chart { display: block; width: 100%; height: 100%; min-height: 230px; }
 .measurement-chart .grid { stroke: #454545; stroke-width: 1; }
@@ -345,6 +350,7 @@ tbody tr:nth-child(even) { background: #2d2d2d; }
 .measurement-mean { fill: #2465a6; stroke: #eee; }
 .measurement-error { stroke: #2f7fd0; stroke-width: 2; }
 .measurement-shot-pressure { fill: #df6d60; stroke: #d04a3a; }
+.measurement-shot-ignored { fill: transparent; stroke-width: 1.5; }
 .measurement-cursor { visibility: hidden; stroke: #ddd; stroke-width: 1; stroke-dasharray: 4 3; }
 .measurement-chart.cursor-visible .measurement-cursor { visibility: visible; }
 .measurement-chart-tooltip { display: none; position: absolute; z-index: 2; min-width: 190px; padding: 7px; border: 1px solid #777; border-radius: 4px; background: rgb(27 27 27 / .94); box-shadow: 0 2px 8px #000; pointer-events: none; font-size: .82rem; }

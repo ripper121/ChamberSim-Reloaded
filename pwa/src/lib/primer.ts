@@ -103,12 +103,20 @@ export function ensurePrimer(load: LoadFile): boolean {
   const existingPrimer = find(load.caliber, "primer");
   const existingAdditional = find(load.caliber, "psadd");
   if (existingAdditional) existingAdditional.description = "additional start pressure (bullet, crimp, case)";
-  if (existingPrimer && existingAdditional) return false;
+  if (existingPrimer && existingAdditional) {
+    if (!find(load.caliber, "psref") && text(load.caliber, "shotshell").toLowerCase() !== "true") {
+      setAfter(load.caliber, "psadd", "psref", existingAdditional.value, "bar", "decimal", "reference additional start pressure");
+    }
+    return false;
+  }
   const record = Object.fromEntries(load.caliberFile.map((entry) => [entry.name, entry.value]));
   const primer = existingPrimer?.value ?? primerOfCaliber(record);
   const pressure = number(load.caliber, "ps", number(load.projectile, "gpressure", referenceStartPressureBar));
   setAfter(load.caliber, "ps", "primer", primer, "", "string", "primer");
   setAfter(load.caliber, "primer", "psadd", format(pressure - referenceStartPressureBar), "bar", "decimal", "additional start pressure (bullet, crimp, case)");
+  if (text(load.caliber, "shotshell").toLowerCase() !== "true") {
+    setAfter(load.caliber, "psadd", "psref", format(pressure - referenceStartPressureBar), "bar", "decimal", "reference additional start pressure");
+  }
   updateStartPressure(load);
   return true;
 }

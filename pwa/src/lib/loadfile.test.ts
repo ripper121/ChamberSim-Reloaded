@@ -11,6 +11,7 @@ describe("load-file compatibility", () => {
     const path = resolve(repositoryRoot, "tests/fixtures/223Rem_D0735_RWS.csrload");
     const load = parseLoadXml(readFileSync(path, "utf8"), "223Rem_D0735_RWS.csrload");
     expect(load.source).toBe("reload");
+    expect(load.formatVersion).toBe(1);
     expect(load.title).toContain("223 Rem.");
     expect(load.caliber.find((entry) => entry.name === "casevol")?.value).toBe("1.96599892939242");
     expect(load.projectile.find((entry) => entry.name === "mname")?.value).toBe("RWS");
@@ -44,6 +45,7 @@ describe("load-file compatibility", () => {
     load.propellant.find((entry) => entry.name === "mc")!.value = "1.5";
     load.propellant.push({ name: "futureInput", value: "Müller & Sohn", unit: "", type: "string", description: "unknown field" });
     const xml = serializeLoadXml(load, "reload");
+    expect(xml).toContain('format="2"');
     expect(xml).toContain("A%26B%20%2F%20test");
     expect(xml).toContain('futureAttribute="kept"');
     expect(xml).toContain('<FutureTop answer="outside"/>');
@@ -66,6 +68,29 @@ describe("load-file compatibility", () => {
     expect(xml).not.toContain('name="gmaterial"');
     expect(xml).toMatch(/name="gfrictionUnlock" value="true"/);
     expect(parseLoadXml(xml, "export.grtload").source).toBe("original");
+  });
+
+  it("preserves ignored shots and remarks in CSR but omits ignored shots from GRT", () => {
+    const path = resolve(repositoryRoot, "tests/fixtures/223Rem_D0735_RWS.csrload");
+    const load = parseLoadXml(readFileSync(path, "utf8"), "reference.csrload");
+    const charge = load.measurements[0]!.charges[0]!;
+    charge.shots = [
+      { name: "cold bore", velocityMs: 800, pressureBar: 0 },
+      { name: "flyer & co", velocityMs: 700, pressureBar: 2000, ignored: true },
+      { name: "", velocityMs: 810, pressureBar: 3000 }
+    ];
+    expect(velocityStatistics(charge.shots)).toMatchObject({ count: 2, mean: 805 });
+    expect(pressureStatistics(charge.shots)).toMatchObject({ count: 1, mean: 3000 });
+
+    const csr = serializeLoadXml(load, "reload");
+    expect(csr).toContain('ignored="true"');
+    const back = parseLoadXml(csr, "saved.csrload");
+    expect(back.measurements[0]!.charges[0]!.shots[1]).toMatchObject({ name: "flyer & co", ignored: true });
+
+    const grt = serializeLoadXml(load, "original");
+    expect(grt).not.toContain("ignored=");
+    const exported = parseLoadXml(grt, "export.grtload");
+    expect(exported.measurements[0]!.charges[0]!.shots.map((shot) => shot.velocityMs)).toEqual([800, 810]);
   });
 });
 

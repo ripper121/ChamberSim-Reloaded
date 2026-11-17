@@ -65,20 +65,41 @@ function readMagnetoSpeed(lines: readonly string[]): ChronographFile {
   return { format: "magnetospeed", series: nonempty };
 }
 
-function readLabradar(lines: readonly string[]): ChronographFile {
+function labradarSeparator(lines: readonly string[]): string | undefined {
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("Shot ID;")) return ";";
+    if (trimmed.startsWith("Shot Number,")) return ",";
+  }
+  return undefined;
+}
+
+function readLabradar(lines: readonly string[], separator: string): ChronographFile {
   const series: ChronographSeries = { name: "", velocitiesMs: [] };
   let factor = 0;
   let v0 = -1;
+  let inTable = false;
   for (const line of lines) {
-    const fields = splitLine(line, ";");
+    const fields = splitLine(line, separator);
     if (!fields.length) continue;
-    if (v0 < 0) {
-      if (fields[0] === "Series No" && fields.length > 1) series.name = `SR${fields[1]}`;
+    if (!inTable) {
+      if ((fields[0] === "Series No" || fields[0] === "Series Number") && fields.length > 1) {
+        const value = fields[1]!;
+        series.name = /^\d+$/.test(value) ? `SR${value}` : value;
+      }
       else if (fields[0] === "Units velocity" && fields.length > 1) factor = velocityFactor(fields[1]!);
-      else if (fields[0] === "Shot ID") v0 = fields.indexOf("V0");
+      else if (fields[0] === "Shot ID" || fields[0] === "Shot Number") {
+        v0 = fields.findIndex((field) => field === "V0" || field.startsWith("V0."));
+        if (v0 < 0) throw new Error("The file has no V0 column.");
+        inTable = true;
+      }
       continue;
     }
-    if (integer(fields[0]!) === undefined || v0 >= fields.length) continue;
+    if (integer(fields[0]!) === undefined) {
+      if (!fields[0] && factor <= 0 && v0 < fields.length) factor = velocityFactor(fields[v0]!);
+      continue;
+    }
+    if (v0 >= fields.length) continue;
     const value = number(fields[v0]!);
     if (value !== undefined && value > 0) series.velocitiesMs.push(value * factor);
   }
@@ -217,7 +238,8 @@ export function readChronograph(input: ArrayBuffer | Uint8Array): ChronographFil
   const withoutNuls = data.subarray(start).filter((byte) => byte !== 0);
   const lines = new TextDecoder().decode(withoutNuls).replaceAll("\ufeff", "").split("\n");
   if (lines.some((line) => xeroHeaderFactor(splitQuoted(line)) > 0)) return readGarminCsv(lines);
-  if (lines.some((line) => line.trim().startsWith("Shot ID;"))) return readLabradar(lines);
+  const separator = labradarSeparator(lines);
+  if (separator) return readLabradar(lines, separator);
   if (lines.some((line) => line.toLowerCase().includes("shots:") && line.trim().startsWith("Series"))) return readMagnetoSpeed(lines);
   throw new Error("Not a Garmin Xero, MagnetoSpeed or Labradar file.");
 }

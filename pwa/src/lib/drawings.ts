@@ -55,6 +55,8 @@ export function outerProfile(dimensions: Record<string, number>): Point[] {
   points.push({ radius: bodyStartRadius, y: bodyStartY });
   if (L1 > bodyStartY && P2 > 0 && H1 > 0 && L2 > L1)
     points.push({ radius: P2 / 2, y: L1 }, { radius: H1 / 2, y: L2 }, { radius: (H2 > 0 ? H2 : H1) / 2, y: L3 });
+  else if (L1 <= 0 && P2 <= 0 && L2 > bodyStartY && L2 < L3 && H1 > 0 && H1 < 2 * bodyStartRadius - 0.3)
+    points.push({ radius: H1 / 2, y: L2 }, { radius: (H2 > 0 ? H2 : H1) / 2, y: L3 });
   else points.push({ radius: (H2 > 0 ? H2 : bodyStartRadius * 2) / 2, y: L3 });
   return points;
 }

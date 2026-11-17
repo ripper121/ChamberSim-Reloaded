@@ -1,16 +1,26 @@
 # PWA Port Progress
 
-Last updated: 2026-11-09
+Last updated: 2026-11-17
 
 ## Current objective (Phase 1 or Phase 2)
 
-Phase 2 visual parity complete. Upstream 0.16 is merged and all tracked functional, browser, installability and visual parity work is verified.
+Phase 2 visual parity complete. Upstream 0.18 is merged and all tracked functional, browser, installability and visual parity work is verified.
 
 ## Current state (working / failing / blocked)
 
-Complete and not blocked. Local `main` contains upstream head `cf68ecdb` (ChamberSim 0.16) plus the PWA. Phase 1 has no TODO, IN PROGRESS, DIFF or BLOCKED checklist entries. The queued Phase 2 result-card glyph delta is ported and verified; prior layout, theme and screenshot evidence covers the remaining visual surfaces.
+Complete and not blocked. Local `main` contains upstream head `fe78c579` (ChamberSim 0.18) plus the PWA. Phase 1 has no TODO, IN PROGRESS, DIFF or BLOCKED checklist entries. The 0.18 solver, file-format, measurement, chronograph, drawing, data and title changes are ported and verified.
 
 ## Completed since previous checkpoint
+
+- Created safety branch `backup-before-upstream-017-20261117` and cleanly merged 17 upstream commits through `fe78c579`, including v0.17 and the current 0.18 post-release changes.
+- Ported CSR format 2: `psref` is preserved as a hidden neutral additional-start-pressure reference; format-1 CSR and original GRT inputs normalize without changing their existing result; own saves upgrade to format 2; GRT exports omit all three CSR-only primer fields.
+- Ported Physical handgun start-pressure gain. Primer and `psadd` changes now count in full above the 0.3 × permitted-pressure floor, while an unchanged load retains its old result. Direct and Edge regressions verify +60 bar raises and -60 bar lowers peak pressure.
+- Ported per-shot measurement Ignore and Remark fields through XML, statistics, fitting inputs, tables, charts, history and exports. Ignored shots remain visibly outlined in CSR workflows, do not count in statistics/fits, and are removed from original GRT exports.
+- Ported Labradar LX device/iOS CSV parsing for semicolon/comma separators, `Shot ID`/`Shot Number`, `V0`/`V0.xx`, header unit rows and numeric/named series.
+- Ported tapered shoulderless cartridge drawing geometry and added a deterministic cone-to-L2 regression.
+- Rebased all merged caliber/projectile/propellant data and translations. Counts remain 494 calibers, 3,145 projectiles and 277 propellants; the current D073.4 wizard regression is approximately 895.5 m/s.
+- Matched the native versioned window title in the normal browser tab and standalone app window; install verification derives the version from `CMakeLists.txt`.
+- Rebuilt native 0.18 and passed CTest 6/6; passed 213/213 PWA unit tests, typecheck/build, all 50 production Edge workflows, installability/standalone and the zero-vulnerability production audit.
 
 - Closed the final Phase 1 gap with an isolated released-GRT combined-target replay. For `.223 Rem.` / Lovex D073-04, simultaneous conflicting targets of 3646 bar and 880 m/s produce 24.78 grain, 3377 bar and 884.1 m/s. Added the small native export fixture and an 18th deterministic synthesis replay against the PWA solver curve.
 - Entered Phase 2 only after the checklist had no functional gap, then ported upstream `cf68ecdb`'s four result-card line glyphs as theme-aware inline SVG: pressure gauge, velocity arrow, energy bolt and time clock. Focused production Edge verification passes for their order, decorative accessibility state and native 18 x 18 geometry.
@@ -73,11 +83,11 @@ Complete and not blocked. Local `main` contains upstream head `cf68ecdb` (Chambe
 
 ## In-progress work (files/functions and exact remaining steps)
 
-None. The port is complete at the current upstream 0.16 baseline.
+None. The port is complete at the current upstream 0.18 baseline.
 
 ## Next actions (ordered, directly actionable)
 
-1. Monitor upstream for changes and repeat the source-delta audit when updating beyond `cf68ecdb`.
+1. Monitor upstream for changes and repeat the source-delta audit when updating beyond `fe78c579`.
 2. Preserve the current full regression, installability and parity evidence when making future changes.
 
 ## How to run (working commands, directories, server URL/port if known)
@@ -109,7 +119,16 @@ $env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
 
 ## Tests and parity verification (commands, results, known failures)
 
-Current 0.16 update evidence (older 0.14 evidence below remains historical for unchanged paths):
+Current 0.18 update evidence (older 0.16/0.14 evidence below remains historical for unchanged paths):
+
+- Native build and `ctest --test-dir build/current-reference --output-on-failure`: PASS, 6/6.
+- `npm run typecheck` and `npm run build`: PASS; ChamberSim 0.18 output generated with only the existing non-failing large database-chunk advisory.
+- `npm test -- --run`: PASS, 32 files / 213 tests.
+- `npm run test:e2e`: PASS, all 50 production Edge workflows in 5.9 minutes.
+- `npm run test:install`: PASS; install prompt observed, zero installability errors, stable app id, standalone launch and exact `ChamberSim Reloaded 0.18` title.
+- `npm audit --omit=dev`: PASS, zero vulnerabilities.
+- Focused new-feature Edge gate: PASS, 4/4 across measurement Ignore/Remark, Labradar LX, update/version UI and handgun start-pressure directionality.
+- Final localization/checkpoint rerun after adding the catalog-backed ignored-shot chart label: typecheck PASS, all 213 tests PASS, production build PASS and focused measurement Edge workflow PASS (1/1).
 
 - Native build and `ctest --test-dir build/current-reference --output-on-failure`: PASS, 6/6.
 - `npm run typecheck`: PASS.

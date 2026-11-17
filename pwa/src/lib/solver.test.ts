@@ -143,11 +143,13 @@ describe("simulation preflight", () => {
   });
 
   it("raises handgun start pressure at every barrel length exactly like the physical profile", () => {
-    const value = { ...input(), handgun: true, barrelLengthMm: 100, maxPressureBar: 3000, startPressureBar: 250 };
+    const value = { ...input(), handgun: true, barrelLengthMm: 100, maxPressureBar: 3000, startPressureBar: 250, neutralStartPressureBar: 250 };
     const preflight = preflightSimulation(value, calibrationFor("physical"));
     expect(preflight.input.startPressureBar).toBe(900);
     expect(value.startPressureBar).toBe(250);
     expect(preflightSimulation({ ...value, barrelLengthMm: 610 }, calibrationFor("physical")).input.startPressureBar).toBe(900);
+    expect(preflightSimulation({ ...value, startPressureBar: 310 }, calibrationFor("physical")).input.startPressureBar).toBe(960);
+    expect(preflightSimulation({ ...value, startPressureBar: 190 }, calibrationFor("physical")).input.startPressureBar).toBe(840);
   });
 
   it("reduces physical rifle sliding friction for lead bullets only", () => {

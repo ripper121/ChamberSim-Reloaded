@@ -22,8 +22,8 @@ export function statistics(values: readonly number[]): Statistics {
   return { count: measured.length, mean, sd: Math.sqrt(variance), min, max, extremeSpread: max - min };
 }
 
-export const velocityStatistics = (shots: readonly Shot[]): Statistics => statistics(shots.map((shot) => shot.velocityMs));
-export const pressureStatistics = (shots: readonly Shot[]): Statistics => statistics(shots.map((shot) => shot.pressureBar));
+export const velocityStatistics = (shots: readonly Shot[]): Statistics => statistics(shots.filter((shot) => !shot.ignored).map((shot) => shot.velocityMs));
+export const pressureStatistics = (shots: readonly Shot[]): Statistics => statistics(shots.filter((shot) => !shot.ignored).map((shot) => shot.pressureBar));
 
 export function emptyMeasurementSeries(number = 1): MeasurementSeries {
   return { title: number > 1 ? `MEASUREMENTS ${number}` : "MEASUREMENTS", charges: [] };

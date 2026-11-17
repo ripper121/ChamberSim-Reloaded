@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildCartridgeGeometry, buildChamberGeometry, bulletTip, makeRound, radiusAt } from "./drawings";
+import { buildCartridgeGeometry, buildChamberGeometry, bulletTip, makeRound, outerProfile, radiusAt } from "./drawings";
 import { parseLoadXml } from "./loadfile";
 import { simInputFromLoad } from "./siminput";
 
@@ -44,5 +44,14 @@ describe("native technical drawing geometry", () => {
     const round = makeRound(load, input);
     expect(round.dims.L3).toBe(56.8);
     expect(bulletTip(round)).toBeCloseTo(79, 6);
+  });
+
+  it("draws a tapered shoulderless case as a cone ending at L2", () => {
+    const profile = outerProfile({ R1: 13, P1: 12, H1: 10.8, H2: 10.5, L1: 0, P2: 0, L2: 45, L3: 70 });
+    expect(profile.at(-2)).toEqual({ radius: 5.4, y: 45 });
+    expect(profile.at(-1)).toEqual({ radius: 5.25, y: 70 });
+    expect(radiusAt(profile, 30)).toBeLessThan(6);
+    const straight = outerProfile({ R1: 13, P1: 12, H1: 11.9, H2: 11.8, L1: 0, P2: 0, L2: 45, L3: 70 });
+    expect(straight).not.toContainEqual({ radius: 5.95, y: 45 });
   });
 });

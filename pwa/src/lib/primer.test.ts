@@ -27,12 +27,13 @@ describe("native metallic primer compatibility", () => {
 
   it("keeps an old load's start pressure while adding primer metadata", () => {
     const load = buildLoad(caliber, projectile, propellant, { chargeG: 2.7 }, "old.grtload", physicalPowderData);
-    load.caliber = load.caliber.filter((item) => item.name !== "primer" && item.name !== "psadd");
+    load.caliber = load.caliber.filter((item) => item.name !== "primer" && item.name !== "psadd" && item.name !== "psref");
     load.caliber.find((item) => item.name === "ps")!.value = "310";
     load.projectile.find((item) => item.name === "gpressure")!.value = "310";
     expect(ensurePrimer(load)).toBe(true);
     expect(loadStartPressureBar(load.caliber)).toBe(310);
     expect(load.caliber.find((item) => item.name === "psadd")?.value).toBe("60");
+    expect(load.caliber.find((item) => item.name === "psref")?.value).toBe("60");
     expect(ensurePrimer(load)).toBe(false);
   });
 
@@ -66,12 +67,16 @@ describe("native metallic primer compatibility", () => {
     const grt = serializeLoadXml(load, "original");
     expect(csr).toContain('name="primer"');
     expect(csr).toContain('name="psadd"');
+    expect(csr).toContain('name="psref"');
+    expect(csr).toContain('format="2"');
     const grtDocument = new DOMParser().parseFromString(grt, "application/xml");
     expect(grtDocument.querySelector('caliber input[name="primer"]')).toBeNull();
     expect(grtDocument.querySelector('caliber input[name="psadd"]')).toBeNull();
+    expect(grtDocument.querySelector('caliber input[name="psref"]')).toBeNull();
     const reopened = parseLoadXml(grt, "roundtrip.grtload");
     expect(reopened.caliber.find((item) => item.name === "primer")).toBeDefined();
-    expect(reopened.caliber.find((item) => item.name === "psadd")?.value).toBe("50");
+    expect(reopened.caliber.find((item) => item.name === "psadd")?.value).toBe(load.caliber.find((item) => item.name === "psadd")?.value);
+    expect(reopened.caliber.find((item) => item.name === "psref")?.value).toBe(load.caliber.find((item) => item.name === "psadd")?.value);
   });
 
   it("does not apply metallic primer pressure to shotshells", () => {

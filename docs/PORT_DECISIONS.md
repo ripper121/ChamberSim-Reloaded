@@ -1,6 +1,6 @@
 # PWA Port Decisions
 
-Last updated: 2026-11-09
+Last updated: 2026-11-17
 
 This file retains only decisions needed to maintain the completed port. Detailed feature-to-source evidence is in [parity-checklist.md](parity-checklist.md).
 
@@ -81,3 +81,7 @@ The native GUI passes its globally active calibration by reference, and `effecti
 ## D-059 — Organize wizards as internal feature modules, not runtime plugins
 
 Keep reusable wizard calculations and state contracts under `pwa/src/lib/wizards/`, one module and focused test file per wizard. Keep menu/dialog orchestration in the application shell where active-load state, localization, units and undo history already live. Do not add dynamic plugin loading: these wizards ship with the offline PWA, need trusted access to its solver/load model and gain no practical isolation from a runtime plugin API.
+
+## D-060 — Preserve format-2 neutral pressure and measurement export semantics
+
+Write CSR loads as format 2 and keep `psref` hidden from the property UI. Treat the current `psadd` of format-1 CSR and original GRT inputs as their neutral reference so opening old files does not change results. Keep ignored measurement shots and remarks in CSR, exclude ignored shots from statistics and fitting, and omit ignored shots plus CSR-only primer fields from original GRT exports because that format cannot represent them.

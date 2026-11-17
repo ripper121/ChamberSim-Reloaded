@@ -1,7 +1,7 @@
 import caliberScaleData from "../../../data/physical/calibers.json";
 import shotPartData from "../../../data/shotshell/parts.json";
 import type { Entry, LoadFile } from "./loadfile";
-import { loadStartPressureBar, primerOffsetBar } from "./primer";
+import { isPrimerCode, loadStartPressureBar, primerOffsetBar, primerStartPressureBar } from "./primer";
 
 export type GrainShape = "fitted" | "ball" | "cylinder";
 
@@ -26,6 +26,7 @@ export interface SimInput {
   startPressureBar: number;
   primerOffsetBar: number;
   maxPressureBar: number;
+  neutralStartPressureBar: number;
   shotCapacityScale: number;
   shotEnergyScale: number;
   handgun: boolean;
@@ -179,6 +180,11 @@ export function simInputFromLoad(load: LoadFile): SimInput {
   const shotFactors = shotshell ? shotPartFactors(caliber) : { capacity: 1, energy: 1 };
   const head = number(load.caliberFile, "P1");
   const rimRatio = handgun && head > 0 ? number(load.caliberFile, "R1") / head : 0;
+  const usualPrimer = text(load.caliberFile, "primer").trim();
+  const neutralStartPressureBar = find(caliber, "psref") && !shotshell
+    ? primerStartPressureBar(isPrimerCode(usualPrimer) ? usualPrimer : text(caliber, "primer"), number(caliber, "casevol"))
+      + number(caliber, "psref")
+    : 0;
 
   return {
     caseLengthMm: number(caliber, "caselen"),
@@ -190,6 +196,7 @@ export function simInputFromLoad(load: LoadFile): SimInput {
     startPressureBar: loadStartPressureBar(caliber),
     primerOffsetBar: primerOffsetBar(caliber),
     maxPressureBar: number(caliber, "pMaxZul"),
+    neutralStartPressureBar,
     shotCapacityScale: shotFactors.capacity,
     shotEnergyScale: shotFactors.energy,
     handgun,

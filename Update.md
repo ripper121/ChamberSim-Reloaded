@@ -1,20 +1,38 @@
-# Upstream 0.16 update and PWA follow-up
+# Upstream 0.18 update and PWA follow-up
 
-Last reviewed: 2026-11-09
+Last reviewed: 2026-11-17
 
 ## Synced upstream baseline
 
 The fork's `main` branch now contains the latest original repository state:
 
 - Upstream: `https://github.com/Schildkroet/ChamberSim-Reloaded.git`
-- Upstream branch/head: `upstream/main` at `cf68ecdb` (`Line icons on the four result cards`)
-- Previous fork head: `f176ceb1`
-- Safety branch: `backup-before-upstream-016-20261109`
-- ChamberSim core version: `0.16`
+- Upstream branch/head: `upstream/main` at `fe78c579` (`Window title shows the program version`)
+- Previous fork head: `d8f956e3`
+- Safety branch: `backup-before-upstream-017-20261117`
+- ChamberSim core version: `0.18` (includes the tagged 0.17 release and post-release changes)
 
-The merge was clean and retained `pwa/`, its deployment workflow, port documentation, and both PWA wizards. Upstream added 28 commits since the shared baseline, including the 0.14 and 0.15 releases and the current 0.16 work.
+The merge was clean and retained `pwa/`, its deployment workflow, port documentation, and both PWA wizards. Upstream added 17 commits after the prior 0.16 baseline.
 
-## Completed in this update
+## Completed in the 0.18 update
+
+- Merged upstream through `fe78c579` and rebuilt the current native application/tools.
+- Ported CSR format 2 and hidden `psref` preservation. Format-1 CSR and original GRT loads acquire their current additional pressure as the neutral reference; GRT exports omit `primer`, `psadd`, and `psref`.
+- Ported the Physical-model handgun start-pressure gain so primer and additional-pressure edits count bar-for-bar above the floor. Added direct and production Edge directionality regressions.
+- Ported measurement shot remarks and Ignore state. Ignored shots remain in CSR and the chart, are excluded from statistics/fitting, and are omitted from GRT exports.
+- Ported Labradar LX device/iOS CSV variants: semicolon or comma tables, `Shot ID`/`Shot Number`, `V0`/`V0.xx`, named/numeric series, and unit rows below the header.
+- Ported tapered shoulderless cartridge geometry and the versioned browser/app-window title.
+- Rebased current projectile/start-pressure and physical-powder data, including the D073.4 regression (about 895.5 m/s in the current PWA reference scenario). Project counts remain 494 / 3,145 / 277.
+
+## Verification for 0.18
+
+- Native rebuild and CTest: PASS, 6/6.
+- `npm run typecheck`, production build, and `npm test`: PASS, 32 files / 213 tests.
+- `npm run test:e2e`: PASS, all 50 production Edge workflows.
+- `npm run test:install`: PASS; install prompt observed, zero installability errors, stable app id, and standalone title `ChamberSim Reloaded 0.18`.
+- `npm audit --omit=dev`: PASS, zero production vulnerabilities.
+
+## Prior 0.16 update history
 
 - Merged all upstream source, data, documentation, translations, build, and test changes through `cf68ecdb`.
 - Rebuilt the current native application and tools; native CTest passes 6/6.
@@ -50,4 +68,4 @@ The first parallel browser attempt served the old 0.14 `dist/` while the product
 
 ## Remaining parity work
 
-No known upstream 0.16 or PWA parity item remains open. Phase 1 functional parity and the tracked Phase 2 visual work are complete; future work is regression maintenance when upstream changes.
+No known upstream 0.18 or PWA parity item remains open. Phase 1 functional parity and the tracked Phase 2 visual work are complete; future work is regression maintenance when upstream changes.

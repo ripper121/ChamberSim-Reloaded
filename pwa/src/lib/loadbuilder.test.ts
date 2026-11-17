@@ -22,6 +22,17 @@ describe("native load builder", () => {
     expect(load.caliberFile.find((item) => item.name === "cipname")?.value).toBe("357 SIG");
     expect(load.caliberFile.find((item) => item.name === "P1")?.value).toBeTruthy();
     expect(load.caliber.find((item) => item.name === "primer")?.value).toBe(String(sig.primer));
+
+    const physical = calibrationFor("physical");
+    const additional = load.caliber.find((item) => item.name === "psadd")!;
+    const reference = Number(load.caliber.find((item) => item.name === "psref")!.value);
+    const base = simulate(simInputFromLoad(load), physical);
+    additional.value = String(reference + 60);
+    const raised = simulate(simInputFromLoad(load), physical);
+    additional.value = String(reference - 60);
+    const lowered = simulate(simInputFromLoad(load), physical);
+    expect(raised.maxPressureBar).toBeGreaterThan(base.maxPressureBar);
+    expect(lowered.maxPressureBar).toBeLessThan(base.maxPressureBar);
   });
 
   it("reproduces the native defaults", () => {
@@ -52,7 +63,7 @@ describe("native load builder", () => {
     const load = buildLoad(caliber, projectile, propellant, {
       chargeG: 2.7, barrelLengthMm: 600, seatingDepthMm: 10.4, twistLengthMm: 240, gunWeightKg: 3.7
     }, "Untitled.csrload", physicalPowderData);
-    expect(load.caliber.map((item) => item.name)).toEqual(["CaliberName", "oal", "caselen", "casevol", "Dz", "Aeff", "pMaxZul", "method", "sebert", "ps", "primer", "psadd", "shotshell"]);
+    expect(load.caliber.map((item) => item.name)).toEqual(["CaliberName", "oal", "caselen", "casevol", "Dz", "Aeff", "pMaxZul", "method", "sebert", "ps", "primer", "psadd", "psref", "shotshell"]);
     expect(load.projectile.map((item) => item.name).slice(0, 20)).toEqual(["ProjectileName", "mname", "pname", "lotid", "Dbul", "mp", "gdepth", "glen", "gpressure", "gtailh", "gTailDiaA", "gTailDiaB", "gTailType", "g1bc", "g7bc", "gUBCS", "gfriction", "gfrictionUnlock", "gmaterial", "mode"]);
     expect(load.propellant.find((item) => item.name === "physBa")).toBeDefined();
     expect(load.caliberFile.some((item) => item.name === "PmaxSAAMI")).toBe(false);

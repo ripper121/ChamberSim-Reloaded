@@ -138,7 +138,7 @@ describe("parametric powder search wizard", () => {
     const capacity = input.bulkDensityKgM3 * 1e-3 * freeVolumeCm3(input, calibration);
     const solution = await synthesizePowderCharge((chargeG) => simulate({ ...input, chargeG }, calibration), input.chargeG,
       input.chargeG * 0.15, capacity * 1.2, { maxPressureBar: { target: current.maxPressureBar, min: 3225, max: 3655 } });
-    expect(current.muzzleVelocityMs).toBeCloseTo(902.3, 1);
+    expect(current.muzzleVelocityMs).toBeCloseTo(895.5, 1);
     expect(solution?.chargeG).toBeCloseTo(input.chargeG, 8);
     expect(solution?.result.muzzleVelocityMs).toBeCloseTo(current.muzzleVelocityMs, 6);
     expect(solution?.inTolerance).toBe(true);

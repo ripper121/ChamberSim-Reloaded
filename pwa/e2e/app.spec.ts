@@ -10,6 +10,7 @@ const repositoryRoot = resolve(pwaRoot, "..");
 const referenceLoad = resolve(repositoryRoot, "tests/fixtures/223Rem_D0735_RWS.csrload");
 const originalLoad = resolve(repositoryRoot, "tests/fixtures/8x57is.grtload");
 const measurementLoad = resolve(repositoryRoot, "tests/fixtures/measurements.grtload");
+const handgunLoad = resolve(repositoryRoot, "tests/fixtures/357sig_no_caliberfile.grtload");
 const bulletFile = resolve(repositoryRoot, "tests/fixtures/example.csrbullets");
 // build/release contains the historical v0.10 package; only a fresh source build is a current result oracle.
 const nativeSimulator = resolve(repositoryRoot, "build/current-reference/csr_sim.exe");
@@ -248,7 +249,7 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   await page.locator("#about").click();
   const about = page.getByRole("dialog", { name: "About ChamberSim Reloaded" });
   await expect(about).toContainText("Interior ballistics for handloaders");
-  await expect(about).toContainText("Version 0.16");
+  await expect(about).toContainText("Version 0.18");
   await expect(about.getByRole("heading", { name: "Features" })).toBeVisible();
   await expect(about.getByRole("heading", { name: "Accuracy" })).toBeVisible();
   await expect(about.getByRole("heading", { name: "Disclaimer" })).toBeVisible();
@@ -1287,18 +1288,24 @@ test("edits measurement series and compares measured shots with simulation", asy
   await page.getByLabel("Shot 5 pressure").fill("3500");
   await page.getByLabel("Shot 5 pressure").press("Tab");
   await expect(page.locator(".measurement-table tbody tr").first().locator("td").nth(2)).toHaveText("5");
+  await page.getByLabel("Shot 5 remark").fill("flyer");
+  await page.getByLabel("Shot 5 remark").press("Tab");
+  await page.getByLabel("Ignore shot 5").check();
+  await expect(page.locator(".measurement-table tbody tr").first().locator("td").nth(2)).toHaveText("4 / 5");
+  await expect(page.locator("[data-measurement-shot='4']")).toHaveClass(/ignored/);
+  await expect(page.locator(".measurement-shot-ignored")).not.toHaveCount(0);
 
   await page.evaluate(() => Object.defineProperty(navigator, "clipboard", {
     configurable: true, value: { readText: async () => "Velocity Pressure\n853.0 3520\n855.0\nheader text" }
   }));
   await page.getByRole("button", { name: "Paste shots" }).click();
   await expect(page.getByText("Pasted 2 measurement shots", { exact: true })).toBeVisible();
-  await expect(page.locator(".measurement-table tbody tr").first().locator("td").nth(2)).toHaveText("7");
+  await expect(page.locator(".measurement-table tbody tr").first().locator("td").nth(2)).toHaveText("6 / 7");
   await page.locator("[data-measurement-shot='0'] th").click();
   await page.locator("[data-measurement-shot='1'] th").click({ modifiers: ["Control"] });
   await page.getByRole("button", { name: "Remove shot", exact: true }).click();
   await expect(page.getByText("Removed 2 measurement shots", { exact: true })).toBeVisible();
-  await expect(page.locator(".measurement-table tbody tr").first().locator("td").nth(2)).toHaveText("5");
+  await expect(page.locator(".measurement-table tbody tr").first().locator("td").nth(2)).toHaveText("4 / 5");
 
   await page.getByRole("button", { name: "New series" }).click();
   await expect(page.getByLabel("Measurement series title")).toHaveValue("MEASUREMENTS 2");
@@ -1327,6 +1334,7 @@ test("edits measurement series and compares measured shots with simulation", asy
   expect(saved.match(/<Measurement/g)).toHaveLength(2);
   expect(saved).toContain("Browser%20range%20session");
   expect(saved).toContain('velocity="855"');
+  expect(saved).toContain('name="flyer" velocity="852" pressure="3500" ignored="true"');
   expect(saved).toContain('title="Browser%20session%202"');
   expect(saved).toContain('name="Browser%20charge"');
   expect(saved).toContain('value="0.0025"');
@@ -1397,6 +1405,7 @@ test("imports native chronograph formats into measurement charges", async ({ pag
   await dialog.getByRole("button", { name: "Import", exact: true }).click();
 
   await expect(page.locator(".measurement-table tbody tr")).toHaveCount(4);
+
   await expect(page.locator(".measurement-table tbody tr").nth(2).getByLabel("Charge name")).toHaveValue("Series 15");
   await expect(page.locator(".measurement-table tbody tr").nth(2).getByLabel("Charge", { exact: true })).toHaveValue("2.800");
   await expect(page.locator(".measurement-table tbody tr").nth(2).locator("td").nth(2)).toHaveText("3");
@@ -1419,6 +1428,14 @@ test("imports native chronograph formats into measurement charges", async ({ pag
   await dialog.locator("[data-chronograph-use='0']").uncheck();
   await dialog.getByRole("button", { name: "Import", exact: true }).click();
   await expect(page.locator(".measurement-table tbody tr")).toHaveCount(4);
+
+  const labradarLx = "Series Number,13\r\nShot Number,V0.00m,V9.00m\r\n,m/s,m/s\r\n1,761.86,756.58\r\n2,760.85,755.24\r\n";
+  await page.locator("#chronograph-picker").setInputFiles({ name: "labradar-lx.csv", mimeType: "text/csv", buffer: Buffer.from(labradarLx) });
+  dialog = page.getByRole("dialog", { name: "Import chronograph file" });
+  await expect(dialog.getByText("Labradar file with 1 series. Every ticked series becomes a charge with its shots.", { exact: true })).toBeVisible();
+  await expect(dialog.locator("tbody tr").first()).toContainText("SR13");
+  await dialog.getByRole("button", { name: "Import", exact: true }).click();
+  await expect(page.locator(".measurement-table tbody tr")).toHaveCount(5);
 
   page.once("dialog", (warning) => warning.accept());
   await page.locator("#chronograph-picker").setInputFiles({ name: "unknown.csv", mimeType: "text/csv", buffer: Buffer.from("a,b,c\n1,2,3\n") });
@@ -1971,6 +1988,24 @@ test("adds and edits native shotshell pressure groups", async ({ page }) => {
   await expect(page.getByRole("button", { name: /223Rem_D0735_RWS\*/ })).toBeVisible();
 });
 
+test("keeps handgun start-pressure edits above the Physical-model floor", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "I understand" }).click();
+  await setUnitSystem(page, "metric");
+  await page.locator("#file-picker").setInputFiles(handgunLoad);
+  await setSolverProfile(page, "physical");
+  const pressure = page.locator(".result-cards dd").first();
+  const baseline = Number((await pressure.textContent())!.replace(/[^\d.,-]/g, "").replaceAll(",", ""));
+  const additional = page.locator<HTMLInputElement>('[data-entry="psadd"]');
+  const neutral = Number(await additional.inputValue());
+  await additional.fill(String(neutral + 60));
+  await additional.press("Tab");
+  await expect.poll(async () => Number((await pressure.textContent())!.replace(/[^\d.,-]/g, "").replaceAll(",", ""))).toBeGreaterThan(baseline);
+  await additional.fill(String(neutral - 60));
+  await additional.press("Tab");
+  await expect.poll(async () => Number((await pressure.textContent())!.replace(/[^\d.,-]/g, "").replaceAll(",", ""))).toBeLessThan(baseline);
+});
+
 test("keeps unknown native property choice codes visible", async ({ page }) => {
   const xml = readFileSync(referenceLoad, "utf8").replace(/name="gTailType" value="[^"]*"/, 'name="gTailType" value="3"');
   await page.goto("/");
@@ -2225,7 +2260,7 @@ test("serves a valid manifest and reloads the app shell offline", async ({ page,
   await page.reload();
   await context.setOffline(true);
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page).toHaveTitle("ChamberSim Reloaded");
+  await expect(page).toHaveTitle("ChamberSim Reloaded 0.18");
   await expect(page.getByRole("button", { name: "Open load" })).toBeVisible();
   await expect(page.getByText("494 entries", { exact: true })).toBeVisible();
   const settings = await openSettings(page);
@@ -2246,7 +2281,7 @@ test("shows app update state at the right of the menu and checks on click", asyn
   const sync = page.getByRole("button", { name: "App is up to date" });
   await expect(sync).toBeVisible();
   await expect(sync).toHaveText("Update");
-  await expect(page.getByLabel("PWA version 0.1.0, ChamberSim version 0.16")).toHaveText("PWA 0.1.0ChamberSim 0.16");
+  await expect(page.getByLabel("PWA version 0.1.0, ChamberSim version 0.18")).toHaveText("PWA 0.1.0ChamberSim 0.18");
   expect(await sync.evaluate((button) => button.parentElement?.lastElementChild === button)).toBe(true);
   expect(await sync.evaluate((button) => button.parentElement?.parentElement?.lastElementChild === button.parentElement)).toBe(true);
   await expect(sync.locator(".sync-dot")).toHaveCSS("background-color", "rgb(66, 200, 90)");

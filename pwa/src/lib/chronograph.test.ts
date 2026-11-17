@@ -29,6 +29,17 @@ describe("native chronograph compatibility", () => {
     expect(parsed.series[0]!.velocitiesMs[1]).toBeCloseTo(2754 * 0.3048, 12);
   });
 
+  it("reads both Labradar LX separator variants and rejects a missing V0 column", () => {
+    const semicolon = "sep=;\r\nSeries No;013 G11 test;;\r\nShot ID;V0;V9.00m\r\n;m/s;m/s\r\n0001;761.86;756.58\r\n0002;760.85;755.24\r\n";
+    const comma = "Series Number,13\r\nShot Number,V0.00m,V9.00m\r\n,m/s,m/s\r\n1,761.86,756.58\r\n2,760.85,755.24\r\n";
+    const named = readChronograph(new TextEncoder().encode(semicolon));
+    const numbered = readChronograph(new TextEncoder().encode(comma));
+    expect(named.series[0]).toEqual({ name: "013 G11 test", velocitiesMs: [761.86, 760.85] });
+    expect(numbered.series[0]).toEqual({ name: "SR13", velocitiesMs: [761.86, 760.85] });
+    expect(() => readChronograph(new TextEncoder().encode("Series Number,13\r\nShot Number,V9.00m\r\n,m/s\r\n1,756.58\r\n")))
+      .toThrow("The file has no V0 column.");
+  });
+
   it("reads the project Garmin CSV and FIT goldens", () => {
     const csv = readChronograph(fixture("garmin-xero.csv"));
     expect(csv.format).toBe("garmin-xero");

@@ -106,6 +106,7 @@ export interface Calibration {
   burnExponent: number;
   initialGasFactor: number;
   handgunStartFraction: number;
+  handgunStartGain: number;
   burnZ0Factor: number;
   ignitionRate: number;
   ignitionLead: number;
@@ -218,6 +219,7 @@ function originalCalibration(): Calibration {
     burnExponent: -0.00120751,
     initialGasFactor: 0.536312,
     handgunStartFraction: 0,
+    handgunStartGain: 0,
     burnZ0Factor: 0,
     ignitionRate: 0.132,
     ignitionLead: 7.17663,
@@ -261,6 +263,7 @@ export function calibrationFor(profile: CalibrationProfile): Calibration {
       ...calibration,
       model: "physical",
       handgunStartFraction: 0.3,
+      handgunStartGain: 1,
       burnRateScale: 0.84,
       burnSlopeOffset: 1.31191,
       impetusFactor: 1.01833,
@@ -353,9 +356,13 @@ export function freeVolumeCm3(input: SimInput, calibration: Calibration): number
 }
 
 function adjustedForHandgun(input: SimInput, calibration: Calibration): SimInput {
-  if (input.handgun && !input.shotshell
-      && calibration.handgunStartFraction * input.maxPressureBar > input.startPressureBar) {
-    return { ...input, startPressureBar: calibration.handgunStartFraction * input.maxPressureBar };
+  if (input.handgun && !input.shotshell && calibration.handgunStartFraction > 0) {
+    const floor = calibration.handgunStartFraction * input.maxPressureBar;
+    const neutral = input.neutralStartPressureBar;
+    const target = calibration.handgunStartGain > 0 && neutral > 0
+      ? Math.max(floor, neutral) + calibration.handgunStartGain * (input.startPressureBar - neutral)
+      : Math.max(floor, input.startPressureBar);
+    if (target !== input.startPressureBar) return { ...input, startPressureBar: target };
   }
   return input;
 }

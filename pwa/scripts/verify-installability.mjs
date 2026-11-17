@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
@@ -8,6 +8,9 @@ import { preview } from "vite";
 const profilePrefix = "csr-pwa-install-";
 const appProfilePrefix = "csr-pwa-app-";
 const pwaRoot = resolve(import.meta.dirname, "..");
+const repositoryRoot = resolve(pwaRoot, "..");
+const version = readFileSync(resolve(repositoryRoot, "CMakeLists.txt"), "utf8").match(/set\(CSR_VERSION\s+"([^"]+)"\)/)?.[1];
+if (!version) throw new Error("CSR_VERSION is missing from CMakeLists.txt");
 const target = new URL(process.argv[2] ?? "http://127.0.0.1:4173/");
 const edgePaths = [
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
@@ -108,7 +111,7 @@ try {
       url: location.href,
       standalone: matchMedia("(display-mode: standalone)").matches
     }));
-    if (launchEvidence.title !== "ChamberSim Reloaded") throw new Error(`Unexpected app title: ${launchEvidence.title}`);
+    if (launchEvidence.title !== `ChamberSim Reloaded ${version}`) throw new Error(`Unexpected app title: ${launchEvidence.title}`);
     if (!launchEvidence.standalone) throw new Error("Edge app-window launch did not activate standalone display mode.");
   } finally {
     await appContext.close();
