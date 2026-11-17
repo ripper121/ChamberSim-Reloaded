@@ -45,6 +45,9 @@ describe("Qt translation catalog", () => {
     }
     const [german, french, italian] = await Promise.all([loadI18n("de_DE"), loadI18n("fr_FR"), loadI18n("it_IT")]);
     expect(german.text("MainWindow", "&Wizard")).toBe("Assistent");
+    expect(german.text("MainWindow", "Back to Reloaders Toolbox")).toBe("ZurÃ¼ck zur Wiederlader-Toolbox");
+    expect(french.text("MainWindow", "Toolbox")).toBe("BoÃ®te Ã  outils");
+    expect(italian.text("MainWindow", "Toolbox")).toBe("Strumenti");
     expect(german.text("PropellantMassWizard", "Target: %1", "Maximaldruck")).toBe("Ziel: Maximaldruck");
     expect(french.text("ParametricPowderWizard", "Start synthesis…")).toBe("Démarrer la synthèse…");
     expect(italian.text("ParametricPowderWizard", "The synthesis contains %1 propellants and may take a long time. Continue?", 24))

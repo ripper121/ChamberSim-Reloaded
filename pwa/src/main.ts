@@ -976,7 +976,7 @@ function menuBarHtml(current: LoadFile | undefined, canUndo: boolean, canRedo: b
   const languageMenu = languageOptions.map(([choice, label]) => `<button role="menuitemradio" aria-checked="${languagePreference.choice === choice}" data-language="${choice}"><span aria-hidden="true">${languagePreference.choice === choice ? "✓" : ""}</span><span>${choice === "system" ? tr(label) : escapeHtml(label)}</span></button>`).join("");
   const recentUnavailable = "Browsers do not expose durable recent-file paths; use Start-up session restore instead.";
   const quitUnavailable = "The browser controls closing this application window.";
-  return `<details class="menu-dropdown file-menu"><summary>${tr("&File")}</summary><div class="menu-popup" role="menu" aria-label="${tr("&File")}">
+  return `<a class="toolbox-back" href="https://strenuous.dev/reloaders-toolbox/" aria-label="${tr("Back to Reloaders Toolbox")}" title="${tr("Back to Reloaders Toolbox")}"><span aria-hidden="true">&larr;</span><span class="toolbox-back-label">${tr("Toolbox")}</span></a><details class="menu-dropdown file-menu"><summary>${tr("&File")}</summary><div class="menu-popup" role="menu" aria-label="${tr("&File")}">
     ${item("menu-new-load", "&New load…", "Ctrl+N", ownDatabaseReady)}
     ${item("menu-open-load", "&Open load…", "Ctrl+O")}
     ${item("save-csr", "&Save", "Ctrl+S", Boolean(current))}

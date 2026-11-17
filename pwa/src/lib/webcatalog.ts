@@ -147,6 +147,8 @@ const parametric: readonly Localized[] = [
 ];
 
 const menu: readonly Localized[] = [
+  ["Toolbox", "Toolbox", "BoÃ®te Ã  outils", "Strumenti"],
+  ["Back to Reloaders Toolbox", "ZurÃ¼ck zur Wiederlader-Toolbox", "Retour Ã  la boÃ®te Ã  outils de rechargement", "Torna alla toolbox di ricarica"],
   ["&Wizard", "&Assistent", "&Assistant", "&Procedura guidata"],
   ["&Propellant Mass…", "&Treibladungsmasse…", "&Masse de propulsif…", "&Massa del propellente…"],
   ["Parametric Powder Search…", "Parametrische Pulversuche…", "Recherche paramétrique de poudre…", "Ricerca parametrica della polvere…"]

@@ -177,6 +177,10 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "I understand" }).click();
   await expect(page.getByText("494 entries", { exact: true })).toBeVisible();
+  const toolboxBack = page.getByRole("link", { name: "Back to Reloaders Toolbox" });
+  await expect(toolboxBack).toBeVisible();
+  await expect(toolboxBack).toHaveText("\u2190Toolbox");
+  await expect(toolboxBack).toHaveAttribute("href", "https://strenuous.dev/reloaders-toolbox/");
   await expect(page.locator(".menubar > .menu-dropdown > summary")).toHaveText(["File", "Edit", "View", "Tools", "Wizard", "Help"]);
 
   await openMenu(page, "File");
@@ -277,6 +281,9 @@ test("matches the native menu hierarchy and action state", async ({ page }) => {
   expect(aboutSize.scrollbars).toEqual(["about-layout"]);
   if (process.env.PARITY_ABOUT_SCREENSHOT) await page.screenshot({ path: process.env.PARITY_ABOUT_SCREENSHOT });
   await about.getByRole("button", { name: "OK", exact: true }).click();
+  await page.setViewportSize({ width: 700, height: 900 });
+  await expect(toolboxBack).toBeVisible();
+  await expect(toolboxBack.locator(".toolbox-back-label")).toBeHidden();
 });
 
 test("calculates and applies all Propellant Mass Wizard targets", async ({ page }) => {
@@ -2438,6 +2445,7 @@ test("stores language choices with native restart semantics", async ({ page }) =
   await expect(disclaimer.getByRole("heading", { name: "Sicherheitshinweis" })).toBeVisible();
   await expect(disclaimer).toContainText("Das Wiederladen von Munition ist gefährlich.");
   await disclaimer.getByRole("button", { name: "Verstanden", exact: true }).click();
+  await expect(page.getByRole("link", { name: "ZurÃ¼ck zur Wiederlader-Toolbox" })).toHaveText("\u2190Toolbox");
   await expect(page.locator(".file-menu > summary")).toHaveText("Datei");
   await expect(page.getByRole("button", { name: "Datenbank", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Kaliber", exact: true })).toBeVisible();
